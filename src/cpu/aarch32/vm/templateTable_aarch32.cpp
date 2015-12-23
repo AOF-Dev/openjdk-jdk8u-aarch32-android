@@ -2507,7 +2507,7 @@ void TemplateTable::getfield_or_static(int byte_no, bool is_static) {
   const Register cache = r2;
   const Register index = r3;
   const Register obj   = r14;
-  const Register off   = rdispatch; //pop_and_check_object
+  const Register off   = rscratch2; //pop_and_check_object
   const Register flags = r0;
   const Register bc    = r14; // uses same reg as obj, so don't mix them
 
@@ -2643,8 +2643,6 @@ void TemplateTable::getfield_or_static(int byte_no, bool is_static) {
   // It's really not worth bothering to check whether this field
   // really is volatile in the slow case.
   __ membar(MacroAssembler::LoadLoad | MacroAssembler::LoadStore);
-
-  __ get_dispatch();
 }
 
 void TemplateTable::getfield(int byte_no) {
@@ -2718,7 +2716,7 @@ void TemplateTable::putfield_or_static(int byte_no, bool is_static) {
   const Register cache = r2;
   const Register index = r0;
   const Register obj   = r2;
-  const Register off   = rdispatch;
+  const Register off   = rscratch2;
   const Register flags = r14;
   const Register bc    = r3;
 
@@ -2904,8 +2902,6 @@ void TemplateTable::putfield_or_static(int byte_no, bool is_static) {
     __ membar(MacroAssembler::StoreLoad);
     __ bind(notVolatile);
   }
-  //FIXME find a more elegant way!
-  __ get_dispatch();
 }
 
 void TemplateTable::putfield(int byte_no) {
