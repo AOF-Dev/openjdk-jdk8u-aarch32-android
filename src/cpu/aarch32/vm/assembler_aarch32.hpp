@@ -1873,11 +1873,11 @@ void vmsr(Register Rt, Condition cond = C_DFLT) {
 // arguments to be on a double boundary.
   void fp_rencode_real(int reg_val, bool is64bit, int base, int bit) {
     if(is64bit) {
-      f( reg_val >> 1, base + 3, base);
-      f( reg_val & 1, bit);
-    } else {
       f( reg_val & 0xf, base + 3, base);
       f( reg_val >> 4, bit);
+    } else {
+      f( reg_val >> 1, base + 3, base);
+      f( reg_val & 1, bit);
     }
   }
 
