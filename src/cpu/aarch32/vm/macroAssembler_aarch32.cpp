@@ -591,9 +591,8 @@ void MacroAssembler::call_VM_base(Register oop_result,
     ldr(rscratch2, Address(java_thread, in_bytes(Thread::pending_exception_offset())));
     Label ok;
     cbz(rscratch2, ok);
-    ldr(lr, Address(rfp, frame::return_addr_offset));
     lea(rscratch2, RuntimeAddress(StubRoutines::forward_exception_entry()));
-    b(rscratch2);
+    bl(rscratch2);
     bind(ok);
   }
 
