@@ -1260,9 +1260,9 @@ void TemplateTable::iop2(Operation op)
   case _and : __ andr(r0, r1, r0); break;
   case _or  : __ orr(r0, r1, r0);  break;
   case _xor : __ eor(r0, r1, r0);  break;
-  case shl  : __ lsl(r0, r1, r0);  break;
-  case shr  : __ asr(r0, r1, r0);  break;
-  case ushr : __ lsr(r0, r1, r0);  break;
+  case shl  : __ andr(r0, r0, 31); __ lsl(r0, r1, r0);  break;
+  case shr  : __ andr(r0, r0, 31); __ asr(r0, r1, r0);  break;
+  case ushr : __ andr(r0, r0, 31); __ lsr(r0, r1, r0);  break;
   default   : ShouldNotReachHere();
   }
 }
@@ -1352,7 +1352,7 @@ void TemplateTable::lshl()
 {
   transition(itos, ltos);
   // shift count is in r0 - take shift from bottom six bits only
-  __ andr(r0, r0, 63); // FIXME is this correct?
+  __ andr(r0, r0, 63);
   __ pop_l(r2); //LSB in lowest reg
         int word_bytes = 8 * wordSize;
 
@@ -1368,7 +1368,7 @@ void TemplateTable::lshr()
 {
   transition(itos, ltos);
   // shift count is in r0 - take shift from bottom six bits only
-  __ andr(r0, r0, 63); // FIXME is this correct?
+  __ andr(r0, r0, 63);
   __ pop_l(r2); // LSB in lowest reg
   int word_bytes = 8 * wordSize;
 
@@ -1384,7 +1384,7 @@ void TemplateTable::lushr()
 {
   transition(itos, ltos);
   // shift count is in r0 - take shift from bottom six bits only
-  __ andr(r0, r0, 63); // FIXME is this correct?
+  __ andr(r0, r0, 63);
   __ pop_l(r2);
   int word_bytes = 8 * wordSize;
 
