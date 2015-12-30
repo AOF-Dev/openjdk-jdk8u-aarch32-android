@@ -50,6 +50,10 @@
 # include "nativeInst_ppc.hpp"
 # include "vmreg_ppc.inline.hpp"
 #endif
+#ifdef TARGET_ARCH_aarch32
+# include "nativeInst_aarch32.hpp"
+# include "vmreg_aarch32.inline.hpp"
+#endif
 
 
 void LIR_Assembler::patching_epilog(PatchingStub* patch, LIR_PatchCode patch_code, Register obj, CodeEmitInfo* info) {

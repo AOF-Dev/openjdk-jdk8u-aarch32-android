@@ -144,6 +144,8 @@ class Linux {
   static address   ucontext_get_pc(ucontext_t* uc);
   static intptr_t* ucontext_get_sp(ucontext_t* uc);
   static intptr_t* ucontext_get_fp(ucontext_t* uc);
+  // Set PC into context. Needed for continuation after signal
+  static void ucontext_set_pc(ucontext_t* uc, address pc);
 
   // For Analyzer Forte AsyncGetCallTrace profiling support:
   //

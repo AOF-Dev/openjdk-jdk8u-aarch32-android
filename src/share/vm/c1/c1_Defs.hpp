@@ -41,6 +41,9 @@
 #ifdef TARGET_ARCH_ppc
 # include "register_ppc.hpp"
 #endif
+#ifdef TARGET_ARCH_aarch32
+# include "register_aarch32.hpp"
+#endif
 
 // set frame size and return address offset to these values in blobs
 // (if the compiled frame uses ebp as link pointer on IA; otherwise,
@@ -61,6 +64,9 @@ enum {
 #endif
 #ifdef TARGET_ARCH_ppc
 # include "c1_Defs_ppc.hpp"
+#endif
+#ifdef TARGET_ARCH_aarch32
+# include "c1_Defs_aarch32.hpp"
 #endif
 
 

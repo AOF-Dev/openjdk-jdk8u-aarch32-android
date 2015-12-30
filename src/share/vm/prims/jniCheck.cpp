@@ -52,6 +52,9 @@
 #ifdef TARGET_ARCH_ppc
 # include "jniTypes_ppc.hpp"
 #endif
+#ifdef TARGET_ARCH_aarch32
+# include "jniTypes_aarch32.hpp"
+#endif
 
 // Complain every extra number of unplanned local refs
 #define CHECK_JNI_LOCAL_REF_CAP_WARN_THRESHOLD 32

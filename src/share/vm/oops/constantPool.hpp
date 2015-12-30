@@ -47,6 +47,9 @@
 #ifdef TARGET_ARCH_ppc
 # include "bytes_ppc.hpp"
 #endif
+#ifdef TARGET_ARCH_aarch32
+# include "bytes_aarch32.hpp"
+#endif
 
 // A constantPool is an array containing class constants as described in the
 // class file.

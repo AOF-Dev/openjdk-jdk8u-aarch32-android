@@ -248,6 +248,10 @@ int main(int argc, char *argv[])
   AD.addInclude(AD._CPP_file, "nativeInst_ppc.hpp");
   AD.addInclude(AD._CPP_file, "vmreg_ppc.inline.hpp");
 #endif
+#ifdef TARGET_ARCH_aarch32
+  AD.addInclude(AD._CPP_file, "nativeInst_aarch32.hpp");
+  AD.addInclude(AD._CPP_file, "vmreg_aarch32.inline.hpp");
+#endif
   AD.addInclude(AD._HPP_file, "memory/allocation.hpp");
   AD.addInclude(AD._HPP_file, "opto/machnode.hpp");
   AD.addInclude(AD._HPP_file, "opto/node.hpp");

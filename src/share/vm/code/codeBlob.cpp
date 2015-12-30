@@ -54,6 +54,9 @@
 #ifdef TARGET_ARCH_ppc
 # include "nativeInst_ppc.hpp"
 #endif
+#ifdef TARGET_ARCH_aarch32
+# include "nativeInst_aarch32.hpp"
+#endif
 #ifdef COMPILER1
 #include "c1/c1_Runtime1.hpp"
 #endif

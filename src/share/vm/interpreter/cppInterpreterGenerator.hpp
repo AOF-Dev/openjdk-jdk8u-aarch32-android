@@ -29,6 +29,9 @@
 // of the template interpreter generator.
 
 #ifdef CC_INTERP
+#ifdef TARGET_ARCH_zero
+# include "entry_zero.hpp"
+#endif
 
 class CppInterpreterGenerator: public AbstractInterpreterGenerator {
   protected:
@@ -58,6 +61,9 @@ class CppInterpreterGenerator: public AbstractInterpreterGenerator {
 #endif
 #ifdef TARGET_ARCH_ppc
 # include "cppInterpreterGenerator_ppc.hpp"
+#endif
+#ifdef TARGET_ARCH_aarch32
+# include "cppInterpreterGenerator_aarch32.hpp"
 #endif
 
 };

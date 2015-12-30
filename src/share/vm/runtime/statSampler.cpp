@@ -48,6 +48,9 @@
 #ifdef TARGET_ARCH_ppc
 # include "vm_version_ppc.hpp"
 #endif
+#ifdef TARGET_ARCH_aarch32
+# include "vm_version_aarch32.hpp"
+#endif
 
 // --------------------------------------------------------
 // StatSamplerTask

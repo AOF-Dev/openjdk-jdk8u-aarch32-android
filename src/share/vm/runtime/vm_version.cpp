@@ -41,6 +41,9 @@
 #ifdef TARGET_ARCH_ppc
 # include "vm_version_ppc.hpp"
 #endif
+#ifdef TARGET_ARCH_aarch32
+# include "vm_version_aarch32.hpp"
+#endif
 
 const char* Abstract_VM_Version::_s_vm_release = Abstract_VM_Version::vm_release();
 const char* Abstract_VM_Version::_s_internal_vm_info_string = Abstract_VM_Version::internal_vm_info_string();

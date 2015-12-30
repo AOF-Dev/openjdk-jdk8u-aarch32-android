@@ -43,6 +43,9 @@
 #ifdef TARGET_ARCH_ppc
 # include "bytes_ppc.hpp"
 #endif
+#ifdef TARGET_ARCH_aarch32
+# include "bytes_aarch32.hpp"
+#endif
 
 class ciBytecodeStream;
 

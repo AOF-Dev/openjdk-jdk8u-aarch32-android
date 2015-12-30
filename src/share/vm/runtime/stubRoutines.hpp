@@ -46,6 +46,9 @@
 #ifdef TARGET_ARCH_ppc
 # include "nativeInst_ppc.hpp"
 #endif
+#ifdef TARGET_ARCH_aarch32
+# include "nativeInst_aarch32.hpp"
+#endif
 
 // StubRoutines provides entry points to assembly routines used by
 // compiled code and the run-time system. Platform-specific entry
@@ -99,6 +102,7 @@ class StubRoutines: AllStatic {
 
   // Dependencies
   friend class StubGenerator;
+
 #if defined STUBROUTINES_MD_HPP
 # include STUBROUTINES_MD_HPP
 #elif defined TARGET_ARCH_MODEL_x86_32
@@ -111,6 +115,8 @@ class StubRoutines: AllStatic {
 # include "stubRoutines_zero.hpp"
 #elif defined TARGET_ARCH_MODEL_ppc_64
 # include "stubRoutines_ppc_64.hpp"
+#elif defined TARGET_ARCH_MODEL_aarch32
+# include "stubRoutines_aarch32.hpp"
 #endif
 
   static jint    _verify_oop_count;

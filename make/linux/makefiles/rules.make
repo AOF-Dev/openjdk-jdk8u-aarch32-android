@@ -136,6 +136,10 @@ ifeq    ($(findstring j,$(MFLAGS)),j)
 COMPILE_DONE    = && { echo Done with $<; }
 endif
 
+ifeq ($(BUILDARCH), aarch32)
+GENPIC = yes
+endif
+
 # Include $(NONPIC_OBJ_FILES) definition
 ifndef LP64
 include $(GAMMADIR)/make/pic.make

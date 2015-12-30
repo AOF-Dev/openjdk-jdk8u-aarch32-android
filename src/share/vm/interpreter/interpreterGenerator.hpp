@@ -56,6 +56,9 @@ InterpreterGenerator(StubQueue* _code);
 #ifdef TARGET_ARCH_ppc
 # include "interpreterGenerator_ppc.hpp"
 #endif
+#ifdef TARGET_ARCH_aarch32
+# include "interpreterGenerator_aarch32.hpp"
+#endif
 
 
 };

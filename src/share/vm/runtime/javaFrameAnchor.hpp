@@ -92,6 +92,9 @@ friend class JavaCallWrapper;
 #ifdef TARGET_ARCH_ppc
 # include "javaFrameAnchor_ppc.hpp"
 #endif
+#ifdef TARGET_ARCH_aarch32
+# include "javaFrameAnchor_aarch32.hpp"
+#endif
 
 
 public:

@@ -817,6 +817,15 @@ class os: AllStatic {
 #ifdef TARGET_OS_ARCH_linux_zero
 # include "os_linux_zero.hpp"
 #endif
+#ifdef TARGET_OS_ARCH_linux_arm
+# include "os_linux_arm.hpp"
+#endif
+#ifdef TARGET_OS_ARCH_linux_ppc
+# include "os_linux_ppc.hpp"
+#endif
+#ifdef TARGET_OS_ARCH_linux_aarch32
+# include "os_linux_aarch32.hpp"
+#endif
 #ifdef TARGET_OS_ARCH_solaris_x86
 # include "os_solaris_x86.hpp"
 #endif
@@ -825,12 +834,6 @@ class os: AllStatic {
 #endif
 #ifdef TARGET_OS_ARCH_windows_x86
 # include "os_windows_x86.hpp"
-#endif
-#ifdef TARGET_OS_ARCH_linux_arm
-# include "os_linux_arm.hpp"
-#endif
-#ifdef TARGET_OS_ARCH_linux_ppc
-# include "os_linux_ppc.hpp"
 #endif
 #ifdef TARGET_OS_ARCH_aix_ppc
 # include "os_aix_ppc.hpp"

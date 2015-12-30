@@ -53,6 +53,15 @@ class ThreadLocalStorage : AllStatic {
 #ifdef TARGET_OS_ARCH_linux_zero
 # include "threadLS_linux_zero.hpp"
 #endif
+#ifdef TARGET_OS_ARCH_linux_arm
+# include "threadLS_linux_arm.hpp"
+#endif
+#ifdef TARGET_OS_ARCH_linux_ppc
+# include "threadLS_linux_ppc.hpp"
+#endif
+#ifdef TARGET_OS_ARCH_linux_aarch32
+# include "threadLS_linux_aarch32.hpp"
+#endif
 #ifdef TARGET_OS_ARCH_solaris_x86
 # include "threadLS_solaris_x86.hpp"
 #endif
@@ -61,12 +70,6 @@ class ThreadLocalStorage : AllStatic {
 #endif
 #ifdef TARGET_OS_ARCH_windows_x86
 # include "threadLS_windows_x86.hpp"
-#endif
-#ifdef TARGET_OS_ARCH_linux_arm
-# include "threadLS_linux_arm.hpp"
-#endif
-#ifdef TARGET_OS_ARCH_linux_ppc
-# include "threadLS_linux_ppc.hpp"
 #endif
 #ifdef TARGET_OS_ARCH_aix_ppc
 # include "threadLS_aix_ppc.hpp"

@@ -202,6 +202,9 @@ class TemplateInterpreter: public AbstractInterpreter {
 #ifdef TARGET_ARCH_ppc
 # include "templateInterpreter_ppc.hpp"
 #endif
+#ifdef TARGET_ARCH_aarch32
+# include "templateInterpreter_aarch32.hpp"
+#endif
 
 
 };

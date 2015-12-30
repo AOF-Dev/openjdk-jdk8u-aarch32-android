@@ -43,12 +43,12 @@
 # include "adfiles/adGlobals_zero.hpp"
 #elif defined TARGET_ARCH_MODEL_ppc_64
 # include "adfiles/adGlobals_ppc_64.hpp"
+#elif defined TARGET_ARCH_MODEL_aarch32
+# include "adfiles/adGlobals_aarch32.hpp"
 #endif
 #endif // COMPILER2
-#ifdef ZERO
 #ifdef TARGET_ARCH_zero
 # include "stack_zero.hpp"
-#endif
 #endif
 
 typedef class BytecodeInterpreter* interpreterState;
@@ -498,6 +498,9 @@ class frame VALUE_OBJ_CLASS_SPEC {
 #endif
 #ifdef TARGET_ARCH_ppc
 # include "frame_ppc.hpp"
+#endif
+#ifdef TARGET_ARCH_aarch32
+# include "frame_aarch32.hpp"
 #endif
 
 };

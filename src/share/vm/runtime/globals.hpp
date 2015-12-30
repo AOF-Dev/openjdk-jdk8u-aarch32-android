@@ -52,6 +52,9 @@
 #ifdef TARGET_ARCH_ppc
 # include "globals_ppc.hpp"
 #endif
+#ifdef TARGET_ARCH_aarch32
+# include "globals_aarch32.hpp"
+#endif
 #ifdef TARGET_OS_FAMILY_linux
 # include "globals_linux.hpp"
 #endif
@@ -76,6 +79,15 @@
 #ifdef TARGET_OS_ARCH_linux_zero
 # include "globals_linux_zero.hpp"
 #endif
+#ifdef TARGET_OS_ARCH_linux_arm
+# include "globals_linux_arm.hpp"
+#endif
+#ifdef TARGET_OS_ARCH_linux_ppc
+# include "globals_linux_ppc.hpp"
+#endif
+#ifdef TARGET_OS_ARCH_linux_aarch32
+# include "globals_linux_aarch32.hpp"
+#endif
 #ifdef TARGET_OS_ARCH_solaris_x86
 # include "globals_solaris_x86.hpp"
 #endif
@@ -84,12 +96,6 @@
 #endif
 #ifdef TARGET_OS_ARCH_windows_x86
 # include "globals_windows_x86.hpp"
-#endif
-#ifdef TARGET_OS_ARCH_linux_arm
-# include "globals_linux_arm.hpp"
-#endif
-#ifdef TARGET_OS_ARCH_linux_ppc
-# include "globals_linux_ppc.hpp"
 #endif
 #ifdef TARGET_OS_ARCH_aix_ppc
 # include "globals_aix_ppc.hpp"
@@ -112,6 +118,9 @@
 #endif
 #ifdef TARGET_ARCH_ppc
 # include "c1_globals_ppc.hpp"
+#endif
+#ifdef TARGET_ARCH_aarch32
+# include "c1_globals_aarch32.hpp"
 #endif
 #ifdef TARGET_OS_FAMILY_linux
 # include "c1_globals_linux.hpp"
@@ -141,6 +150,9 @@
 #endif
 #ifdef TARGET_ARCH_ppc
 # include "c2_globals_ppc.hpp"
+#endif
+#ifdef TARGET_ARCH_aarch32
+# include "c2_globals_aarch32.hpp"
 #endif
 #ifdef TARGET_OS_FAMILY_linux
 # include "c2_globals_linux.hpp"

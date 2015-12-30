@@ -118,6 +118,14 @@ ifeq ($(ARCH), ppc64)
   HS_ARCH          = ppc
 endif
 
+# AArch32
+ifeq ($(ARCH), aarch32)
+  ARCH_DATA_MODEL  = 32
+  PLATFORM         = linux-aarch32
+  VM_PLATFORM      = linux_aarch32
+  HS_ARCH          = aarch32
+endif
+
 # On 32 bit linux we build server and client, on 64 bit just server.
 ifeq ($(JVM_VARIANTS),)
   ifeq ($(ARCH_DATA_MODEL), 32)

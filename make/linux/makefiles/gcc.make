@@ -177,7 +177,8 @@ ARCHFLAG/ia64    =
 ARCHFLAG/sparc   = -m32 -mcpu=v9
 ARCHFLAG/sparcv9 = -m64 -mcpu=v9
 ARCHFLAG/zero    = $(ZERO_ARCHFLAG)
-ARCHFLAG/ppc64   =  -m64
+ARCHFLAG/ppc64   = -m64
+ARCHFLAG/aarch32 =
 
 CFLAGS     += $(ARCHFLAG)
 AOUT_FLAGS += $(ARCHFLAG)
@@ -338,6 +339,7 @@ else
   DEBUG_CFLAGS/ia64  = -g
   DEBUG_CFLAGS/amd64 = -g
   DEBUG_CFLAGS/ppc64 = -g
+  DEBUG_CFLAGS/aarch32 = -g
   DEBUG_CFLAGS += $(DEBUG_CFLAGS/$(BUILDARCH))
   ifeq ($(DEBUG_CFLAGS/$(BUILDARCH)),)
       ifeq ($(USE_CLANG), true)
@@ -352,6 +354,7 @@ else
     FASTDEBUG_CFLAGS/ia64  = -g
     FASTDEBUG_CFLAGS/amd64 = -g
     FASTDEBUG_CFLAGS/ppc64 = -g
+    FASTDEBUG_CFLAGS/aarch32 = -g
     FASTDEBUG_CFLAGS += $(FASTDEBUG_CFLAGS/$(BUILDARCH))
     ifeq ($(FASTDEBUG_CFLAGS/$(BUILDARCH)),)
       ifeq ($(USE_CLANG), true)
@@ -365,6 +368,7 @@ else
     OPT_CFLAGS/ia64  = -g
     OPT_CFLAGS/amd64 = -g
     OPT_CFLAGS/ppc64 = -g
+    OPT_CFLAGS/aarch32 = -g
     OPT_CFLAGS += $(OPT_CFLAGS/$(BUILDARCH))
     ifeq ($(OPT_CFLAGS/$(BUILDARCH)),)
       ifeq ($(USE_CLANG), true)
