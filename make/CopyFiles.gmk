@@ -307,9 +307,13 @@ else
   ifeq ($(CLIENT_AND_SERVER), true)
     COPY_JVM_CFG_FILE := true
   else
-    # For zero, the default jvm.cfg file is sufficient
+    # For zero, the default jvm.cfg file is sufficient.
     ifeq ($(JVM_VARIANT_ZERO), true)
       COPY_JVM_CFG_FILE := true
+    else
+      ifeq ($(OPENJDK_TARGET_CPU), aarch32)
+        COPY_JVM_CFG_FILE := true
+      endif
     endif
   endif
 endif
