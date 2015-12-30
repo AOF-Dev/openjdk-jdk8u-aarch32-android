@@ -29,36 +29,43 @@
 
 DIR=`dirname $0`
 
-# First, filter out everything that doesn't begin with "aarch64-"
-if ! echo $* | grep '^aarch64-' >/dev/null ; then
+# First, filter out everything that doesn't begin with "aarch32-" or "aarch64-"
+if ! echo $* | grep -E '^(aarch32-|aarch64-)' >/dev/null; then
     . $DIR/autoconf-config.sub "$@"
     # autoconf-config.sub exits, so we never reach here, but just in
     # case we do:
     exit
 fi
 
-while test $# -gt 0 ; do
-    case $1 in 
-        -- )   # Stop option processing
+original="arm-"
+
+while test $# -gt 0; do
+    case $1 in
+        --) # Stop option processing
             shift; break ;;
-        aarch64-* )
+        aarch32-*)
+            config=`echo $1 | sed 's/^aarch32-/arm-/'`
+            sub_args="$sub_args $config"
+            original="aarch32-"
+            shift ;;
+        aarch64-*)
             config=`echo $1 | sed 's/^aarch64-/arm-/'`
             sub_args="$sub_args $config"
-            shift; ;;
-        - )    # Use stdin as input.
+            original="aarch64-"
+            shift ;;
+        -) # Use stdin as input
             sub_args="$sub_args $1"
             shift; break ;;
-        * )
+        *)
             sub_args="$sub_args $1"
-            shift; ;;
+            shift ;;
     esac
 done
 
 result=`. $DIR/autoconf-config.sub $sub_args "$@"`
 exitcode=$?
 
-result=`echo $result | sed "s/^arm-/aarch64-/"`
+result=`echo $result | sed "s/^arm-/$original/"`
 
 echo $result
 exit $exitcode
-

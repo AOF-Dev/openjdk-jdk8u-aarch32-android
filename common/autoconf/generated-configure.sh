@@ -3880,7 +3880,7 @@ fi
 #CUSTOM_AUTOCONF_INCLUDE
 
 # Do not change or remove the following line, it is needed for consistency checks:
-DATE_WHEN_GENERATED=1445418840
+DATE_WHEN_GENERATED=1451436803
 
 ###############################################################################
 #
@@ -6825,8 +6825,14 @@ test -n "$target_alias" &&
       VAR_CPU_ENDIAN=little
       ;;
     arm*)
-      VAR_CPU=arm
-      VAR_CPU_ARCH=arm
+      VAR_CPU=aarch32
+      VAR_CPU_ARCH=aarch32
+      VAR_CPU_BITS=32
+      VAR_CPU_ENDIAN=little
+      ;;
+    aarch32)
+      VAR_CPU=aarch32
+      VAR_CPU_ARCH=aarch32
       VAR_CPU_BITS=32
       VAR_CPU_ENDIAN=little
       ;;
@@ -6962,8 +6968,14 @@ $as_echo "$OPENJDK_BUILD_OS-$OPENJDK_BUILD_CPU" >&6; }
       VAR_CPU_ENDIAN=little
       ;;
     arm*)
-      VAR_CPU=arm
-      VAR_CPU_ARCH=arm
+      VAR_CPU=aarch32
+      VAR_CPU_ARCH=aarch32
+      VAR_CPU_BITS=32
+      VAR_CPU_ENDIAN=little
+      ;;
+    aarch32)
+      VAR_CPU=aarch32
+      VAR_CPU_ARCH=aarch32
       VAR_CPU_BITS=32
       VAR_CPU_ENDIAN=little
       ;;
@@ -7978,13 +7990,16 @@ $as_echo "$with_jvm_variants" >&6; }
 
 
   INCLUDE_SA=true
-  if test "x$JVM_VARIANT_ZERO" = xtrue ; then
+  if test "x$JVM_VARIANT_ZERO" = xtrue; then
     INCLUDE_SA=false
   fi
-  if test "x$JVM_VARIANT_ZEROSHARK" = xtrue ; then
+  if test "x$JVM_VARIANT_ZEROSHARK" = xtrue; then
     INCLUDE_SA=false
   fi
-  if test "x$VAR_CPU" = xppc64 ; then
+  if test "x$OPENJDK_TARGET_CPU" = xppc64; then
+    INCLUDE_SA=false
+  fi
+  if test "x$OPENJDK_TARGET_CPU" = xaarch32; then
     INCLUDE_SA=false
   fi
   if test "x$OPENJDK_TARGET_CPU" = xaarch64; then
@@ -29667,7 +29682,7 @@ fi
   #
   case $COMPILER_NAME in
     gcc )
-      CCXXFLAGS_JDK="$CCXXFLAGS $CCXXFLAGS_JDK -W -Wall -Wno-unused -Wno-parentheses \
+      CCXXFLAGS_JDK="$CCXXFLAGS $CCXXFLAGS_JDK -W -Wall -Wno-unused -Wno-unused-parameter -Wno-parentheses \
       -pipe \
       -D_GNU_SOURCE -D_REENTRANT -D_LARGEFILE64_SOURCE"
       case $OPENJDK_TARGET_CPU_ARCH in

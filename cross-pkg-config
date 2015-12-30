@@ -1,0 +1,31 @@
+#!/bin/sh
+#
+# Wrapper script that calls the real pkg-config with the relocated
+# sysroot location
+#
+# Wrapper derived from raspberry crosstool and modified to take SYSROOT
+# env variable from outside instead of computing via gcc -print-sysroot,
+# which produces wrong output if called without CFLAGS which contain --sysroot
+# Computing with CFLAGS not used, as pkg-config, in general, should not rely 
+# on CC, CFLAGS, ...
+# However, we need to CC env defined to compute pkg-config-real executable.
+# CC could be not used, if this script placed in raspberry crosstool's bin/.
+ 
+set -e
+
+if [ ! $SYSROOT ] || [ ! $CC ]; then
+	echo "No SYSROOT or CC env defined, exiting"
+	exit 1
+fi
+
+GCC="$CC"
+MACHINE=`"$GCC" -dumpmachine`
+
+#GCC could contain version like xxx-gcc-4.8.3, assuming xxx is equal to machine name
+PKG_CONFIG_REAL=${GCC%$MACHINE-*}$MACHINE-pkg-config-real
+
+export PKG_CONFIG_DIR=
+export PKG_CONFIG_LIBDIR="${SYSROOT}/usr/lib/${MACHINE}/pkgconfig":"${SYSROOT}/usr/lib/pkgconfig":"${SYSROOT}/usr/share/pkgconfig"
+export PKG_CONFIG_SYSROOT_DIR="${SYSROOT}"
+
+exec $PKG_CONFIG_REAL "$@"

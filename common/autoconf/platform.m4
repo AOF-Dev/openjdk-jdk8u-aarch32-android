@@ -43,8 +43,14 @@ AC_DEFUN([PLATFORM_EXTRACT_VARS_FROM_CPU],
       VAR_CPU_ENDIAN=little
       ;;
     arm*)
-      VAR_CPU=arm
-      VAR_CPU_ARCH=arm
+      VAR_CPU=aarch32
+      VAR_CPU_ARCH=aarch32
+      VAR_CPU_BITS=32
+      VAR_CPU_ENDIAN=little
+      ;;
+    aarch32)
+      VAR_CPU=aarch32
+      VAR_CPU_ARCH=aarch32
       VAR_CPU_BITS=32
       VAR_CPU_ENDIAN=little
       ;;
