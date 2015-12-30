@@ -1594,9 +1594,6 @@ void Assembler::mov_immediate(Register dst, uint32_t imm32, Condition cond, bool
   } else if (!s && VM_Version::features() & (FT_ARMV7 | FT_ARMV6T2) &&
              (imm32 < (1 << 16))) {
     movw_i(dst, (unsigned)imm32, cond);
-  } else if (!s && VM_Version::features() & (FT_ARMV7 | FT_ARMV6T2) &&
-             !(imm32 & ((1 << 16) - 1))) {
-    movt_i(dst, (unsigned)(imm32 >> 16), cond);
   } else { // TODO Could expand to varied numbers of mov and orrs
     //Need to do a full 32 bits
     mov_immediate32(dst, imm32, cond, s);
