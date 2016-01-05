@@ -2714,7 +2714,7 @@ void TemplateTable::jvmti_post_field_mod(Register cache, Register index, bool is
 void TemplateTable::putfield_or_static(int byte_no, bool is_static) {
   transition(vtos, vtos);
   const Register cache = r2;
-  const Register index = r0;
+  const Register index = rscratch1;
   const Register obj   = r2;
   const Register off   = rscratch2;
   const Register flags = r14;
@@ -3752,7 +3752,7 @@ void TemplateTable::_breakpoint() {
              CAST_FROM_FN_PTR(address,
                               InterpreterRuntime::get_original_bytecode_at),
              c_rarg1, rbcp);
-  __ mov(r3, r0);
+  __ push(r0);
 
   // post the breakpoint event
   __ call_VM(noreg,
@@ -3760,7 +3760,7 @@ void TemplateTable::_breakpoint() {
              rmethod, rbcp);
 
   // complete the execution of original bytecode
-  __ mov(rscratch1, r3);
+  __ pop(rscratch1);
   __ dispatch_only_normal(vtos);
 }
 
