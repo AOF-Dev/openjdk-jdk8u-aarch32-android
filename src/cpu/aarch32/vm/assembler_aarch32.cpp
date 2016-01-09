@@ -1627,7 +1627,7 @@ void Assembler::mov_immediate32(Register dst, u_int32_t imm32, Condition cond, b
 #define starti Instruction_aarch32 do_not_use(this); set_current(&do_not_use)
 void Assembler::add_sub_imm(int decode, Register Rd, Register Rn, int imm,
                             Condition cond, bool s) {
-  int cpart;
+  int cpart = 0;
   switch(decode) {
     case 0b0100: cpart = 0b0010; break; // ADD  ->  SUB
     case 0b0010:                        // SUB  ->  ADD

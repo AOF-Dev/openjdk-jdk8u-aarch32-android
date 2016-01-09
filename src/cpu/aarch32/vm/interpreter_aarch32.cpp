@@ -204,7 +204,7 @@ address InterpreterGenerator::generate_math_entry(AbstractInterpreter::MethodKin
   // static jdouble dpow(jdouble x, jdouble y);
 
 void InterpreterGenerator::generate_transcendental_entry(AbstractInterpreter::MethodKind kind, int fpargs) {
-  address fn;
+  address fn = NULL;
   switch (kind) {
   case Interpreter::java_lang_math_sin :
     fn = CAST_FROM_FN_PTR(address, SharedRuntime::dsin);
