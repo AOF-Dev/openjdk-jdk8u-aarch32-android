@@ -137,7 +137,7 @@ void InterpreterRuntime::SignatureHandlerGenerator::pass_float() {
 }
 
 void InterpreterRuntime::SignatureHandlerGenerator::pass_double() {
-        pass_double();
+        pass_long();
 }
 #endif //HARD_FLOAT_CC
 
@@ -267,7 +267,7 @@ class SlowSignatureHandler : public NativeSignatureIterator {
       *_to++ = (*from_addr == 0) ? NULL : (intptr_t) from_addr;
     }
   }
-#ifdef CC_HARD_FLOAT
+#ifdef HARD_FLOAT_CC
   virtual void pass_float()
   {
     jint from_obj = *(jint*)(_from+Interpreter::local_offset_in_bytes(0));
@@ -303,8 +303,8 @@ class SlowSignatureHandler : public NativeSignatureIterator {
   }
 #else
   virtual void pass_float() { pass_int(); }
-  virtual void pass_double() { pass_double(); }
-#endif // CC_HARD_FLOAT
+  virtual void pass_double() { pass_long(); }
+#endif // HARD_FLOAT_CC
 
  public:
   SlowSignatureHandler(methodHandle method, address from, intptr_t* to)
