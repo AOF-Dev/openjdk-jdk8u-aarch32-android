@@ -97,19 +97,19 @@ class VM_Version_StubGenerator: public StubCodeGenerator {
 
 
 bool VM_Version::identify_procline(const char *tag, char **line) {
-        char *i = *line;
-        const char EOT = '\t', EOT2 = ':'; // the longest has no tabs
-        for(; '\0' != *i && EOT != *i && EOT2 != *i; i++);
-        if(EOT == *i || EOT2 == *i) {
-                if(!memcmp(*line, tag, i - *line)) {
-                        for(i++; (EOT == *i || EOT2 == *i || ' ' == *i) && '\0' != *i; i++);
-                        if('\0' != *i) {
-                                *line = i;
-                                return true;
-                        }
-                }
-        }
-        return false;
+  char *i = *line;
+  const char EOT = '\t', EOT2 = ':'; // the longest has no tabs
+  for(; '\0' != *i && EOT != *i && EOT2 != *i; i++);
+  if(EOT == *i || EOT2 == *i) {
+    if(!memcmp(*line, tag, i - *line)) {
+      for(i++; (EOT == *i || EOT2 == *i || ' ' == *i) && '\0' != *i; i++);
+      if('\0' != *i) {
+        *line = i;
+        return true;
+      }
+    }
+  }
+  return false;
 }
 
 void VM_Version::get_processor_features() {
@@ -129,67 +129,67 @@ void VM_Version::get_processor_features() {
   FLAG_SET_DEFAULT(UseSSE42Intrinsics, false);
 
   int ncores = 0, cpu, variant, model, revision;
-        enum ProcessorFeatures f = FT_NONE;
-        char buf[2048], *i;
-        if(FILE *fp = fopen("/proc/cpuinfo", "r")) {
-                while((i = fgets(buf, 2048, fp))) {
-                        if(identify_procline("Features", &i)) {
-                                i = strtok(i, " \n");
-                                while(i) {
-                                        if(!strcmp("idiva", i)) {
-                                                f = (ProcessorFeatures)(f | FT_HW_DIVIDE);
-                                        } else if(!strcmp("vfpv3", i) || !strcmp("vfpv4", i)) {
-                                                // Assuming that vfpv4 implements all of vfpv3
-                                                // and that they both implement all of v2.
-                                                f = (ProcessorFeatures)(f | FT_VFPV3 | FT_VFPV2);
-                                        } else if(!strcmp("vfp", i)) {
-                                                // Assuming that VFPv2 is identified by plain vfp
-                                                f = (ProcessorFeatures)(f | FT_VFPV2);
-                                        }
-                                        i = strtok(NULL, " \n");
-                                }
-                        } else if(identify_procline("Processor", &i)) {
-                                i = strtok(i, " \n");
-                                while(i) {
-                                        // if the info is read correctly do
-                                        if(!strcmp("ARMv7", i) || !strcmp("AArch64", i)) {
-                                                f = (ProcessorFeatures)(f | FT_ARMV7);
-                                        } else if(!strcmp("ARMv6-compatible", i)) {
-                                                //TODO sort out the ARMv6 identification code
-                                        }
-                                        i = strtok(NULL, " \n");
-                                }
-                        } else if(identify_procline("model name", &i)) {
-                                i = strtok(i, " \n");
-                                while(i) {
-                                        // if the info is read correctly do
-                                        if(!strcmp("ARMv7", i)) {
-                                                f = (ProcessorFeatures)(f | FT_ARMV7);
-                                        } else if(!strcmp("ARMv6-compatible", i)) {
-                                                //TODO sort out the ARMv6 identification code
-                                        }
-                                        i = strtok(NULL, " \n");
-                                }
-                        } else if(identify_procline("processor", &i)) {
-                                ncores++;
-                        } else if(identify_procline("CPU implementer", &i)) {
-                                cpu = strtol(i, NULL, 0);
-                        } else if(identify_procline("CPU variant", &i)) {
-                                variant = strtol(i, NULL, 0);
-                        } else if(identify_procline("CPU part", &i)) {
-                                model = strtol(i, NULL, 0);
-                        } else if(identify_procline("CPU revision", &i)) {
-                                revision = strtol(i, NULL, 0);
-                        }
-                }
-                fclose(fp);
+  enum ProcessorFeatures f = FT_NONE;
+  char buf[2048], *i;
+  if(FILE *fp = fopen("/proc/cpuinfo", "r")) {
+    while((i = fgets(buf, 2048, fp))) {
+      if(identify_procline("Features", &i)) {
+        i = strtok(i, " \n");
+        while(i) {
+          if(!strcmp("idiva", i)) {
+            f = (ProcessorFeatures)(f | FT_HW_DIVIDE);
+          } else if(!strcmp("vfpv3", i) || !strcmp("vfpv4", i)) {
+            // Assuming that vfpv4 implements all of vfpv3
+            // and that they both implement all of v2.
+            f = (ProcessorFeatures)(f | FT_VFPV3 | FT_VFPV2);
+          } else if(!strcmp("vfp", i)) {
+            // Assuming that VFPv2 is identified by plain vfp
+            f = (ProcessorFeatures)(f | FT_VFPV2);
+          }
+          i = strtok(NULL, " \n");
         }
-        if(1 == ncores) {
-                f = (ProcessorFeatures)(f | FT_SINGLE_CORE);
+      } else if(identify_procline("Processor", &i)) {
+        i = strtok(i, " \n");
+        while(i) {
+          // if the info is read correctly do
+          if(!strcmp("ARMv7", i) || !strcmp("AArch64", i)) {
+            f = (ProcessorFeatures)(f | FT_ARMV7);
+          } else if(!strcmp("ARMv6-compatible", i)) {
+            //TODO sort out the ARMv6 identification code
+          }
+          i = strtok(NULL, " \n");
         }
-        _features = f;
-        sprintf(buf, "0x%02x:0x%x:0x%03x:%d", cpu, variant, model, revision);
-        _cpu_features = os::strdup(buf);
+      } else if(identify_procline("model name", &i)) {
+        i = strtok(i, " \n");
+        while(i) {
+          // if the info is read correctly do
+          if(!strcmp("ARMv7", i)) {
+            f = (ProcessorFeatures)(f | FT_ARMV7);
+          } else if(!strcmp("ARMv6-compatible", i)) {
+            //TODO sort out the ARMv6 identification code
+          }
+          i = strtok(NULL, " \n");
+        }
+      } else if(identify_procline("processor", &i)) {
+        ncores++;
+      } else if(identify_procline("CPU implementer", &i)) {
+        cpu = strtol(i, NULL, 0);
+      } else if(identify_procline("CPU variant", &i)) {
+        variant = strtol(i, NULL, 0);
+      } else if(identify_procline("CPU part", &i)) {
+        model = strtol(i, NULL, 0);
+      } else if(identify_procline("CPU revision", &i)) {
+        revision = strtol(i, NULL, 0);
+      }
+    }
+    fclose(fp);
+  }
+  if(1 == ncores) {
+    f = (ProcessorFeatures)(f | FT_SINGLE_CORE);
+  }
+  _features = f;
+  sprintf(buf, "0x%02x:0x%x:0x%03x:%d", cpu, variant, model, revision);
+  _cpu_features = os::strdup(buf);
 
 #ifdef COMPILER2
   if (UseMultiplyToLenIntrinsic) {
@@ -205,10 +205,10 @@ void VM_Version::get_processor_features() {
   }*/
 
   /*if(!(f & FT_ARMV7) && FLAG_IS_DEFAULT(UseMembar)) {
-        UseMembar = false;
+  UseMembar = false;
   } else if(UseMembar) {
-        fprintf(stderr, "Unable to use memory barriers as not on ARMv7, disabling.\n");
-        UseMembar = false;
+  fprintf(stderr, "Unable to use memory barriers as not on ARMv7, disabling.\n");
+  UseMembar = false;
   }*/
 }
 

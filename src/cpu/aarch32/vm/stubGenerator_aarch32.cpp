@@ -241,17 +241,17 @@ class StubGenerator: public StubCodeGenerator {
 #endif
 
     if(MacroAssembler::enable_debugging_static){
-        // FIXME Remove this hacky debugging code
-        Label L;
+      // FIXME Remove this hacky debugging code
+      Label L;
       __ ldr(rscratch2, Address(rthread, Thread::pending_exception_offset()));
-        __ cbnz(rscratch2, L);
-        // If we're returning via an exception then we shouldn't report exit,
-        // the exception handler will have already reported the exit and reporting
-        // via our progress through the call stub will result in an extra method
-        // being reported as exited.
-            __ print_method_exit();
-            __ bind(L);
-          }
+      __ cbnz(rscratch2, L);
+      // If we're returning via an exception then we shouldn't report exit,
+      // the exception handler will have already reported the exit and reporting
+      // via our progress through the call stub will result in an extra method
+      // being reported as exited.
+      __ print_method_exit();
+      __ bind(L);
+    }
 
     // NOTE Horrible tricks here
     // We saved c_rarg0, c_rarg1, c_rarg2, however we don't need to restore

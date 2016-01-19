@@ -85,615 +85,615 @@ void entry(CodeBuffer *cb) {
     __ bind(back);
 
 // ThreeRegSft
-    __ add(r8, r2, r11, ::lsr(10));                    //       add r8, r2, r11, lsr #10
-    __ adds(r1, r3, r7, ::asr(1), Assembler::EQ);      //       addEQs r1, r3, r7, asr #1
-    __ eor(r0, r9, r4, ::lsl(5));                      //       eor r0, r9, r4, lsl #5
-    __ eors(r9, r2, r6, ::rrx(), Assembler::GT);       //       eorGTs r9, r2, r6, rrx
-    __ sub(r0, r12, lr, ::lsr(0), Assembler::GT);      //       subGT r0, r12, lr, lsr #0
-    __ subs(r8, r2, r4, ::ror(6), Assembler::EQ);      //       subEQs r8, r2, r4, ror #6
-    __ rsb(r8, r9, sp, ::lsl(3));                      //       rsb r8, r9, sp, lsl #3
-    __ rsbs(r8, r0, r4, ::ror(16), Assembler::VS);     //       rsbVSs r8, r0, r4, ror #16
-    __ add(r9, r5, r1, ::lsr(15), Assembler::LE);      //       addLE r9, r5, r1, lsr #15
-    __ adds(r1, sp, r6, ::asr(5));                     //       adds r1, sp, r6, asr #5
-    __ adc(r11, sp, r7, ::asr(1), Assembler::GT);      //       adcGT r11, sp, r7, asr #1
-    __ adcs(r0, r8, r9, ::lsr(6));                     //       adcs r0, r8, r9, lsr #6
-    __ sbc(r9, r3, r6, ::ror(5));                      //       sbc r9, r3, r6, ror #5
-    __ sbcs(r1, sp, r5, ::asr(16), Assembler::HI);     //       sbcHIs r1, sp, r5, asr #16
-    __ rsc(r8, r2, r6, ::lsl(9), Assembler::CC);       //       rscCC r8, r2, r6, lsl #9
-    __ rscs(r10, r4, sp, ::ror(14));                   //       rscs r10, r4, sp, ror #14
-    __ orr(r11, sp, r5, ::lsl(15), Assembler::NE);     //       orrNE r11, sp, r5, lsl #15
-    __ orrs(r9, r10, r4, ::ror(14));                   //       orrs r9, r10, r4, ror #14
-    __ bic(r9, sp, r5, ::ror(1));                      //       bic r9, sp, r5, ror #1
-    __ bics(r0, r2, r7, ::asr(10));                    //       bics r0, r2, r7, asr #10
+    __ add(r8, r2, r11, ::lsr(10));                    // add r8, r2, r11, lsr #10
+    __ adds(r1, r3, r7, ::asr(1), Assembler::EQ);      // addEQs r1, r3, r7, asr #1
+    __ eor(r0, r9, r4, ::lsl(5));                      // eor r0, r9, r4, lsl #5
+    __ eors(r9, r2, r6, ::rrx(), Assembler::GT);       // eorGTs r9, r2, r6, rrx
+    __ sub(r0, r12, lr, ::lsr(0), Assembler::GT);      // subGT r0, r12, lr, lsr #0
+    __ subs(r8, r2, r4, ::ror(6), Assembler::EQ);      // subEQs r8, r2, r4, ror #6
+    __ rsb(r8, r9, sp, ::lsl(3));                      // rsb r8, r9, sp, lsl #3
+    __ rsbs(r8, r0, r4, ::ror(16), Assembler::VS);     // rsbVSs r8, r0, r4, ror #16
+    __ add(r9, r5, r1, ::lsr(15), Assembler::LE);      // addLE r9, r5, r1, lsr #15
+    __ adds(r1, sp, r6, ::asr(5));                     // adds r1, sp, r6, asr #5
+    __ adc(r11, sp, r7, ::asr(1), Assembler::GT);      // adcGT r11, sp, r7, asr #1
+    __ adcs(r0, r8, r9, ::lsr(6));                     // adcs r0, r8, r9, lsr #6
+    __ sbc(r9, r3, r6, ::ror(5));                      // sbc r9, r3, r6, ror #5
+    __ sbcs(r1, sp, r5, ::asr(16), Assembler::HI);     // sbcHIs r1, sp, r5, asr #16
+    __ rsc(r8, r2, r6, ::lsl(9), Assembler::CC);       // rscCC r8, r2, r6, lsl #9
+    __ rscs(r10, r4, sp, ::ror(14));                   // rscs r10, r4, sp, ror #14
+    __ orr(r11, sp, r5, ::lsl(15), Assembler::NE);     // orrNE r11, sp, r5, lsl #15
+    __ orrs(r9, r10, r4, ::ror(14));                   // orrs r9, r10, r4, ror #14
+    __ bic(r9, sp, r5, ::ror(1));                      // bic r9, sp, r5, ror #1
+    __ bics(r0, r2, r7, ::asr(10));                    // bics r0, r2, r7, asr #10
 
 // ThreeRegRSR
-    __ add(sp, r6, r7, ::ror(r7));                     //       add sp, r6, r7, ror r7
-    __ adds(r4, r12, r6, ::ror(r7), Assembler::HI);    //       addHIs r4, r12, r6, ror r7
-    __ eor(r5, r6, r7, ::asr(r12), Assembler::LS);     //       eorLS r5, r6, r7, asr r12
-    __ eors(r8, r5, sp, ::lsl(r4), Assembler::AL);     //       eorALs r8, r5, sp, lsl r4
-    __ sub(r2, r12, r5, ::asr(r0));                    //       sub r2, r12, r5, asr r0
-    __ subs(r9, r3, r7, ::lsl(r12), Assembler::HS);    //       subHSs r9, r3, r7, lsl r12
-    __ rsb(r9, r12, r4, ::lsl(r6), Assembler::GT);     //       rsbGT r9, r12, r4, lsl r6
-    __ rsbs(r8, r2, r12, ::lsl(r1));                   //       rsbs r8, r2, r12, lsl r1
-    __ add(r4, r12, sp, ::lsl(sp));                    //       add r4, r12, sp, lsl sp
-    __ adds(r8, r11, r6, ::ror(sp));                   //       adds r8, r11, r6, ror sp
-    __ adc(r0, r2, r5, ::lsl(r4), Assembler::NE);      //       adcNE r0, r2, r5, lsl r4
-    __ adcs(r11, lr, r6, ::asr(r2));                   //       adcs r11, lr, r6, asr r2
-    __ sbc(r8, r10, lr, ::asr(r3), Assembler::HI);     //       sbcHI r8, r10, lr, asr r3
-    __ sbcs(r1, r12, r5, ::lsl(r6));                   //       sbcs r1, r12, r5, lsl r6
-    __ rsc(r4, r5, lr, ::ror(r10), Assembler::VS);     //       rscVS r4, r5, lr, ror r10
-    __ rscs(r1, r12, sp, ::lsl(r8));                   //       rscs r1, r12, sp, lsl r8
-    __ orr(r8, r1, r6, ::ror(r0), Assembler::VS);      //       orrVS r8, r1, r6, ror r0
-    __ orrs(r11, sp, r7, ::ror(r5));                   //       orrs r11, sp, r7, ror r5
-    __ bic(r4, lr, r6, ::lsl(r2), Assembler::AL);      //       bicAL r4, lr, r6, lsl r2
-    __ bics(r10, r11, sp, ::lsl(r3));                  //       bics r10, r11, sp, lsl r3
+    __ add(sp, r6, r7, ::ror(r7));                     // add sp, r6, r7, ror r7
+    __ adds(r4, r12, r6, ::ror(r7), Assembler::HI);    // addHIs r4, r12, r6, ror r7
+    __ eor(r5, r6, r7, ::asr(r12), Assembler::LS);     // eorLS r5, r6, r7, asr r12
+    __ eors(r8, r5, sp, ::lsl(r4), Assembler::AL);     // eorALs r8, r5, sp, lsl r4
+    __ sub(r2, r12, r5, ::asr(r0));                    // sub r2, r12, r5, asr r0
+    __ subs(r9, r3, r7, ::lsl(r12), Assembler::HS);    // subHSs r9, r3, r7, lsl r12
+    __ rsb(r9, r12, r4, ::lsl(r6), Assembler::GT);     // rsbGT r9, r12, r4, lsl r6
+    __ rsbs(r8, r2, r12, ::lsl(r1));                   // rsbs r8, r2, r12, lsl r1
+    __ add(r4, r12, sp, ::lsl(sp));                    // add r4, r12, sp, lsl sp
+    __ adds(r8, r11, r6, ::ror(sp));                   // adds r8, r11, r6, ror sp
+    __ adc(r0, r2, r5, ::lsl(r4), Assembler::NE);      // adcNE r0, r2, r5, lsl r4
+    __ adcs(r11, lr, r6, ::asr(r2));                   // adcs r11, lr, r6, asr r2
+    __ sbc(r8, r10, lr, ::asr(r3), Assembler::HI);     // sbcHI r8, r10, lr, asr r3
+    __ sbcs(r1, r12, r5, ::lsl(r6));                   // sbcs r1, r12, r5, lsl r6
+    __ rsc(r4, r5, lr, ::ror(r10), Assembler::VS);     // rscVS r4, r5, lr, ror r10
+    __ rscs(r1, r12, sp, ::lsl(r8));                   // rscs r1, r12, sp, lsl r8
+    __ orr(r8, r1, r6, ::ror(r0), Assembler::VS);      // orrVS r8, r1, r6, ror r0
+    __ orrs(r11, sp, r7, ::ror(r5));                   // orrs r11, sp, r7, ror r5
+    __ bic(r4, lr, r6, ::lsl(r2), Assembler::AL);      // bicAL r4, lr, r6, lsl r2
+    __ bics(r10, r11, sp, ::lsl(r3));                  // bics r10, r11, sp, lsl r3
 
 // TwoRegImm
-    __ add(r8, sp, (unsigned)268435462U, Assembler::HI); //     addHI r8, sp, #268435462
-    __ adds(sp, lr, (unsigned)162529280U);             //       adds sp, lr, #162529280
-    __ eor(lr, r6, (unsigned)8192000U);                //       eor lr, r6, #8192000
-    __ eors(r2, r3, (unsigned)292U);                   //       eors r2, r3, #292
-    __ sub(r4, sp, (unsigned)227540992U);              //       sub r4, sp, #227540992
-    __ subs(r1, lr, (unsigned)33554432U, Assembler::LT); //     subLTs r1, lr, #33554432
-    __ rsb(r0, r5, (unsigned)2483027968U);             //       rsb r0, r5, #2483027968
-    __ rsbs(r8, r4, (unsigned)3080192U, Assembler::LO); //      rsbLOs r8, r4, #3080192
-    __ add(r9, r4, (unsigned)2147483648U, Assembler::LT); //    addLT r9, r4, #2147483648
-    __ adds(r8, r4, (unsigned)32768U, Assembler::AL);  //       addALs r8, r4, #32768
-    __ adc(r10, lr, (unsigned)10752U, Assembler::CS);  //       adcCS r10, lr, #10752
-    __ adcs(r10, r6, (unsigned)774144U);               //       adcs r10, r6, #774144
-    __ sbc(r2, r12, (unsigned)637534208U);             //       sbc r2, r12, #637534208
-    __ sbcs(r8, r10, (unsigned)692060160U);            //       sbcs r8, r10, #692060160
-    __ rsc(sp, r6, (unsigned)7405568U);                //       rsc sp, r6, #7405568
-    __ rscs(r10, r11, (unsigned)244318208U, Assembler::NE); //  rscNEs r10, r11, #244318208
-    __ orr(r3, r7, (unsigned)66846720U, Assembler::VS); //      orrVS r3, r7, #66846720
-    __ orrs(r2, r5, (unsigned)1327104U, Assembler::EQ); //      orrEQs r2, r5, #1327104
-    __ bic(r8, r1, (unsigned)3744U, Assembler::VS);    //       bicVS r8, r1, #3744
-    __ bics(r0, r2, (unsigned)2684354560U, Assembler::LO); //   bicLOs r0, r2, #2684354560
+    __ add(r8, sp, (unsigned)268435462U, Assembler::HI); // addHI r8, sp, #268435462
+    __ adds(sp, lr, (unsigned)162529280U);             // adds sp, lr, #162529280
+    __ eor(lr, r6, (unsigned)8192000U);                // eor lr, r6, #8192000
+    __ eors(r2, r3, (unsigned)292U);                   // eors r2, r3, #292
+    __ sub(r4, sp, (unsigned)227540992U);              // sub r4, sp, #227540992
+    __ subs(r1, lr, (unsigned)33554432U, Assembler::LT); // subLTs r1, lr, #33554432
+    __ rsb(r0, r5, (unsigned)2483027968U);             // rsb r0, r5, #2483027968
+    __ rsbs(r8, r4, (unsigned)3080192U, Assembler::LO); // rsbLOs r8, r4, #3080192
+    __ add(r9, r4, (unsigned)2147483648U, Assembler::LT); // addLT r9, r4, #2147483648
+    __ adds(r8, r4, (unsigned)32768U, Assembler::AL);  // addALs r8, r4, #32768
+    __ adc(r10, lr, (unsigned)10752U, Assembler::CS);  // adcCS r10, lr, #10752
+    __ adcs(r10, r6, (unsigned)774144U);               // adcs r10, r6, #774144
+    __ sbc(r2, r12, (unsigned)637534208U);             // sbc r2, r12, #637534208
+    __ sbcs(r8, r10, (unsigned)692060160U);            // sbcs r8, r10, #692060160
+    __ rsc(sp, r6, (unsigned)7405568U);                // rsc sp, r6, #7405568
+    __ rscs(r10, r11, (unsigned)244318208U, Assembler::NE); // rscNEs r10, r11, #244318208
+    __ orr(r3, r7, (unsigned)66846720U, Assembler::VS); // orrVS r3, r7, #66846720
+    __ orrs(r2, r5, (unsigned)1327104U, Assembler::EQ); // orrEQs r2, r5, #1327104
+    __ bic(r8, r1, (unsigned)3744U, Assembler::VS);    // bicVS r8, r1, #3744
+    __ bics(r0, r2, (unsigned)2684354560U, Assembler::LO); // bicLOs r0, r2, #2684354560
 
 // TwoRegSft
-    __ tst(r8, sp, ::lsl(5));                          //       tst r8, sp, lsl #5
-    __ teq(r6, r7, ::lsr(3));                          //       teq r6, r7, lsr #3
-    __ cmp(r12, r4, ::ror(2));                         //       cmp r12, r4, ror #2
-    __ cmn(r5, r7, ::lsl(16), Assembler::LT);          //       cmnLT r5, r7, lsl #16
+    __ tst(r8, sp, ::lsl(5));                          // tst r8, sp, lsl #5
+    __ teq(r6, r7, ::lsr(3));                          // teq r6, r7, lsr #3
+    __ cmp(r12, r4, ::ror(2));                         // cmp r12, r4, ror #2
+    __ cmn(r5, r7, ::lsl(16), Assembler::LT);          // cmnLT r5, r7, lsl #16
 
 // TwoRegRSR
-    __ tst(r2, lr, ::lsr(r7));                         //       tst r2, lr, lsr r7
-    __ teq(r0, r2, ::ror(r5), Assembler::CC);          //       teqCC r0, r2, ror r5
-    __ cmp(lr, r7, ::lsr(r11), Assembler::LS);         //       cmpLS lr, r7, lsr r11
-    __ cmn(r10, r7, ::lsl(r11), Assembler::VS);        //       cmnVS r10, r7, lsl r11
+    __ tst(r2, lr, ::lsr(r7));                         // tst r2, lr, lsr r7
+    __ teq(r0, r2, ::ror(r5), Assembler::CC);          // teqCC r0, r2, ror r5
+    __ cmp(lr, r7, ::lsr(r11), Assembler::LS);         // cmpLS lr, r7, lsr r11
+    __ cmn(r10, r7, ::lsl(r11), Assembler::VS);        // cmnVS r10, r7, lsl r11
 
 // OneRegImm
-    __ tst(r2, (unsigned)557842432U);                  //       tst r2, #557842432
-    __ teq(lr, (unsigned)7077888U, Assembler::MI);     //       teqMI lr, #7077888
-    __ cmp(r5, (unsigned)939524096U);                  //       cmp r5, #939524096
-    __ cmn(r7, (unsigned)2147483650U, Assembler::LO);  //       cmnLO r7, #2147483650
+    __ tst(r2, (unsigned)557842432U);                  // tst r2, #557842432
+    __ teq(lr, (unsigned)7077888U, Assembler::MI);     // teqMI lr, #7077888
+    __ cmp(r5, (unsigned)939524096U);                  // cmp r5, #939524096
+    __ cmn(r7, (unsigned)2147483650U, Assembler::LO);  // cmnLO r7, #2147483650
 
 // Shift op
-    __ lsl(r0, r4, (unsigned)23U);                     //       lsl r0, r4, #23
-    __ lsls(r1, r4, (unsigned)9U);                     //       lsls r1, r4, #9
-    __ lsr(r0, r10, (unsigned)3U);                     //       lsr r0, r10, #3
-    __ lsrs(r0, r10, (unsigned)20U);                   //       lsrs r0, r10, #20
-    __ asr(r1, r9, (unsigned)11U);                     //       asr r1, r9, #11
-    __ asrs(r2, r11, (unsigned)10U, Assembler::VS);    //       asrVSs r2, r11, #10
+    __ lsl(r0, r4, (unsigned)23U);                     // lsl r0, r4, #23
+    __ lsls(r1, r4, (unsigned)9U);                     // lsls r1, r4, #9
+    __ lsr(r0, r10, (unsigned)3U);                     // lsr r0, r10, #3
+    __ lsrs(r0, r10, (unsigned)20U);                   // lsrs r0, r10, #20
+    __ asr(r1, r9, (unsigned)11U);                     // asr r1, r9, #11
+    __ asrs(r2, r11, (unsigned)10U, Assembler::VS);    // asrVSs r2, r11, #10
 
 // shift op
-    __ ror(r8, r2, (unsigned)31U, Assembler::CC);      //       rorCC r8, r2, #31
-    __ rors(r9, r12, (unsigned)8U);                    //       rors r9, r12, #8
+    __ ror(r8, r2, (unsigned)31U, Assembler::CC);      // rorCC r8, r2, #31
+    __ rors(r9, r12, (unsigned)8U);                    // rors r9, r12, #8
 
 // ThreeRegNon
-    __ ror(r8, lr, r7);                                //       ror r8, lr, r7
-    __ rors(r12, r3, r4);                              //       rors r12, r3, r4
-    __ lsl(r12, sp, lr, Assembler::GT);                //       lslGT r12, sp, lr
-    __ lsls(r12, sp, r6, Assembler::AL);               //       lslALs r12, sp, r6
-    __ lsr(r0, r1, r9, Assembler::GT);                 //       lsrGT r0, r1, r9
-    __ lsrs(r11, r3, r12, Assembler::GT);              //       lsrGTs r11, r3, r12
-    __ asr(r2, r12, r6, Assembler::LE);                //       asrLE r2, r12, r6
-    __ asrs(r1, r10, r6, Assembler::LT);               //       asrLTs r1, r10, r6
+    __ ror(r8, lr, r7);                                // ror r8, lr, r7
+    __ rors(r12, r3, r4);                              // rors r12, r3, r4
+    __ lsl(r12, sp, lr, Assembler::GT);                // lslGT r12, sp, lr
+    __ lsls(r12, sp, r6, Assembler::AL);               // lslALs r12, sp, r6
+    __ lsr(r0, r1, r9, Assembler::GT);                 // lsrGT r0, r1, r9
+    __ lsrs(r11, r3, r12, Assembler::GT);              // lsrGTs r11, r3, r12
+    __ asr(r2, r12, r6, Assembler::LE);                // asrLE r2, r12, r6
+    __ asrs(r1, r10, r6, Assembler::LT);               // asrLTs r1, r10, r6
 
 // TwoRegNon
-    __ mov(r10, r3);                                   //       mov r10, r3
-    __ movs(r0, r9);                                   //       movs r0, r9
+    __ mov(r10, r3);                                   // mov r10, r3
+    __ movs(r0, r9);                                   // movs r0, r9
 
 // OneRegImm
-    __ mov_i(r3, (unsigned)656U, Assembler::VC);         //     movVC r3, #656
-    __ movs_i(r4, (unsigned)2064384U);                   //     movs r4, #2064384
+    __ mov_i(r3, (unsigned)656U, Assembler::VC);         // movVC r3, #656
+    __ movs_i(r4, (unsigned)2064384U);                   // movs r4, #2064384
 
 // TwoRegSft
-    __ mov(r12, r6, ::lsr(3));                         //       mov r12, r6, lsr #3
-    __ movs(r5, sp, ::asr(10), Assembler::VC);         //       movVCs r5, sp, asr #10
+    __ mov(r12, r6, ::lsr(3));                         // mov r12, r6, lsr #3
+    __ movs(r5, sp, ::asr(10), Assembler::VC);         // movVCs r5, sp, asr #10
 
 // TwoRegRSR
-    __ mov(r1, lr, ::ror(r3));                         //       mov r1, lr, ror r3
-    __ movs(r8, r12, ::ror(r9), Assembler::EQ);        //       movEQs r8, r12, ror r9
+    __ mov(r1, lr, ::ror(r3));                         // mov r1, lr, ror r3
+    __ movs(r8, r12, ::ror(r9), Assembler::EQ);        // movEQs r8, r12, ror r9
 
 // OneRegImm16
-    __ movw_i(r11, (unsigned)53041U, Assembler::LO);     //     movwLO r11, #53041
-    __ movt_i(r9, (unsigned)11255U, Assembler::LO);      //     movtLO r9, #11255
+    __ movw_i(r11, (unsigned)53041U, Assembler::LO);     // movwLO r11, #53041
+    __ movt_i(r9, (unsigned)11255U, Assembler::LO);      // movtLO r9, #11255
 
 // ThreeRegNon
-    __ mul(r1, sp, r5, Assembler::LE);                 //       mulLE r1, sp, r5
-    __ muls(r0, r10, r11);                             //       muls r0, r10, r11
+    __ mul(r1, sp, r5, Assembler::LE);                 // mulLE r1, sp, r5
+    __ muls(r0, r10, r11);                             // muls r0, r10, r11
 
 // FourRegNon
-    __ mla(r0, r3, r12, r7);                           //       mla r0, r3, r12, r7
-    __ mlas(r8, r11, r3, r6, Assembler::EQ);           //       mlaEQs r8, r11, r3, r6
-    __ umull(lr, r4, r5, r6);                          //       umull lr, r4, r5, r6
-    __ umulls(r0, r4, r6, r7);                         //       umulls r0, r4, r6, r7
-    __ umlal(r8, r0, r11, lr);                         //       umlal r8, r0, r11, lr
-    __ umlals(r11, r4, lr, r7);                        //       umlals r11, r4, lr, r7
-    __ smull(r1, r5, r6, r7, Assembler::HS);           //       smullHS r1, r5, r6, r7
-    __ smulls(r0, r11, r12, r5, Assembler::MI);        //       smullMIs r0, r11, r12, r5
+    __ mla(r0, r3, r12, r7);                           // mla r0, r3, r12, r7
+    __ mlas(r8, r11, r3, r6, Assembler::EQ);           // mlaEQs r8, r11, r3, r6
+    __ umull(lr, r4, r5, r6);                          // umull lr, r4, r5, r6
+    __ umulls(r0, r4, r6, r7);                         // umulls r0, r4, r6, r7
+    __ umlal(r8, r0, r11, lr);                         // umlal r8, r0, r11, lr
+    __ umlals(r11, r4, lr, r7);                        // umlals r11, r4, lr, r7
+    __ smull(r1, r5, r6, r7, Assembler::HS);           // smullHS r1, r5, r6, r7
+    __ smulls(r0, r11, r12, r5, Assembler::MI);        // smullMIs r0, r11, r12, r5
 
 // FourRegNon
-    __ umaal(r8, r9, r2, r5);                          //       umaal r8, r9, r2, r5
-    __ mls(r0, r4, sp, lr, Assembler::EQ);             //       mlsEQ r0, r4, sp, lr
+    __ umaal(r8, r9, r2, r5);                          // umaal r8, r9, r2, r5
+    __ mls(r0, r4, sp, lr, Assembler::EQ);             // mlsEQ r0, r4, sp, lr
 
 // ThreeRegNon
-    __ qadd(r9, r4, sp, Assembler::PL);                //       qaddPL r9, r4, sp
-    __ qsub(r0, r12, r5, Assembler::MI);               //       qsubMI r0, r12, r5
-    __ qdadd(r3, r5, r7);                              //       qdadd r3, r5, r7
-    __ qdsub(r9, r2, r4);                              //       qdsub r9, r2, r4
+    __ qadd(r9, r4, sp, Assembler::PL);                // qaddPL r9, r4, sp
+    __ qsub(r0, r12, r5, Assembler::MI);               // qsubMI r0, r12, r5
+    __ qdadd(r3, r5, r7);                              // qdadd r3, r5, r7
+    __ qdsub(r9, r2, r4);                              // qdsub r9, r2, r4
 
 // FourRegNon
-    __ smlabb(r1, r12, r5, r6);                        //       smlabb r1, r12, r5, r6
-    __ smlabt(r0, r10, r12, r6);                       //       smlabt r0, r10, r12, r6
-    __ smlatb(r8, r1, r3, lr);                         //       smlatb r8, r1, r3, lr
-    __ smlatt(r1, sp, r6, r7);                         //       smlatt r1, sp, r6, r7
-    __ smlawb(r0, r3, r4, r6);                         //       smlawb r0, r3, r4, r6
-    __ smlawt(r11, r4, lr, r7);                        //       smlawt r11, r4, lr, r7
-    __ smlalbb(r0, r10, r6, r7);                       //       smlalbb r0, r10, r6, r7
-    __ smlalbt(r3, r11, r4, lr, Assembler::LS);        //       smlalbtLS r3, r11, r4, lr
-    __ smlaltb(r8, r11, r3, r12);                      //       smlaltb r8, r11, r3, r12
-    __ smlaltt(r8, r1, r3, r5);                        //       smlaltt r8, r1, r3, r5
+    __ smlabb(r1, r12, r5, r6);                        // smlabb r1, r12, r5, r6
+    __ smlabt(r0, r10, r12, r6);                       // smlabt r0, r10, r12, r6
+    __ smlatb(r8, r1, r3, lr);                         // smlatb r8, r1, r3, lr
+    __ smlatt(r1, sp, r6, r7);                         // smlatt r1, sp, r6, r7
+    __ smlawb(r0, r3, r4, r6);                         // smlawb r0, r3, r4, r6
+    __ smlawt(r11, r4, lr, r7);                        // smlawt r11, r4, lr, r7
+    __ smlalbb(r0, r10, r6, r7);                       // smlalbb r0, r10, r6, r7
+    __ smlalbt(r3, r11, r4, lr, Assembler::LS);        // smlalbtLS r3, r11, r4, lr
+    __ smlaltb(r8, r11, r3, r12);                      // smlaltb r8, r11, r3, r12
+    __ smlaltt(r8, r1, r3, r5);                        // smlaltt r8, r1, r3, r5
 
 // ThreeRegNon
-    __ smulwb(r2, r12, sp, Assembler::HS);             //       smulwbHS r2, r12, sp
-    __ smulwt(r8, r12, r6);                            //       smulwt r8, r12, r6
-    __ smulbb(r2, r6, lr, Assembler::GE);              //       smulbbGE r2, r6, lr
-    __ smulbt(r8, r12, r7);                            //       smulbt r8, r12, r7
-    __ smultb(r10, r3, lr, Assembler::EQ);             //       smultbEQ r10, r3, lr
-    __ smultt(r0, r3, sp);                             //       smultt r0, r3, sp
+    __ smulwb(r2, r12, sp, Assembler::HS);             // smulwbHS r2, r12, sp
+    __ smulwt(r8, r12, r6);                            // smulwt r8, r12, r6
+    __ smulbb(r2, r6, lr, Assembler::GE);              // smulbbGE r2, r6, lr
+    __ smulbt(r8, r12, r7);                            // smulbt r8, r12, r7
+    __ smultb(r10, r3, lr, Assembler::EQ);             // smultbEQ r10, r3, lr
+    __ smultt(r0, r3, sp);                             // smultt r0, r3, sp
 
 // MemoryOp
-    __ ldr(r10, Address(r7, r9, lsl(), Address::ADD, Address::post)); //        ldr r10, [r7], r9
-    __ ldrb(r0, Address(r9, 196));                     //       ldrb r0, [r9, #196]
+    __ ldr(r10, Address(r7, r9, lsl(), Address::ADD, Address::post)); // ldr r10, [r7], r9
+    __ ldrb(r0, Address(r9, 196));                     // ldrb r0, [r9, #196]
     __ ldrh(lr, Address(r4, r6, lsl(), Address::ADD, Address::pre)); // ldrh lr, [r4, r6]!
-    __ ldrsb(r6, Address(__ pre(r9, 232)));            //       ldrsb r6, [r9, #232]!
-    __ ldrsh(r2, Address(r1, r1, lsl(), Address::ADD, Address::post)); //       ldrsh r2, [r1], r1
+    __ ldrsb(r6, Address(__ pre(r9, 232)));            // ldrsb r6, [r9, #232]!
+    __ ldrsh(r2, Address(r1, r1, lsl(), Address::ADD, Address::post)); // ldrsh r2, [r1], r1
     __ str(r0, Address(r9, r4, lsl(), Address::ADD, Address::post)); // str r0, [r9], r4
-    __ strb(r3, Address(__ pre(r5, 92)));              //       strb r3, [r5, #92]!
-    __ strh(r2, Address(r8, 160));                     //       strh r2, [r8, #160]
+    __ strb(r3, Address(__ pre(r5, 92)));              // strb r3, [r5, #92]!
+    __ strh(r2, Address(r8, 160));                     // strh r2, [r8, #160]
 
 // MemoryOp
     __ ldr(r8, Address(r12, r8, lsl(), Address::ADD, Address::off)); // ldr r8, [r12, r8]
-    __ ldrb(r11, Address(__ post(r10, 16)));           //       ldrb r11, [r10], #16
-    __ ldrh(r11, Address(r10, r6, lsl(), Address::ADD, Address::off)); //       ldrh r11, [r10, r6]
-    __ ldrsb(r5, Address(r11, r10, lsl(), Address::ADD, Address::pre)); //      ldrsb r5, [r11, r10]!
-    __ ldrsh(r6, Address(r3, r7, lsl(), Address::ADD, Address::off)); //        ldrsh r6, [r3, r7]
-    __ str(r7, Address(sp, r5, lsl(), Address::ADD, Address::pre)); //  str r7, [sp, r5]!
-    __ strb(r2, Address(r10));                         //       strb r2, [r10]
-    __ strh(r6, Address(r4, r3, lsl(), Address::ADD, Address::post)); //        strh r6, [r4], r3
+    __ ldrb(r11, Address(__ post(r10, 16)));           // ldrb r11, [r10], #16
+    __ ldrh(r11, Address(r10, r6, lsl(), Address::ADD, Address::off)); // ldrh r11, [r10, r6]
+    __ ldrsb(r5, Address(r11, r10, lsl(), Address::ADD, Address::pre)); // ldrsb r5, [r11, r10]!
+    __ ldrsh(r6, Address(r3, r7, lsl(), Address::ADD, Address::off)); // ldrsh r6, [r3, r7]
+    __ str(r7, Address(sp, r5, lsl(), Address::ADD, Address::pre)); // str r7, [sp, r5]!
+    __ strb(r2, Address(r10));                         // strb r2, [r10]
+    __ strh(r6, Address(r4, r3, lsl(), Address::ADD, Address::post)); // strh r6, [r4], r3
 
 // MemoryOp
-    __ ldr(r10, Address(r12));                         //       ldr r10, [r12]
-    __ ldrb(r4, Address(__ post(r11, 132)));           //       ldrb r4, [r11], #132
-    __ ldrh(r9, Address(r9, r12, lsl(), Address::ADD, Address::post)); //       ldrh r9, [r9], r12
-    __ ldrsb(r9, Address(__ post(r3, 148)));           //       ldrsb r9, [r3], #148
-    __ ldrsh(r11, Address(__ pre(r2, 148)));           //       ldrsh r11, [r2, #148]!
-    __ str(r11, Address(sp, r11, lsl(), Address::ADD, Address::off)); //        str r11, [sp, r11]
-    __ strb(r1, Address(sp, r10, lsl(), Address::ADD, Address::off)); //        strb r1, [sp, r10]
-    __ strh(r10, Address(lr, r9, lsl(), Address::ADD, Address::post)); //       strh r10, [lr], r9
+    __ ldr(r10, Address(r12));                         // ldr r10, [r12]
+    __ ldrb(r4, Address(__ post(r11, 132)));           // ldrb r4, [r11], #132
+    __ ldrh(r9, Address(r9, r12, lsl(), Address::ADD, Address::post)); // ldrh r9, [r9], r12
+    __ ldrsb(r9, Address(__ post(r3, 148)));           // ldrsb r9, [r3], #148
+    __ ldrsh(r11, Address(__ pre(r2, 148)));           // ldrsh r11, [r2, #148]!
+    __ str(r11, Address(sp, r11, lsl(), Address::ADD, Address::off)); // str r11, [sp, r11]
+    __ strb(r1, Address(sp, r10, lsl(), Address::ADD, Address::off)); // strb r1, [sp, r10]
+    __ strh(r10, Address(lr, r9, lsl(), Address::ADD, Address::post)); // strh r10, [lr], r9
 
 // MemoryOp
-    __ ldr(r6, Address(r3, r4, lsl(), Address::ADD, Address::pre)); //  ldr r6, [r3, r4]!
+    __ ldr(r6, Address(r3, r4, lsl(), Address::ADD, Address::pre)); // ldr r6, [r3, r4]!
     __ ldrb(r4, Address(r6, sp, lsl(), Address::ADD, Address::pre)); // ldrb r4, [r6, sp]!
-    __ ldrh(r6, Address(r7, r10, lsl(), Address::ADD, Address::post)); //       ldrh r6, [r7], r10
-    __ ldrsb(r0, Address(r6, r11, lsl(), Address::ADD, Address::pre)); //       ldrsb r0, [r6, r11]!
-    __ ldrsh(r10, Address(r6, sp, lsl(), Address::ADD, Address::post)); //      ldrsh r10, [r6], sp
+    __ ldrh(r6, Address(r7, r10, lsl(), Address::ADD, Address::post)); // ldrh r6, [r7], r10
+    __ ldrsb(r0, Address(r6, r11, lsl(), Address::ADD, Address::pre)); // ldrsb r0, [r6, r11]!
+    __ ldrsh(r10, Address(r6, sp, lsl(), Address::ADD, Address::post)); // ldrsh r10, [r6], sp
     __ str(r7, Address(r3, r12, lsl(), Address::ADD, Address::off)); // str r7, [r3, r12]
     __ strb(r3, Address(r8, r1, lsl(), Address::ADD, Address::pre)); // strb r3, [r8, r1]!
-    __ strh(r4, Address(r12, 64));                     //       strh r4, [r12, #64]
+    __ strh(r4, Address(r12, 64));                     // strh r4, [r12, #64]
 
     __ bind(near);
 
 // LitMemoryOp
-    __ ldr(r1, near);                                  //       ldr r1, near
-    __ ldrb(r7, __ pc());                              //       ldrb r7, .
-    __ ldrh(r2, near);                                 //       ldrh r2, near
-    __ ldrsb(r10, __ pc());                            //       ldrsb r10, .
-    __ ldrsh(lr, near_post);                           //       ldrsh lr, near_post
+    __ ldr(r1, near);                                  // ldr r1, near
+    __ ldrb(r7, __ pc());                              // ldrb r7, .
+    __ ldrh(r2, near);                                 // ldrh r2, near
+    __ ldrsb(r10, __ pc());                            // ldrsb r10, .
+    __ ldrsh(lr, near_post);                           // ldrsh lr, near_post
 
 // LitMemoryOp
-    __ ldr(r2, __ pc());                               //       ldr r2, .
-    __ ldrb(r3, __ pc());                              //       ldrb r3, .
-    __ ldrh(r7, near_post);                            //       ldrh r7, near_post
-    __ ldrsb(sp, __ pc());                             //       ldrsb sp, .
-    __ ldrsh(r10, near);                               //       ldrsh r10, near
+    __ ldr(r2, __ pc());                               // ldr r2, .
+    __ ldrb(r3, __ pc());                              // ldrb r3, .
+    __ ldrh(r7, near_post);                            // ldrh r7, near_post
+    __ ldrsb(sp, __ pc());                             // ldrsb sp, .
+    __ ldrsh(r10, near);                               // ldrsh r10, near
 
 // LitMemoryOp
-    __ ldr(r5, __ pc());                               //       ldr r5, .
-    __ ldrb(lr, near_post);                            //       ldrb lr, near_post
-    __ ldrh(r5, near_post);                            //       ldrh r5, near_post
-    __ ldrsb(r6, near);                                //       ldrsb r6, near
-    __ ldrsh(r11, near);                               //       ldrsh r11, near
+    __ ldr(r5, __ pc());                               // ldr r5, .
+    __ ldrb(lr, near_post);                            // ldrb lr, near_post
+    __ ldrh(r5, near_post);                            // ldrh r5, near_post
+    __ ldrsb(r6, near);                                // ldrsb r6, near
+    __ ldrsh(r11, near);                               // ldrsh r11, near
 
 // LitMemoryOp
-    __ ldr(r7, near_post);                             //       ldr r7, near_post
-    __ ldrb(r5, near_post);                            //       ldrb r5, near_post
-    __ ldrh(r10, near);                                //       ldrh r10, near
-    __ ldrsb(r6, near_post);                           //       ldrsb r6, near_post
-    __ ldrsh(r9, __ pc());                             //       ldrsh r9, .
+    __ ldr(r7, near_post);                             // ldr r7, near_post
+    __ ldrb(r5, near_post);                            // ldrb r5, near_post
+    __ ldrh(r10, near);                                // ldrh r10, near
+    __ ldrsb(r6, near_post);                           // ldrsb r6, near_post
+    __ ldrsh(r9, __ pc());                             // ldrsh r9, .
 
     __ bind(near_post);
 
 // MemoryRegRegSftOp
-    __ ldr(r0, Address(r0, r10, ::ror(6), Address::ADD, Address::post)); //     ldr r0, [r0], r10, ror #6
-    __ ldrb(r3, Address(r8, lr, ::lsl(9), Address::ADD, Address::off)); //      ldrb r3, [r8, lr, lsl #9]
-    __ str(r5, Address(sp, r3, ::lsl(15), Address::ADD, Address::off)); //      str r5, [sp, r3, lsl #15]
-    __ strb(r9, Address(r9, r5, ::asr(2), Address::ADD, Address::post)); //     strb r9, [r9], r5, asr #2
+    __ ldr(r0, Address(r0, r10, ::ror(6), Address::ADD, Address::post)); // ldr r0, [r0], r10, ror #6
+    __ ldrb(r3, Address(r8, lr, ::lsl(9), Address::ADD, Address::off)); // ldrb r3, [r8, lr, lsl #9]
+    __ str(r5, Address(sp, r3, ::lsl(15), Address::ADD, Address::off)); // str r5, [sp, r3, lsl #15]
+    __ strb(r9, Address(r9, r5, ::asr(2), Address::ADD, Address::post)); // strb r9, [r9], r5, asr #2
 
 // MemoryRegRegSftOp
-    __ ldr(r5, Address(r4, r0, ::ror(6), Address::ADD, Address::off)); //       ldr r5, [r4, r0, ror #6]
-    __ ldrb(lr, Address(r0, r4, ::lsr(9), Address::ADD, Address::off)); //      ldrb lr, [r0, r4, lsr #9]
-    __ str(r5, Address(r12, r12, ::asr(5), Address::ADD, Address::post)); //    str r5, [r12], r12, asr #5
-    __ strb(r3, Address(r1, r7, ::ror(12), Address::ADD, Address::pre)); //     strb r3, [r1, r7, ror #12]!
+    __ ldr(r5, Address(r4, r0, ::ror(6), Address::ADD, Address::off)); // ldr r5, [r4, r0, ror #6]
+    __ ldrb(lr, Address(r0, r4, ::lsr(9), Address::ADD, Address::off)); // ldrb lr, [r0, r4, lsr #9]
+    __ str(r5, Address(r12, r12, ::asr(5), Address::ADD, Address::post)); // str r5, [r12], r12, asr #5
+    __ strb(r3, Address(r1, r7, ::ror(12), Address::ADD, Address::pre)); // strb r3, [r1, r7, ror #12]!
 
 // MemoryRegRegSftOp
-    __ ldr(r6, Address(r2, r3, ::rrx(), Address::ADD, Address::pre)); //        ldr r6, [r2, r3, rrx]!
-    __ ldrb(r8, Address(lr, r2, ::asr(16), Address::ADD, Address::pre)); //     ldrb r8, [lr, r2, asr #16]!
-    __ str(r6, Address(r3, r6, ::ror(7), Address::ADD, Address::pre)); //       str r6, [r3, r6, ror #7]!
-    __ strb(r3, Address(r8, r2, ::lsl(10), Address::ADD, Address::off)); //     strb r3, [r8, r2, lsl #10]
+    __ ldr(r6, Address(r2, r3, ::rrx(), Address::ADD, Address::pre)); // ldr r6, [r2, r3, rrx]!
+    __ ldrb(r8, Address(lr, r2, ::asr(16), Address::ADD, Address::pre)); // ldrb r8, [lr, r2, asr #16]!
+    __ str(r6, Address(r3, r6, ::ror(7), Address::ADD, Address::pre)); // str r6, [r3, r6, ror #7]!
+    __ strb(r3, Address(r8, r2, ::lsl(10), Address::ADD, Address::off)); // strb r3, [r8, r2, lsl #10]
 
 // MemoryRegRegSftOp
-    __ ldr(r11, Address(sp, lr, ::lsl(8), Address::ADD, Address::off)); //      ldr r11, [sp, lr, lsl #8]
-    __ ldrb(r10, Address(sp, r12, ::lsl(4), Address::ADD, Address::pre)); //    ldrb r10, [sp, r12, lsl #4]!
-    __ str(sp, Address(r9, r2, ::asr(2), Address::ADD, Address::off)); //       str sp, [r9, r2, asr #2]
-    __ strb(r7, Address(r11, lr, ::asr(14), Address::ADD, Address::pre)); //    strb r7, [r11, lr, asr #14]!
+    __ ldr(r11, Address(sp, lr, ::lsl(8), Address::ADD, Address::off)); // ldr r11, [sp, lr, lsl #8]
+    __ ldrb(r10, Address(sp, r12, ::lsl(4), Address::ADD, Address::pre)); // ldrb r10, [sp, r12, lsl #4]!
+    __ str(sp, Address(r9, r2, ::asr(2), Address::ADD, Address::off)); // str sp, [r9, r2, asr #2]
+    __ strb(r7, Address(r11, lr, ::asr(14), Address::ADD, Address::pre)); // strb r7, [r11, lr, asr #14]!
 
 // LdStOne
-    __ ldrex(r12, r11);                                //       ldrex r12, [r11]
-    __ ldrexb(r4, r12);                                //       ldrexb r4, [r12]
-    __ ldrexh(r11, r11);                               //       ldrexh r11, [r11]
+    __ ldrex(r12, r11);                                // ldrex r12, [r11]
+    __ ldrexb(r4, r12);                                // ldrexb r4, [r12]
+    __ ldrexh(r11, r11);                               // ldrexh r11, [r11]
 
 // LdStTwo
-    __ strex(r1, r7, lr);                              //       strex r1, r7, [lr]
-    __ strexb(r12, r6, r4);                            //       strexb r12, r6, [r4]
-    __ strexh(r4, r6, r7, Assembler::HS);              //       strexhHS r4, r6, [r7]
+    __ strex(r1, r7, lr);                              // strex r1, r7, [lr]
+    __ strexb(r12, r6, r4);                            // strexb r12, r6, [r4]
+    __ strexh(r4, r6, r7, Assembler::HS);              // strexhHS r4, r6, [r7]
 
 // ThreeRegNon
-    __ sadd16(r3, r4, r7);                             //       sadd16 r3, r4, r7
-    __ sasx(r9, r10, r3, Assembler::AL);               //       sasxAL r9, r10, r3
-    __ ssax(r12, r5, r6);                              //       ssax r12, r5, r6
-    __ ssub16(r12, r5, lr);                            //       ssub16 r12, r5, lr
-    __ sadd8(r0, r10, r7);                             //       sadd8 r0, r10, r7
-    __ ssub8(r0, r8, r2, Assembler::VS);               //       ssub8VS r0, r8, r2
-    __ qadd16(r11, r4, r5, Assembler::PL);             //       qadd16PL r11, r4, r5
-    __ qasx(r11, r3, r12, Assembler::VS);              //       qasxVS r11, r3, r12
-    __ qsax(r0, r3, r5);                               //       qsax r0, r3, r5
-    __ ssub16(r10, r12, r5, Assembler::AL);            //       ssub16AL r10, r12, r5
-    __ qadd8(r10, r6, lr, Assembler::CC);              //       qadd8CC r10, r6, lr
-    __ qsub8(r10, r11, r7);                            //       qsub8 r10, r11, r7
-    __ shadd16(r9, r4, lr, Assembler::PL);             //       shadd16PL r9, r4, lr
-    __ shasx(r1, lr, r7);                              //       shasx r1, lr, r7
-    __ shsax(r9, r11, r5, Assembler::LO);              //       shsaxLO r9, r11, r5
-    __ shsub16(r3, r1, r11, Assembler::GE);            //       shsub16GE r3, r1, r11
-    __ shadd8(sp, r5, r7, Assembler::GT);              //       shadd8GT sp, r5, r7
-    __ shsub8(r1, r5, r7);                             //       shsub8 r1, r5, r7
+    __ sadd16(r3, r4, r7);                             // sadd16 r3, r4, r7
+    __ sasx(r9, r10, r3, Assembler::AL);               // sasxAL r9, r10, r3
+    __ ssax(r12, r5, r6);                              // ssax r12, r5, r6
+    __ ssub16(r12, r5, lr);                            // ssub16 r12, r5, lr
+    __ sadd8(r0, r10, r7);                             // sadd8 r0, r10, r7
+    __ ssub8(r0, r8, r2, Assembler::VS);               // ssub8VS r0, r8, r2
+    __ qadd16(r11, r4, r5, Assembler::PL);             // qadd16PL r11, r4, r5
+    __ qasx(r11, r3, r12, Assembler::VS);              // qasxVS r11, r3, r12
+    __ qsax(r0, r3, r5);                               // qsax r0, r3, r5
+    __ ssub16(r10, r12, r5, Assembler::AL);            // ssub16AL r10, r12, r5
+    __ qadd8(r10, r6, lr, Assembler::CC);              // qadd8CC r10, r6, lr
+    __ qsub8(r10, r11, r7);                            // qsub8 r10, r11, r7
+    __ shadd16(r9, r4, lr, Assembler::PL);             // shadd16PL r9, r4, lr
+    __ shasx(r1, lr, r7);                              // shasx r1, lr, r7
+    __ shsax(r9, r11, r5, Assembler::LO);              // shsaxLO r9, r11, r5
+    __ shsub16(r3, r1, r11, Assembler::GE);            // shsub16GE r3, r1, r11
+    __ shadd8(sp, r5, r7, Assembler::GT);              // shadd8GT sp, r5, r7
+    __ shsub8(r1, r5, r7);                             // shsub8 r1, r5, r7
 
 // ThreeRegNon
-    __ uadd16(r10, r4, r7);                            //       uadd16 r10, r4, r7
-    __ uasx(r1, r9, r7, Assembler::HS);                //       uasxHS r1, r9, r7
-    __ usax(r11, sp, r7);                              //       usax r11, sp, r7
-    __ usub16(r11, r4, lr);                            //       usub16 r11, r4, lr
-    __ uadd8(r2, sp, r7, Assembler::LO);               //       uadd8LO r2, sp, r7
-    __ usub8(r8, r10, lr, Assembler::GT);              //       usub8GT r8, r10, lr
-    __ uqadd16(r3, r12, sp);                           //       uqadd16 r3, r12, sp
-    __ uqasx(r4, sp, r6);                              //       uqasx r4, sp, r6
-    __ uqsax(r1, r10, lr);                             //       uqsax r1, r10, lr
-    __ uqsub16(r2, sp, lr, Assembler::LE);             //       uqsub16LE r2, sp, lr
-    __ uqadd8(r1, r12, r5);                            //       uqadd8 r1, r12, r5
-    __ uqsub8(r0, r4, sp, Assembler::GT);              //       uqsub8GT r0, r4, sp
-    __ uhadd16(r0, r10, r5, Assembler::HI);            //       uhadd16HI r0, r10, r5
-    __ uhasx(r11, r4, r7, Assembler::LE);              //       uhasxLE r11, r4, r7
-    __ uhsax(r1, lr, r9, Assembler::GE);               //       uhsaxGE r1, lr, r9
-    __ uhsub16(r2, r11, lr);                           //       uhsub16 r2, r11, lr
-    __ uhadd8(r9, r4, r5, Assembler::GE);              //       uhadd8GE r9, r4, r5
-    __ uhsub8(r2, sp, lr, Assembler::HI);              //       uhsub8HI r2, sp, lr
+    __ uadd16(r10, r4, r7);                            // uadd16 r10, r4, r7
+    __ uasx(r1, r9, r7, Assembler::HS);                // uasxHS r1, r9, r7
+    __ usax(r11, sp, r7);                              // usax r11, sp, r7
+    __ usub16(r11, r4, lr);                            // usub16 r11, r4, lr
+    __ uadd8(r2, sp, r7, Assembler::LO);               // uadd8LO r2, sp, r7
+    __ usub8(r8, r10, lr, Assembler::GT);              // usub8GT r8, r10, lr
+    __ uqadd16(r3, r12, sp);                           // uqadd16 r3, r12, sp
+    __ uqasx(r4, sp, r6);                              // uqasx r4, sp, r6
+    __ uqsax(r1, r10, lr);                             // uqsax r1, r10, lr
+    __ uqsub16(r2, sp, lr, Assembler::LE);             // uqsub16LE r2, sp, lr
+    __ uqadd8(r1, r12, r5);                            // uqadd8 r1, r12, r5
+    __ uqsub8(r0, r4, sp, Assembler::GT);              // uqsub8GT r0, r4, sp
+    __ uhadd16(r0, r10, r5, Assembler::HI);            // uhadd16HI r0, r10, r5
+    __ uhasx(r11, r4, r7, Assembler::LE);              // uhasxLE r11, r4, r7
+    __ uhsax(r1, lr, r9, Assembler::GE);               // uhsaxGE r1, lr, r9
+    __ uhsub16(r2, r11, lr);                           // uhsub16 r2, r11, lr
+    __ uhadd8(r9, r4, r5, Assembler::GE);              // uhadd8GE r9, r4, r5
+    __ uhsub8(r2, sp, lr, Assembler::HI);              // uhsub8HI r2, sp, lr
 
 // PKUPSATREV
-    __ sxtab16(r10, r3, r7, ::ror(16));                //       sxtab16 r10, r3, r7, ROR #16
-    __ sxtab(r9, r5, r7, ::ror(24), Assembler::CS);    //       sxtabCS r9, r5, r7, ROR #24
-    __ sxtah(r3, r5, r7, ::ror(8));                    //       sxtah r3, r5, r7, ROR #8
-    __ uxtab16(r8, r4, r6, ::ror(8), Assembler::AL);   //       uxtab16AL r8, r4, r6, ROR #8
-    __ uxtab(r0, r11, sp, ::rrx(), Assembler::EQ);     //       uxtabEQ r0, r11, sp, ROR #0
-    __ uxtah(r9, r12, r5, ::rrx());                    //       uxtah r9, r12, r5, ROR #0
+    __ sxtab16(r10, r3, r7, ::ror(16));                // sxtab16 r10, r3, r7, ROR #16
+    __ sxtab(r9, r5, r7, ::ror(24), Assembler::CS);    // sxtabCS r9, r5, r7, ROR #24
+    __ sxtah(r3, r5, r7, ::ror(8));                    // sxtah r3, r5, r7, ROR #8
+    __ uxtab16(r8, r4, r6, ::ror(8), Assembler::AL);   // uxtab16AL r8, r4, r6, ROR #8
+    __ uxtab(r0, r11, sp, ::rrx(), Assembler::EQ);     // uxtabEQ r0, r11, sp, ROR #0
+    __ uxtah(r9, r12, r5, ::rrx());                    // uxtah r9, r12, r5, ROR #0
 
 // PKUPSATREV
-    __ sxtb16(r3, r11, ::ror(16), Assembler::GE);      //       sxtb16GE r3, r11, ROR #16
-    __ sxtb(r2, r6, ::rrx(), Assembler::HI);           //       sxtbHI r2, r6, ROR #0
-    __ sxth(r3, sp, ::ror(24), Assembler::GT);         //       sxthGT r3, sp, ROR #24
-    __ uxtb16(r12, r5, ::ror(16));                     //       uxtb16 r12, r5, ROR #16
-    __ uxtb(r12, r5, ::ror(16));                       //       uxtb r12, r5, ROR #16
-    __ uxth(r8, r5, ::ror(16));                        //       uxth r8, r5, ROR #16
+    __ sxtb16(r3, r11, ::ror(16), Assembler::GE);      // sxtb16GE r3, r11, ROR #16
+    __ sxtb(r2, r6, ::rrx(), Assembler::HI);           // sxtbHI r2, r6, ROR #0
+    __ sxth(r3, sp, ::ror(24), Assembler::GT);         // sxthGT r3, sp, ROR #24
+    __ uxtb16(r12, r5, ::ror(16));                     // uxtb16 r12, r5, ROR #16
+    __ uxtb(r12, r5, ::ror(16));                       // uxtb r12, r5, ROR #16
+    __ uxth(r8, r5, ::ror(16));                        // uxth r8, r5, ROR #16
 
 // TwoRegNon
-    __ rev(r10, r4, Assembler::EQ);                    //       revEQ r10, r4
-    __ rev16(r8, r12, Assembler::GE);                  //       rev16GE r8, r12
-    __ rbit(lr, r7);                                   //       rbit lr, r7
-    __ revsh(sp, r7, Assembler::GT);                   //       revshGT sp, r7
+    __ rev(r10, r4, Assembler::EQ);                    // revEQ r10, r4
+    __ rev16(r8, r12, Assembler::GE);                  // rev16GE r8, r12
+    __ rbit(lr, r7);                                   // rbit lr, r7
+    __ revsh(sp, r7, Assembler::GT);                   // revshGT sp, r7
 
 // ThreeRegNon
-    __ sdiv(r9, sp, lr);                               //       sdiv r9, sp, lr
-    __ udiv(r2, r12, r6);                              //       udiv r2, r12, r6
+    __ sdiv(r9, sp, lr);                               // sdiv r9, sp, lr
+    __ udiv(r2, r12, r6);                              // udiv r2, r12, r6
 
 // TwoRegTwoImm
-    __ sbfx(r0, r1, (unsigned)20U, (unsigned)3U, Assembler::MI); //     sbfxMI r0, r1, #20, #3
-    __ ubfx(r9, r2, (unsigned)16U, (unsigned)15U);     //       ubfx r9, r2, #16, #15
-    __ bfi(r1, r11, (unsigned)27U, (unsigned)3U, Assembler::HI); //     bfiHI r1, r11, #27, #3
+    __ sbfx(r0, r1, (unsigned)20U, (unsigned)3U, Assembler::MI); // sbfxMI r0, r1, #20, #3
+    __ ubfx(r9, r2, (unsigned)16U, (unsigned)15U);     // ubfx r9, r2, #16, #15
+    __ bfi(r1, r11, (unsigned)27U, (unsigned)3U, Assembler::HI); // bfiHI r1, r11, #27, #3
 
 // TwoRegTwoImm
-    __ bfc(r3, (unsigned)7U, (unsigned)10U);           //       bfc r3, #7, #10
+    __ bfc(r3, (unsigned)7U, (unsigned)10U);           // bfc r3, #7, #10
 
 // MultipleMemOp
-    __ stmda(r6, 3435U, false);                        //       stmda r6, {r0, r1, r3, r5, r6, r8, r10, r11}
-    __ stmed(r4, 14559U, false);                       //       stmed r4, {r0, r1, r2, r3, r4, r6, r7, r11, r12, sp}
-    __ ldmda(r0, 57812U, false);                       //       ldmda r0, {r2, r4, r6, r7, r8, sp, lr, pc}
-    __ ldmfa(r12, 39027U, true);                       //       ldmfa r12!, {r0, r1, r4, r5, r6, r11, r12, pc}
-    __ stmia(r9, 12733U, true);                        //       stmia r9!, {r0, r2, r3, r4, r5, r7, r8, r12, sp}
-    __ stmea(r11, 21955U, false);                      //       stmea r11, {r0, r1, r6, r7, r8, r10, r12, lr}
-    __ ldmia(r12, 48418U, true);                       //       ldmia r12!, {r1, r5, r8, r10, r11, r12, sp, pc}
-    __ ldmfd(sp, 41226U, true);                        //       ldmfd sp!, {r1, r3, r8, sp, pc}
-    __ stmdb(r11, 8729U, true);                        //       stmdb r11!, {r0, r3, r4, r9, sp}
-    __ stmfd(r9, 36309U, true);                        //       stmfd r9!, {r0, r2, r4, r6, r7, r8, r10, r11, pc}
-    __ ldmdb(r5, 24667U, true);                        //       ldmdb r5!, {r0, r1, r3, r4, r6, sp, lr}
-    __ ldmea(r1, 37287U, false);                       //       ldmea r1, {r0, r1, r2, r5, r7, r8, r12, pc}
-    __ stmib(r11, 28266U, true);                       //       stmib r11!, {r1, r3, r5, r6, r9, r10, r11, sp, lr}
-    __ stmfa(r11, 17671U, false);                      //       stmfa r11, {r0, r1, r2, r8, r10, lr}
-    __ ldmib(r0, 21452U, true);                        //       ldmib r0!, {r2, r3, r6, r7, r8, r9, r12, lr}
-    __ ldmed(r1, 11751U, false);                       //       ldmed r1, {r0, r1, r2, r5, r6, r7, r8, r10, r11, sp}
+    __ stmda(r6, 3435U, false);                        // stmda r6, {r0, r1, r3, r5, r6, r8, r10, r11}
+    __ stmed(r4, 14559U, false);                       // stmed r4, {r0, r1, r2, r3, r4, r6, r7, r11, r12, sp}
+    __ ldmda(r0, 57812U, false);                       // ldmda r0, {r2, r4, r6, r7, r8, sp, lr, pc}
+    __ ldmfa(r12, 39027U, true);                       // ldmfa r12!, {r0, r1, r4, r5, r6, r11, r12, pc}
+    __ stmia(r9, 12733U, true);                        // stmia r9!, {r0, r2, r3, r4, r5, r7, r8, r12, sp}
+    __ stmea(r11, 21955U, false);                      // stmea r11, {r0, r1, r6, r7, r8, r10, r12, lr}
+    __ ldmia(r12, 48418U, true);                       // ldmia r12!, {r1, r5, r8, r10, r11, r12, sp, pc}
+    __ ldmfd(sp, 41226U, true);                        // ldmfd sp!, {r1, r3, r8, sp, pc}
+    __ stmdb(r11, 8729U, true);                        // stmdb r11!, {r0, r3, r4, r9, sp}
+    __ stmfd(r9, 36309U, true);                        // stmfd r9!, {r0, r2, r4, r6, r7, r8, r10, r11, pc}
+    __ ldmdb(r5, 24667U, true);                        // ldmdb r5!, {r0, r1, r3, r4, r6, sp, lr}
+    __ ldmea(r1, 37287U, false);                       // ldmea r1, {r0, r1, r2, r5, r7, r8, r12, pc}
+    __ stmib(r11, 28266U, true);                       // stmib r11!, {r1, r3, r5, r6, r9, r10, r11, sp, lr}
+    __ stmfa(r11, 17671U, false);                      // stmfa r11, {r0, r1, r2, r8, r10, lr}
+    __ ldmib(r0, 21452U, true);                        // ldmib r0!, {r2, r3, r6, r7, r8, r9, r12, lr}
+    __ ldmed(r1, 11751U, false);                       // ldmed r1, {r0, r1, r2, r5, r6, r7, r8, r10, r11, sp}
 
 // BranchLabel
-    __ b(forth, Assembler::CS);                        //       bCS forth
-    __ bl(__ pc(), Assembler::MI);                     //       blMI .
+    __ b(forth, Assembler::CS);                        // bCS forth
+    __ bl(__ pc(), Assembler::MI);                     // blMI .
 
 // OneRegNon
-    __ b(r0, Assembler::VS);                           //       bxVS r0
-    __ bl(r3);                                         //       blx r3
+    __ b(r0, Assembler::VS);                           // bxVS r0
+    __ bl(r3);                                         // blx r3
 
 // BranchLabel
-    __ b(__ pc(), Assembler::AL);                      //       bAL .
-    __ bl(__ pc());                                    //       bl .
+    __ b(__ pc(), Assembler::AL);                      // bAL .
+    __ bl(__ pc());                                    // bl .
 
 // OneRegNon
-    __ b(r0, Assembler::VS);                           //       bxVS r0
-    __ bl(r5);                                         //       blx r5
+    __ b(r0, Assembler::VS);                           // bxVS r0
+    __ bl(r5);                                         // blx r5
 
 // BranchLabel
-    __ b(forth, Assembler::LE);                        //       bLE forth
-    __ bl(__ pc(), Assembler::MI);                     //       blMI .
+    __ b(forth, Assembler::LE);                        // bLE forth
+    __ bl(__ pc(), Assembler::MI);                     // blMI .
 
 // OneRegNon
-    __ b(r9, Assembler::NE);                           //       bxNE r9
-    __ bl(r12);                                        //       blx r12
+    __ b(r9, Assembler::NE);                           // bxNE r9
+    __ bl(r12);                                        // blx r12
 
 // BranchLabel
-    __ b(back);                                        //       b back
-    __ bl(__ pc(), Assembler::HI);                     //       blHI .
+    __ b(back);                                        // b back
+    __ bl(__ pc(), Assembler::HI);                     // blHI .
 
 // OneRegNon
-    __ b(r1, Assembler::VC);                           //       bxVC r1
-    __ bl(r7, Assembler::GT);                          //       blxGT r7
+    __ b(r1, Assembler::VC);                           // bxVC r1
+    __ bl(r7, Assembler::GT);                          // blxGT r7
 
 // BranchLabel
-    __ b(back, Assembler::GE);                         //       bGE back
-    __ bl(__ pc(), Assembler::HI);                     //       blHI .
+    __ b(back, Assembler::GE);                         // bGE back
+    __ bl(__ pc(), Assembler::HI);                     // blHI .
 
 // OneRegNon
-    __ b(r12);                                         //       bx r12
-    __ bl(r7, Assembler::CC);                          //       blxCC r7
+    __ b(r12);                                         // bx r12
+    __ bl(r7, Assembler::CC);                          // blxCC r7
 
 // BranchLabel
-    __ b(__ pc());                                     //       b .
-    __ bl(back, Assembler::GT);                        //       blGT back
+    __ b(__ pc());                                     // b .
+    __ bl(back, Assembler::GT);                        // blGT back
 
 // OneRegNon
-    __ b(r1, Assembler::GE);                           //       bxGE r1
-    __ bl(r0);                                         //       blx r0
+    __ b(r1, Assembler::GE);                           // bxGE r1
+    __ bl(r0);                                         // blx r0
 
 // BranchLabel
-    __ b(__ pc());                                     //       b .
-    __ bl(forth);                                      //       bl forth
+    __ b(__ pc());                                     // b .
+    __ bl(forth);                                      // bl forth
 
 // OneRegNon
-    __ b(lr, Assembler::GT);                           //       bxGT lr
-    __ bl(r11, Assembler::NE);                         //       blxNE r11
+    __ b(lr, Assembler::GT);                           // bxGT lr
+    __ bl(r11, Assembler::NE);                         // blxNE r11
 
 // BranchLabel
-    __ b(__ pc(), Assembler::CS);                      //       bCS .
-    __ bl(__ pc());                                    //       bl .
+    __ b(__ pc(), Assembler::CS);                      // bCS .
+    __ bl(__ pc());                                    // bl .
 
 // OneRegNon
-    __ b(r10, Assembler::HS);                          //       bxHS r10
-    __ bl(r4);                                         //       blx r4
+    __ b(r10, Assembler::HS);                          // bxHS r10
+    __ bl(r4);                                         // blx r4
 
 // BranchLabel
-    __ b(back, Assembler::AL);                         //       bAL back
-    __ bl(__ pc());                                    //       bl .
+    __ b(back, Assembler::AL);                         // bAL back
+    __ bl(__ pc());                                    // bl .
 
 // OneRegNon
-    __ b(r12, Assembler::LO);                          //       bxLO r12
-    __ bl(r8);                                         //       blx r8
+    __ b(r12, Assembler::LO);                          // bxLO r12
+    __ bl(r8);                                         // blx r8
 
 // BranchLabel
-    __ b(forth);                                       //       b forth
-    __ bl(__ pc());                                    //       bl .
+    __ b(forth);                                       // b forth
+    __ bl(__ pc());                                    // bl .
 
 // OneRegNon
-    __ b(r10);                                         //       bx r10
-    __ bl(r1);                                         //       blx r1
+    __ b(r10);                                         // bx r10
+    __ bl(r1);                                         // blx r1
 
 // ThreeFltNon
-    __ vmla_f32(d2, d4, d6, Assembler::MI);            //       vmlaMI.f32 s4, s8, s12
-    __ vmls_f32(d2, d5, d5);                           //       vmls.f32 s4, s10, s10
-    __ vnmla_f32(d1, d5, d6);                          //       vnmla.f32 s2, s10, s12
-    __ vnmls_f32(d4, d3, d4, Assembler::LT);           //       vnmlsLT.f32 s8, s6, s8
-    __ vnmul_f32(d3, d6, d7, Assembler::MI);           //       vnmulMI.f32 s6, s12, s14
-    __ vadd_f32(d0, d1, d0);                           //       vadd.f32 s0, s2, s0
-    __ vsub_f32(d1, d2, d5, Assembler::AL);            //       vsubAL.f32 s2, s4, s10
-    __ vdiv_f32(d0, d1, d6, Assembler::CS);            //       vdivCS.f32 s0, s2, s12
+    __ vmla_f32(d2, d4, d6, Assembler::MI);            // vmlaMI.f32 s4, s8, s12
+    __ vmls_f32(d2, d5, d5);                           // vmls.f32 s4, s10, s10
+    __ vnmla_f32(d1, d5, d6);                          // vnmla.f32 s2, s10, s12
+    __ vnmls_f32(d4, d3, d4, Assembler::LT);           // vnmlsLT.f32 s8, s6, s8
+    __ vnmul_f32(d3, d6, d7, Assembler::MI);           // vnmulMI.f32 s6, s12, s14
+    __ vadd_f32(d0, d1, d0);                           // vadd.f32 s0, s2, s0
+    __ vsub_f32(d1, d2, d5, Assembler::AL);            // vsubAL.f32 s2, s4, s10
+    __ vdiv_f32(d0, d1, d6, Assembler::CS);            // vdivCS.f32 s0, s2, s12
 
 // ThreeFltNon
-    __ vmla_f64(d0, d3, d6);                           //       vmla.f64 d0, d3, d6
-    __ vmls_f64(d0, d1, d5);                           //       vmls.f64 d0, d1, d5
-    __ vnmla_f64(d1, d4, d6);                          //       vnmla.f64 d1, d4, d6
-    __ vnmls_f64(d0, d1, d1, Assembler::NE);           //       vnmlsNE.f64 d0, d1, d1
-    __ vnmul_f64(d3, d5, d5, Assembler::NE);           //       vnmulNE.f64 d3, d5, d5
-    __ vadd_f64(d0, d2, d4, Assembler::LO);            //       vaddLO.f64 d0, d2, d4
-    __ vsub_f64(d1, d2, d4);                           //       vsub.f64 d1, d2, d4
-    __ vdiv_f64(d0, d1, d5, Assembler::MI);            //       vdivMI.f64 d0, d1, d5
+    __ vmla_f64(d0, d3, d6);                           // vmla.f64 d0, d3, d6
+    __ vmls_f64(d0, d1, d5);                           // vmls.f64 d0, d1, d5
+    __ vnmla_f64(d1, d4, d6);                          // vnmla.f64 d1, d4, d6
+    __ vnmls_f64(d0, d1, d1, Assembler::NE);           // vnmlsNE.f64 d0, d1, d1
+    __ vnmul_f64(d3, d5, d5, Assembler::NE);           // vnmulNE.f64 d3, d5, d5
+    __ vadd_f64(d0, d2, d4, Assembler::LO);            // vaddLO.f64 d0, d2, d4
+    __ vsub_f64(d1, d2, d4);                           // vsub.f64 d1, d2, d4
+    __ vdiv_f64(d0, d1, d5, Assembler::MI);            // vdivMI.f64 d0, d1, d5
 
 // TwoFltNon
-    __ vabs_f32(d3, d3);                               //       vabs.f32 s6, s6
-    __ vneg_f32(d3, d4, Assembler::PL);                //       vnegPL.f32 s6, s8
-    __ vsqrt_f32(d0, d4);                              //       vsqrt.f32 s0, s8
+    __ vabs_f32(d3, d3);                               // vabs.f32 s6, s6
+    __ vneg_f32(d3, d4, Assembler::PL);                // vnegPL.f32 s6, s8
+    __ vsqrt_f32(d0, d4);                              // vsqrt.f32 s0, s8
 
 // TwoFltNon
-    __ vabs_f64(d0, d4);                               //       vabs.f64 d0, d4
-    __ vneg_f64(d1, d4);                               //       vneg.f64 d1, d4
-    __ vsqrt_f64(d0, d1);                              //       vsqrt.f64 d0, d1
+    __ vabs_f64(d0, d4);                               // vabs.f64 d0, d4
+    __ vneg_f64(d1, d4);                               // vneg.f64 d1, d4
+    __ vsqrt_f64(d0, d1);                              // vsqrt.f64 d0, d1
 
 // vmov_f32
-    __ vmov_f32(d0, lr, Assembler::PL);                //       vmovPL.f32 s0, lr
+    __ vmov_f32(d0, lr, Assembler::PL);                // vmovPL.f32 s0, lr
 
 // vmov_f32
-    __ vmov_f32(r11, d4);                              //       vmov.f32 r11, s8
+    __ vmov_f32(r11, d4);                              // vmov.f32 r11, s8
 
 // vmov_f64
-    __ vmov_f64(d1, r11, lr, Assembler::LT);           //       vmovLT.f64 d1, r11, lr
+    __ vmov_f64(d1, r11, lr, Assembler::LT);           // vmovLT.f64 d1, r11, lr
 
 // vmov_f64
-    __ vmov_f64(r7, r5, d5);                           //       vmov.f64 r7, r5, d5
+    __ vmov_f64(r7, r5, d5);                           // vmov.f64 r7, r5, d5
 
 // vmov_f32
-    __ vmov_f32(d4, d6);                               //       vmov.f32 s8, s12
+    __ vmov_f32(d4, d6);                               // vmov.f32 s8, s12
 
 // vmov_f64
-    __ vmov_f64(d1, d2, Assembler::HI);                //       vmovHI.f64 d1, d2
+    __ vmov_f64(d1, d2, Assembler::HI);                // vmovHI.f64 d1, d2
 
 // vmov_f32
-    __ vmov_f32(d2, 1.0f, Assembler::VS);              //       vmovVS.f32 s4, #1.0
+    __ vmov_f32(d2, 1.0f, Assembler::VS);              // vmovVS.f32 s4, #1.0
 
 // vmov_f64
-    __ vmov_f64(d2, 1.0);                              //       vmov.f64 d2, #1.0
+    __ vmov_f64(d2, 1.0);                              // vmov.f64 d2, #1.0
 
 // vmov_f32
-    __ vmov_f32(d3, 2.0f);                             //       vmov.f32 s6, #2.0
+    __ vmov_f32(d3, 2.0f);                             // vmov.f32 s6, #2.0
 
 // vmov_f64
-    __ vmov_f64(d1, 2.0);                              //       vmov.f64 d1, #2.0
+    __ vmov_f64(d1, 2.0);                              // vmov.f64 d1, #2.0
 
 // vector memory
-    __ vldr_f32(d2, Address(r5, 116));                 //       vldr.f32 s4, [r5, #116]
-    __ vstr_f32(d1, Address(r1, 56), Assembler::CC);   //       vstrCC.f32 s2, [r1, #56]
+    __ vldr_f32(d2, Address(r5, 116));                 // vldr.f32 s4, [r5, #116]
+    __ vstr_f32(d1, Address(r1, 56), Assembler::CC);   // vstrCC.f32 s2, [r1, #56]
 
 // vector memory
-    __ vldr_f64(d7, Address(r5, 16), Assembler::NE);   //       vldrNE.f64 d7, [r5, #16]
-    __ vstr_f64(d6, Address(r1, 228));                 //       vstr.f64 d6, [r1, #228]
+    __ vldr_f64(d7, Address(r5, 16), Assembler::NE);   // vldrNE.f64 d7, [r5, #16]
+    __ vstr_f64(d6, Address(r1, 228));                 // vstr.f64 d6, [r1, #228]
 
     __ bind(near_flt);
 
 // vector memory
-    __ vldr_f32(d1, near_post_flt);                    //       vldr.f32 s2, near_post_flt
-    __ vstr_f32(d3, near_post_flt);                    //       vstr.f32 s6, near_post_flt
+    __ vldr_f32(d1, near_post_flt);                    // vldr.f32 s2, near_post_flt
+    __ vstr_f32(d3, near_post_flt);                    // vstr.f32 s6, near_post_flt
 
 // vector memory
-    __ vldr_f64(d2, near_flt, Assembler::LT);          //       vldrLT.f64 d2, near_flt
-    __ vstr_f64(d3, __ pc(), Assembler::GT);           //       vstrGT.f64 d3, .
+    __ vldr_f64(d2, near_flt, Assembler::LT);          // vldrLT.f64 d2, near_flt
+    __ vstr_f64(d3, __ pc(), Assembler::GT);           // vstrGT.f64 d3, .
 
 // vector memory
-    __ vldr_f32(d2, near_post_flt, Assembler::CC);     //       vldrCC.f32 s4, near_post_flt
-    __ vstr_f32(d0, near_post_flt);                    //       vstr.f32 s0, near_post_flt
+    __ vldr_f32(d2, near_post_flt, Assembler::CC);     // vldrCC.f32 s4, near_post_flt
+    __ vstr_f32(d0, near_post_flt);                    // vstr.f32 s0, near_post_flt
 
 // vector memory
-    __ vldr_f64(d4, near_post_flt, Assembler::GT);     //       vldrGT.f64 d4, near_post_flt
-    __ vstr_f64(d0, near_flt);                         //       vstr.f64 d0, near_flt
+    __ vldr_f64(d4, near_post_flt, Assembler::GT);     // vldrGT.f64 d4, near_post_flt
+    __ vstr_f64(d0, near_flt);                         // vstr.f64 d0, near_flt
 
 // vector memory
-    __ vldr_f32(d4, near_post_flt);                    //       vldr.f32 s8, near_post_flt
-    __ vstr_f32(d3, near_post_flt);                    //       vstr.f32 s6, near_post_flt
+    __ vldr_f32(d4, near_post_flt);                    // vldr.f32 s8, near_post_flt
+    __ vstr_f32(d3, near_post_flt);                    // vstr.f32 s6, near_post_flt
 
 // vector memory
-    __ vldr_f64(d4, near_flt, Assembler::PL);          //       vldrPL.f64 d4, near_flt
-    __ vstr_f64(d5, near_flt);                         //       vstr.f64 d5, near_flt
+    __ vldr_f64(d4, near_flt, Assembler::PL);          // vldrPL.f64 d4, near_flt
+    __ vstr_f64(d5, near_flt);                         // vstr.f64 d5, near_flt
 
 // vector memory
-    __ vldr_f32(d4, near_post_flt, Assembler::LS);     //       vldrLS.f32 s8, near_post_flt
-    __ vstr_f32(d6, __ pc(), Assembler::CC);           //       vstrCC.f32 s12, .
+    __ vldr_f32(d4, near_post_flt, Assembler::LS);     // vldrLS.f32 s8, near_post_flt
+    __ vstr_f32(d6, __ pc(), Assembler::CC);           // vstrCC.f32 s12, .
 
 // vector memory
-    __ vldr_f64(d6, near_post_flt, Assembler::AL);     //       vldrAL.f64 d6, near_post_flt
-    __ vstr_f64(d1, near_post_flt, Assembler::LT);     //       vstrLT.f64 d1, near_post_flt
+    __ vldr_f64(d6, near_post_flt, Assembler::AL);     // vldrAL.f64 d6, near_post_flt
+    __ vstr_f64(d1, near_post_flt, Assembler::LT);     // vstrLT.f64 d1, near_post_flt
 
     __ bind(near_post_flt);
 
 // FltMultMemOp
-    __ vldmia_f32(r1, 4U, false);                      //       vldmia.f32 r1, {s4}
-    __ vstmia_f32(r6, 4U, true, Assembler::CS);        //       vstmiaCS.f32 r6!, {s4}
+    __ vldmia_f32(r1, 4U, false);                      // vldmia.f32 r1, {s4}
+    __ vstmia_f32(r6, 4U, true, Assembler::CS);        // vstmiaCS.f32 r6!, {s4}
 
 // DblMultMemOp
-    __ vldmia_f64(r9, 30U, true);                      //       vldmia.f64 r9!, {d1, d2, d3, d4}
-    __ vstmia_f64(r3, 192U, true);                     //       vstmia.f64 r3!, {d6, d7}
+    __ vldmia_f64(r9, 30U, true);                      // vldmia.f64 r9!, {d1, d2, d3, d4}
+    __ vstmia_f64(r3, 192U, true);                     // vstmia.f64 r3!, {d6, d7}
 
 // FltMultMemOp
-    __ vldmdb_f32(r2, 8U, Assembler::VS);              //       vldmdbVS.f32 r2!, {s6}
-    __ vstmdb_f32(r6, 128U);                           //       vstmdb.f32 r6!, {s14}
+    __ vldmdb_f32(r2, 8U, Assembler::VS);              // vldmdbVS.f32 r2!, {s6}
+    __ vstmdb_f32(r6, 128U);                           // vstmdb.f32 r6!, {s14}
 
 // DblMultMemOp
-    __ vldmdb_f64(sp, 240U);                           //       vldmdb.f64 sp!, {d4, d5, d6, d7}
-    __ vstmdb_f64(r0, 224U);                           //       vstmdb.f64 r0!, {d5, d6, d7}
+    __ vldmdb_f64(sp, 240U);                           // vldmdb.f64 sp!, {d4, d5, d6, d7}
+    __ vstmdb_f64(r0, 224U);                           // vstmdb.f64 r0!, {d5, d6, d7}
 
 // vcmp_f32
-    __ vcmp_f32(d1, d1);                               //       vcmp.f32 s2, s2
+    __ vcmp_f32(d1, d1);                               // vcmp.f32 s2, s2
 
 // vcmpe_f32
-    __ vcmpe_f32(d4, d4, Assembler::VC);               //       vcmpeVC.f32 s8, s8
+    __ vcmpe_f32(d4, d4, Assembler::VC);               // vcmpeVC.f32 s8, s8
 
 // vcmp_f64
-    __ vcmp_f64(d0, d6);                               //       vcmp.f64 d0, d6
+    __ vcmp_f64(d0, d6);                               // vcmp.f64 d0, d6
 
 // vcmpe_f64
-    __ vcmpe_f64(d3, d7, Assembler::GE);               //       vcmpeGE.f64 d3, d7
+    __ vcmpe_f64(d3, d7, Assembler::GE);               // vcmpeGE.f64 d3, d7
 
 // vcmp_f32
-    __ vcmp_f32(d1, 0.0f, Assembler::LT);              //       vcmpLT.f32 s2, #0.0
+    __ vcmp_f32(d1, 0.0f, Assembler::LT);              // vcmpLT.f32 s2, #0.0
 
 // vcmpe_f32
-    __ vcmpe_f32(d7, 0.0f, Assembler::GT);             //       vcmpeGT.f32 s14, #0.0
+    __ vcmpe_f32(d7, 0.0f, Assembler::GT);             // vcmpeGT.f32 s14, #0.0
 
 // vcmp_f64
-    __ vcmp_f64(d4, 0.0);                              //       vcmp.f64 d4, #0.0
+    __ vcmp_f64(d4, 0.0);                              // vcmp.f64 d4, #0.0
 
 // vcmpe_f64
-    __ vcmpe_f64(d1, 0.0);                             //       vcmpe.f64 d1, #0.0
+    __ vcmpe_f64(d1, 0.0);                             // vcmpe.f64 d1, #0.0
 
 // vcvt
-    __ vcvt_s32_f32(d1, d3, Assembler::VS);            //       vcvtVS.s32.f32 s2, s6
-    __ vcvt_u32_f32(d3, d7, Assembler::GT);            //       vcvtGT.u32.f32 s6, s14
-    __ vcvt_f32_s32(d0, d1, Assembler::CC);            //       vcvtCC.f32.s32 s0, s2
-    __ vcvt_f32_u32(d1, d2, Assembler::CC);            //       vcvtCC.f32.u32 s2, s4
+    __ vcvt_s32_f32(d1, d3, Assembler::VS);            // vcvtVS.s32.f32 s2, s6
+    __ vcvt_u32_f32(d3, d7, Assembler::GT);            // vcvtGT.u32.f32 s6, s14
+    __ vcvt_f32_s32(d0, d1, Assembler::CC);            // vcvtCC.f32.s32 s0, s2
+    __ vcvt_f32_u32(d1, d2, Assembler::CC);            // vcvtCC.f32.u32 s2, s4
 
 // vcvt
-    __ vcvt_s32_f64(d2, d4, Assembler::HI);            //       vcvtHI.s32.f64 s4, d4
-    __ vcvt_u32_f64(d3, d6, Assembler::HI);            //       vcvtHI.u32.f64 s6, d6
-    __ vcvt_f32_f64(d3, d7, Assembler::LS);            //       vcvtLS.f32.f64 s6, d7
+    __ vcvt_s32_f64(d2, d4, Assembler::HI);            // vcvtHI.s32.f64 s4, d4
+    __ vcvt_u32_f64(d3, d6, Assembler::HI);            // vcvtHI.u32.f64 s6, d6
+    __ vcvt_f32_f64(d3, d7, Assembler::LS);            // vcvtLS.f32.f64 s6, d7
 
 // vcvt
-    __ vcvt_f64_s32(d3, d4);                           //       vcvt.f64.s32 d3, s8
-    __ vcvt_f64_u32(d5, d7, Assembler::EQ);            //       vcvtEQ.f64.u32 d5, s14
-    __ vcvt_f64_f32(d4, d5, Assembler::AL);            //       vcvtAL.f64.f32 d4, s10
+    __ vcvt_f64_s32(d3, d4);                           // vcvt.f64.s32 d3, s8
+    __ vcvt_f64_u32(d5, d7, Assembler::EQ);            // vcvtEQ.f64.u32 d5, s14
+    __ vcvt_f64_f32(d4, d5, Assembler::AL);            // vcvtAL.f64.f32 d4, s10
 
 // BKPT
-    __ bkpt((unsigned)26U);                            //       bkpt #26
+    __ bkpt((unsigned)26U);                            // bkpt #26
 
     __ bind(forth);
 
@@ -1603,8 +1603,8 @@ void Assembler::mov_immediate(Register dst, uint32_t imm32, Condition cond, bool
 //This should really be in the macroassembler
 void Assembler::mov_immediate32(Register dst, u_int32_t imm32, Condition cond, bool s)
 {
-        // Need to move a full 32 bit immediate, for example if we're loading an address that
-        // might change later and therefore need to be updated.
+  // Need to move a full 32 bit immediate, for example if we're loading an address that
+  // might change later and therefore need to be updated.
   if (VM_Version::features() & (FT_ARMV7 | FT_ARMV6T2))  {
     //Use a movw and a movt
     Assembler::movw_i(dst, (unsigned)(imm32 & 0xffff), cond);
@@ -1614,13 +1614,13 @@ void Assembler::mov_immediate32(Register dst, u_int32_t imm32, Condition cond, b
       Assembler::cmp(dst, 0);
     }
   } else {
-        // Sadly we don't have movw, movt
-        // instead emit a mov and three orr
-        mov_i(dst,    imm32 & (0xff      ), cond);
-        orr(dst, dst, imm32 & (0xff << 8 ), cond);
-        orr(dst, dst, imm32 & (0xff << 16), cond);
-        if(s) orrs(dst, dst, imm32 & (0xff << 24), cond);
-        else  orr (dst, dst, imm32 & (0xff << 24), cond);
+    // Sadly we don't have movw, movt
+    // instead emit a mov and three orr
+    mov_i(dst,    imm32 & (0xff      ), cond);
+    orr(dst, dst, imm32 & (0xff << 8 ), cond);
+    orr(dst, dst, imm32 & (0xff << 16), cond);
+    if(s) orrs(dst, dst, imm32 & (0xff << 24), cond);
+    else  orr (dst, dst, imm32 & (0xff << 24), cond);
   }
 }
 

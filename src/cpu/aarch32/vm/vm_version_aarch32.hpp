@@ -31,19 +31,19 @@
 #include "runtime/vm_version.hpp"
 
 enum ProcessorFeatures {
-        FT_NONE = 0,
-        FT_HW_DIVIDE = 1,
-        FT_VFPV2 = 2,
-        FT_VFPV3 = 4,
-        FT_ARMV7 = 8,
-        FT_ARMV6T2 = 16,
-        FT_ARMV6K = 32,
-        FT_SINGLE_CORE = 64
+  FT_NONE = 0,
+  FT_HW_DIVIDE = 1,
+  FT_VFPV2 = 2,
+  FT_VFPV3 = 4,
+  FT_ARMV7 = 8,
+  FT_ARMV6T2 = 16,
+  FT_ARMV6K = 32,
+  FT_SINGLE_CORE = 64
 };
 
 class VM_Version : public Abstract_VM_Version {
  public:
-        // Processor feature lookup.
+  // Processor feature lookup.
 
   enum {
     CPU_ARM       = 'A',
@@ -63,17 +63,17 @@ class VM_Version : public Abstract_VM_Version {
   static void initialize();
 
  private:
-        static enum ProcessorFeatures _features;
-        static const char* _cpu_features;
+  static enum ProcessorFeatures _features;
+  static const char* _cpu_features;
 
   static void get_processor_features();
-        static bool identify_procline(const char *tag, char **line);
+  static bool identify_procline(const char *tag, char **line);
 
  public:
-        static enum ProcessorFeatures features() {
-                return _features;
-        }
-        static const char* cpu_features() { return _cpu_features; }
+  static enum ProcessorFeatures features() {
+    return _features;
+  }
+  static const char* cpu_features() { return _cpu_features; }
 };
 
 #endif // CPU_AARCH32_VM_VM_VERSION_AARCH32_HPP

@@ -422,48 +422,48 @@ void InterpreterMacroAssembler::dispatch_base(TosState state,
     verify_oop(r0, state);
   }
 
-        /* Debugging code */
-        bytecode_seen(rscratch1, r3);
+  /* Debugging code */
+  bytecode_seen(rscratch1, r3);
 
-        /*{
-                Label skip;
+  /*{
+    Label skip;
 
-                mov(r3, (address)&MacroAssembler::bytecodes_executed);
-                ldr(r2, r3);
-                add(r2, r2, 1);
-                str(r2, r3);
-                // Print out every 16384 (needs to be a power of two).
-                mov(r3, 16384 - 1);
-                tst(r2, r3);
-                b(skip, Assembler::NE);
-                reg_printf_important("Executed %d bytecodes.\n", r2);
-                bind(skip);
-        }*/
+    mov(r3, (address)&MacroAssembler::bytecodes_executed);
+    ldr(r2, r3);
+    add(r2, r2, 1);
+    str(r2, r3);
+    // Print out every 16384 (needs to be a power of two).
+    mov(r3, 16384 - 1);
+    tst(r2, r3);
+    b(skip, Assembler::NE);
+    reg_printf_important("Executed %d bytecodes.\n", r2);
+    bind(skip);
+  }*/
 
 
-        /*mov(r3, (address)&MacroAssembler::bytecodes_until_print);
-        ldr(r2, Address(r3));
-        cmp(r2, 0);
+  /*mov(r3, (address)&MacroAssembler::bytecodes_until_print);
+  ldr(r2, Address(r3));
+  cmp(r2, 0);
 
-        sub(r2, r2, 1, Assembler::NE);
-        str(r2, Address(r3), Assembler::NE);
+  sub(r2, r2, 1, Assembler::NE);
+  str(r2, Address(r3), Assembler::NE);
 
-        mov(r2, 1, Assembler::EQ);
-        mov(r3, (address)&MacroAssembler::enable_debug, Assembler::EQ);
-        str(r2, Address(r3), Assembler::EQ);
+  mov(r2, 1, Assembler::EQ);
+  mov(r3, (address)&MacroAssembler::enable_debug, Assembler::EQ);
+  str(r2, Address(r3), Assembler::EQ);
 
-        mov(r3, (address)&MacroAssembler::enable_method_debug, Assembler::EQ);
-        str(r2, Address(r3), Assembler::EQ);*/
+  mov(r3, (address)&MacroAssembler::enable_method_debug, Assembler::EQ);
+  str(r2, Address(r3), Assembler::EQ);*/
 
-        /*Label end;
-        cmp(r2, 0);
-        b(end, Assembler::NE);
-        stop("got to end of bytecodes");
-        bind(end);*/
+  /*Label end;
+  cmp(r2, 0);
+  b(end, Assembler::NE);
+  stop("got to end of bytecodes");
+  bind(end);*/
 
-        get_bytecode(r14, rscratch1);
-        reg_printf("Dispatching bytecode %s (%d) @ BCP = %p\n", r14, rscratch1, rbcp);
-        /* End debugging code */
+  get_bytecode(r14, rscratch1);
+  reg_printf("Dispatching bytecode %s (%d) @ BCP = %p\n", r14, rscratch1, rbcp);
+  /* End debugging code */
 
 
   if (table == Interpreter::dispatch_table(state)) {
@@ -580,7 +580,7 @@ void InterpreterMacroAssembler::remove_activation(
   bind(unlocked);
 
   // r0: Might contain return value
-        // FIXME r1 : Might contain the value too
+  // FIXME r1 : Might contain the value too
 
   // Check that all monitors are unlocked
   {
@@ -788,7 +788,7 @@ void InterpreterMacroAssembler::unlock_object(Register lock_reg)
   } else {
     Label done;
 
-                //create_breakpoint();
+    //create_breakpoint();
     const Register swap_reg   = c_rarg0;
     const Register header_reg = c_rarg2;  // Will contain the old oopMark
     const Register obj_reg    = c_rarg3;  // Will contain the oop

@@ -58,8 +58,8 @@
 address AbstractInterpreterGenerator::generate_slow_signature_handler() {
   address entry = __ pc();
 
-        // The sp should be aligned on entry to the bottom of where the integer args
-        // need to be copied to.
+  // The sp should be aligned on entry to the bottom of where the integer args
+  // need to be copied to.
 
   // rmethod
   // rlocals
@@ -128,7 +128,7 @@ address InterpreterGenerator::generate_math_entry(AbstractInterpreter::MethodKin
   // r13: sender sp
   // esp: args
 
-        //if (!InlineIntrinsics) return NULL; // Generate a vanilla entry
+  //if (!InlineIntrinsics) return NULL; // Generate a vanilla entry
   // FIXME currently ignoring this flag and inlining anyway
 
   // These don't need a safepoint check because they aren't virtually

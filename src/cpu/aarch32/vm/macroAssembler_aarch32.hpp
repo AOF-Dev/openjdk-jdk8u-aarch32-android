@@ -92,7 +92,7 @@ class MacroAssembler: public Assembler {
   void call_VM_helper(Register oop_result, address entry_point, int number_of_arguments, bool check_exceptions = true);
 
  public:
-        void init_unseen_bytecodes();
+  void init_unseen_bytecodes();
   MacroAssembler(CodeBuffer* code) : Assembler(code) { init_unseen_bytecodes();}
 
   // Biased locking support
@@ -690,33 +690,33 @@ public:
   //address read_polling_page(Register r, relocInfo::relocType rtype);
 
 
-        // Auto dispatch for barriers isb, dmb & dsb.
-        void isb() {
-                if(VM_Version::features() & FT_ARMV7) {
-                        Assembler::isb();
-                } else {
-                        cp15isb();
-                }
-        }
+  // Auto dispatch for barriers isb, dmb & dsb.
+  void isb() {
+    if(VM_Version::features() & FT_ARMV7) {
+      Assembler::isb();
+    } else {
+      cp15isb();
+    }
+  }
 
-        void dsb(enum barrier option) {
-                if(VM_Version::features() & FT_ARMV7) {
-                        Assembler::dsb(option);
-                } else {
-                        cp15dsb();
-                }
+  void dsb(enum barrier option) {
+    if(VM_Version::features() & FT_ARMV7) {
+      Assembler::dsb(option);
+    } else {
+      cp15dsb();
+    }
   }
 
   void dmb(enum barrier option) {
-                if(VM_Version::features() & FT_ARMV7) {
-                        Assembler::dmb(option);
-                } else {
-                        cp15dmb();
-                }
+    if(VM_Version::features() & FT_ARMV7) {
+      Assembler::dmb(option);
+    } else {
+      cp15dmb();
+    }
   }
 
   void membar(Membar_mask_bits order_constraint) {
-          dmb(Assembler::barrier(order_constraint));
+    dmb(Assembler::barrier(order_constraint));
   }
 
   // ISB may be needed because of a safepoint
@@ -727,13 +727,13 @@ public:
   void mult_long(Register Rd, Register Rn, Register Rm);
 
  private:
-        void divide32(Register res, Register num, Register den, bool want_mod);
+  void divide32(Register res, Register num, Register den, bool want_mod);
  public:
-        // <Rd+1:Rd> = <Rn+1:Rn> / <Rm+1:Rm>
-        // <Rd+1:Rd> = <Rn+1:Rn> % <Rm+1:Rm>
-        // <Rd> = <Rn> / <Rm>
-        // <Rd> = <Rn> % <Rm>
-        void divide(Register Rd, Register Rn, Register Rm, int width, bool want_remainder);
+  // <Rd+1:Rd> = <Rn+1:Rn> / <Rm+1:Rm>
+  // <Rd+1:Rd> = <Rn+1:Rn> % <Rm+1:Rm>
+  // <Rd> = <Rn> / <Rm>
+  // <Rd> = <Rn> % <Rm>
+  void divide(Register Rd, Register Rn, Register Rm, int width, bool want_remainder);
 
   void extract_bits(Register dest, Register source, int lsb, int width);
 
@@ -750,8 +750,8 @@ public:
   void save_machine_state();
   void restore_machine_state();
 
-        static uint32_t bytecodes_until_print;
-        static uint32_t bytecodes_executed;
+  static uint32_t bytecodes_until_print;
+  static uint32_t bytecodes_executed;
   static int enable_debug;
   static int enable_method_debug;
   static int enable_debugging_static;

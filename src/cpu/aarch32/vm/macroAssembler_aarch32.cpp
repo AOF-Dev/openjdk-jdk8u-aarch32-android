@@ -85,7 +85,7 @@ int MacroAssembler::pd_patch_instruction_size(address branch, address target) {
   } else if (0b0011 == opc) {
     // Movw, Movt or mov, orr, orr, orr
     // patch up address load to registers (absolute address).
-          instructions = patch_oop(branch, target) / NativeInstruction::instruction_size;
+    instructions = patch_oop(branch, target) / NativeInstruction::instruction_size;
   } else if (0b010 == (opc >> 1)) {
     // LDR, LDRB, STR, STRB
     Instruction_aarch32::patch(branch, 11, 0, uabs(offset));
@@ -114,34 +114,34 @@ int MacroAssembler::pd_patch_instruction_size(address branch, address target) {
 }
 
 int MacroAssembler::patch_oop(address insn_addr, address o) {
-        unsigned insn = *(unsigned*)insn_addr;
-        int opc = Instruction_aarch32::extract(insn, 27, 21);
-        if(0b0011000 == opc) {
-                //32-bit pointers, formed of a mov and a movt
-                assert(nativeInstruction_at(insn_addr+4)->is_movt(), "wrong insns in patch");
+  unsigned insn = *(unsigned*)insn_addr;
+  int opc = Instruction_aarch32::extract(insn, 27, 21);
+  if(0b0011000 == opc) {
+    //32-bit pointers, formed of a mov and a movt
+    assert(nativeInstruction_at(insn_addr+4)->is_movt(), "wrong insns in patch");
 
-                uint32_t btm = (uint32_t)o & 0xffff;
-                Instruction_aarch32::patch(insn_addr, 19, 16, btm >> 12);
-                Instruction_aarch32::patch(insn_addr, 11, 0, btm & 0xfff);
-                uint32_t top = (uint32_t)o >> 16;
-                Instruction_aarch32::patch(insn_addr + 4, 19, 16, top >> 12);
-                Instruction_aarch32::patch(insn_addr + 4, 11, 0, top & 0xfff);
-                return 2 * NativeInstruction::instruction_size;
+    uint32_t btm = (uint32_t)o & 0xffff;
+    Instruction_aarch32::patch(insn_addr, 19, 16, btm >> 12);
+    Instruction_aarch32::patch(insn_addr, 11, 0, btm & 0xfff);
+    uint32_t top = (uint32_t)o >> 16;
+    Instruction_aarch32::patch(insn_addr + 4, 19, 16, top >> 12);
+    Instruction_aarch32::patch(insn_addr + 4, 11, 0, top & 0xfff);
+    return 2 * NativeInstruction::instruction_size;
   } else if(0b0011101 == opc) {
-        //Instead 32bit load sequence uses mov, orr, orr, orr
-        assert(nativeInstruction_at(insn_addr+4 )->is_orr(), "wrong insns in patch");
-        assert(nativeInstruction_at(insn_addr+8 )->is_orr(), "wrong insns in patch");
-        assert(nativeInstruction_at(insn_addr+12)->is_orr(), "wrong insns in patch");
-        // FIXME this could carry us outside valid memory
+    //Instead 32bit load sequence uses mov, orr, orr, orr
+    assert(nativeInstruction_at(insn_addr+4 )->is_orr(), "wrong insns in patch");
+    assert(nativeInstruction_at(insn_addr+8 )->is_orr(), "wrong insns in patch");
+    assert(nativeInstruction_at(insn_addr+12)->is_orr(), "wrong insns in patch");
+    // FIXME this could carry us outside valid memory
 
-        uint32_t addr = (uint32_t)o;
-        Instruction_aarch32::patch(insn_addr + 0,  11, 0, (0b0000 << 8) | ((addr >>  0) & 0xff));
-        Instruction_aarch32::patch(insn_addr + 4,  11, 0, (0b1100 << 8) | ((addr >>  8) & 0xff));
-        Instruction_aarch32::patch(insn_addr + 8,  11, 0, (0b1000 << 8) | ((addr >> 16) & 0xff));
-        Instruction_aarch32::patch(insn_addr + 12, 11, 0, (0b0100 << 8) | ((addr >> 24) & 0xff));
-        return 4 * NativeInstruction::instruction_size;
+    uint32_t addr = (uint32_t)o;
+    Instruction_aarch32::patch(insn_addr + 0,  11, 0, (0b0000 << 8) | ((addr >>  0) & 0xff));
+    Instruction_aarch32::patch(insn_addr + 4,  11, 0, (0b1100 << 8) | ((addr >>  8) & 0xff));
+    Instruction_aarch32::patch(insn_addr + 8,  11, 0, (0b1000 << 8) | ((addr >> 16) & 0xff));
+    Instruction_aarch32::patch(insn_addr + 12, 11, 0, (0b0100 << 8) | ((addr >> 24) & 0xff));
+    return 4 * NativeInstruction::instruction_size;
   } else {
-        ShouldNotReachHere();
+    ShouldNotReachHere();
   }
   return 0; //won't reach here
 }
@@ -157,28 +157,28 @@ address MacroAssembler::target_addr_for_insn(address insn_addr, unsigned insn) {
     unsigned *insn_buf = (unsigned*)insn_addr;
     int opc2 = Instruction_aarch32::extract(insn, 23, 21);
     if(0b000 == opc2) {
-        // movw, movt (only on newer ARMs)
-                  assert(nativeInstruction_at(&insn_buf[1])->is_movt(), "wrong insns in patch");
-                  u_int32_t addr;
-                  addr  = Instruction_aarch32::extract(insn_buf[1], 19, 16) << 28;
-                  addr |= Instruction_aarch32::extract(insn_buf[1], 11, 0) << 16;
-                  addr |= Instruction_aarch32::extract(insn_buf[0], 19, 16) << 12;
-                  addr |= Instruction_aarch32::extract(insn_buf[0], 11, 0);
-                  return address(addr);
-                } else if(0b101 == opc2) {
-                  // mov, orr, orr, orr
-                        assert(nativeInstruction_at(&insn_buf[1])->is_orr(), "wrong insns in patch");
-                        assert(nativeInstruction_at(&insn_buf[2])->is_orr(), "wrong insns in patch");
-                        assert(nativeInstruction_at(&insn_buf[3])->is_orr(), "wrong insns in patch");
-                        u_int32_t addr;
-                  // TODO Check that the rotations are in the expected order.
-                        addr  = Instruction_aarch32::extract(insn_buf[0], 7, 0) << 0;
-                  addr |= Instruction_aarch32::extract(insn_buf[1], 7, 0) << 8;
-                  addr |= Instruction_aarch32::extract(insn_buf[2], 7, 0) << 16;
-                  addr |= Instruction_aarch32::extract(insn_buf[3], 7, 0) << 24;
-                  return address(addr);
+      // movw, movt (only on newer ARMs)
+      assert(nativeInstruction_at(&insn_buf[1])->is_movt(), "wrong insns in patch");
+      u_int32_t addr;
+      addr  = Instruction_aarch32::extract(insn_buf[1], 19, 16) << 28;
+      addr |= Instruction_aarch32::extract(insn_buf[1], 11, 0) << 16;
+      addr |= Instruction_aarch32::extract(insn_buf[0], 19, 16) << 12;
+      addr |= Instruction_aarch32::extract(insn_buf[0], 11, 0);
+      return address(addr);
+    } else if(0b101 == opc2) {
+      // mov, orr, orr, orr
+      assert(nativeInstruction_at(&insn_buf[1])->is_orr(), "wrong insns in patch");
+      assert(nativeInstruction_at(&insn_buf[2])->is_orr(), "wrong insns in patch");
+      assert(nativeInstruction_at(&insn_buf[3])->is_orr(), "wrong insns in patch");
+      u_int32_t addr;
+      // TODO Check that the rotations are in the expected order.
+      addr  = Instruction_aarch32::extract(insn_buf[0], 7, 0) << 0;
+      addr |= Instruction_aarch32::extract(insn_buf[1], 7, 0) << 8;
+      addr |= Instruction_aarch32::extract(insn_buf[2], 7, 0) << 16;
+      addr |= Instruction_aarch32::extract(insn_buf[3], 7, 0) << 24;
+      return address(addr);
     } else {
-        ShouldNotReachHere();
+      ShouldNotReachHere();
     }
   } else if (0b010 == (opc >> 1)) {
     // LDR, LDRB, STR, STRB
@@ -570,8 +570,8 @@ void MacroAssembler::call_VM_base(Register oop_result,
   set_last_Java_frame(last_java_sp, rfp, l, rscratch2);
 
 
-        // FIXME - Can save lr in more elegant way ?
-        //str(lr, pre(sp, -wordSize));
+  // FIXME - Can save lr in more elegant way ?
+  //str(lr, pre(sp, -wordSize));
 
   // do the call, remove parameters
   MacroAssembler::call_VM_leaf_base(entry_point, number_of_arguments, &l);
@@ -1591,7 +1591,7 @@ extern "C" void findpc(intptr_t x);
 
 void MacroAssembler::debug32(char* msg, int32_t pc, int32_t regs[])
 {
-        print_unseen_bytecodes();
+  print_unseen_bytecodes();
   // In order to get locks to work, we need to fake a in_VM state
   if (ShowMessageBoxOnError) {
     JavaThread* thread = JavaThread::current();
@@ -2238,57 +2238,57 @@ int64_t internal_lmod(int64_t a, int64_t b) {
 }
 
 void MacroAssembler::divide32(Register res, Register num, Register den, bool want_mod) {
-        Register cnt = rscratch1;
-        Register mod = rscratch2;
-        Register sign = r14;
-        assert_different_registers(num, den, rscratch1, rscratch2, r14);
+  Register cnt = rscratch1;
+  Register mod = rscratch2;
+  Register sign = r14;
+  assert_different_registers(num, den, rscratch1, rscratch2, r14);
 
-        // FIXME This works by first converting any negative values to positive ones, however
-        // it is not possible to express |INT_MIN|. Need to fix this
+  // FIXME This works by first converting any negative values to positive ones, however
+  // it is not possible to express |INT_MIN|. Need to fix this
 
-        //Convert to positive values
-        mov(sign, 0);
+  //Convert to positive values
+  mov(sign, 0);
 
-        cmp(num, 0);
-        mov(sign, 1, MI);
-        rsb(num, num, 0, MI);
+  cmp(num, 0);
+  mov(sign, 1, MI);
+  rsb(num, num, 0, MI);
 
-        cmp(den, 0);
-        if(!want_mod) eor(sign, sign, 1, MI);
-        rsb(den, den, 0, MI);
+  cmp(den, 0);
+  if(!want_mod) eor(sign, sign, 1, MI);
+  rsb(den, den, 0, MI);
 
-        // Algorithm from
-        // http://www.chiark.greenend.org.uk/~theom/riscos/docs/ultimate/a252div.txt
-        // Graeme Williams
-        mov(cnt, 28);
-        mov(mod, num, lsr(4));
-        cmp(den, mod, lsr(12));
-        sub(cnt, cnt, 16, Assembler::LE);
-        mov(mod, mod, lsr(16), Assembler::LE);
-        cmp(den, mod, lsr(4));
-        sub(cnt, cnt, 8, Assembler::LE);
-        mov(mod, mod, lsr(8), Assembler::LE);
-        cmp(den, mod);
-        sub(cnt, cnt, 4, Assembler::LE);
-        mov(mod, mod, lsr(4), Assembler::LE);
-        mov(num, num, lsl(cnt));
-        rsb(den, den, 0);
+  // Algorithm from
+  // http://www.chiark.greenend.org.uk/~theom/riscos/docs/ultimate/a252div.txt
+  // Graeme Williams
+  mov(cnt, 28);
+  mov(mod, num, lsr(4));
+  cmp(den, mod, lsr(12));
+  sub(cnt, cnt, 16, Assembler::LE);
+  mov(mod, mod, lsr(16), Assembler::LE);
+  cmp(den, mod, lsr(4));
+  sub(cnt, cnt, 8, Assembler::LE);
+  mov(mod, mod, lsr(8), Assembler::LE);
+  cmp(den, mod);
+  sub(cnt, cnt, 4, Assembler::LE);
+  mov(mod, mod, lsr(4), Assembler::LE);
+  mov(num, num, lsl(cnt));
+  rsb(den, den, 0);
 
-        adds(num, num, num);
-        //Now skip over cnt copies of the 3 instr. loop.
-        add(cnt, cnt, cnt, lsl(1));
-        add(r15_pc, r15_pc, cnt, lsl(2));
-        mov(r0, r0);
+  adds(num, num, num);
+  //Now skip over cnt copies of the 3 instr. loop.
+  add(cnt, cnt, cnt, lsl(1));
+  add(r15_pc, r15_pc, cnt, lsl(2));
+  mov(r0, r0);
 
-        for(int i = 0; i < 32; i++) {
-                adcs(mod, den, mod, lsl(1));
-                sub(mod, mod, den, Assembler::LO);
-                adcs(num, num, num);
-        }
+  for(int i = 0; i < 32; i++) {
+    adcs(mod, den, mod, lsl(1));
+    sub(mod, mod, den, Assembler::LO);
+    adcs(num, num, num);
+  }
 
-        cmp(sign, 0);
-        rsb(res, want_mod? mod : num, 0, NE);
-        mov(res, want_mod? mod : num, EQ);
+  cmp(sign, 0);
+  rsb(res, want_mod? mod : num, 0, NE);
+  mov(res, want_mod? mod : num, EQ);
 }
 
 
@@ -2297,7 +2297,7 @@ void MacroAssembler::divide32(Register res, Register num, Register den, bool wan
 // <Rd> = <Rn> / <Rm>
 // <Rd> = <Rn> % <Rm>
 void MacroAssembler::divide(Register Rd, Register Rn, Register Rm, int width, bool want_remainder) {
-        //Dispatch to best possible
+  //Dispatch to best possible
   Register Rdh = (Register)(Rd->encoding_nocheck() + 1);
   Register Rnh = (Register)(Rn->encoding_nocheck() + 1);
   Register Rmh = (Register)(Rm->encoding_nocheck() + 1);
@@ -2306,75 +2306,75 @@ void MacroAssembler::divide(Register Rd, Register Rn, Register Rm, int width, bo
   bool is64b = 64 == width;
 
   if(is64b) {
-        assert_different_registers(Rn, Rnh, Rm, Rmh, rscratch1, rscratch2);
+    assert_different_registers(Rn, Rnh, Rm, Rmh, rscratch1, rscratch2);
   } else {
-        assert_different_registers(Rn, Rm, rscratch1, rscratch2, r14); // r14 used by divide32
+    assert_different_registers(Rn, Rm, rscratch1, rscratch2, r14); // r14 used by divide32
   }
 
   if(!is64b && VM_Version::features() & FT_HW_DIVIDE) {
-        // Emit a hw instruction sequnce.
-        if(want_remainder) {
-                sdiv(rscratch1, Rn, Rm);
-                mls(Rd, rscratch1, Rm, Rn);
-        } else {
-                sdiv(Rd, Rn, Rm);
-        }
+    // Emit a hw instruction sequnce.
+    if(want_remainder) {
+      sdiv(rscratch1, Rn, Rm);
+      mls(Rd, rscratch1, Rm, Rn);
+    } else {
+      sdiv(Rd, Rn, Rm);
+    }
   } else if(!is64b) {
-        // Fall back to assembly software routine
-        divide32(Rd, Rn, Rm, want_remainder);
+    // Fall back to assembly software routine
+    divide32(Rd, Rn, Rm, want_remainder);
   } else {
-        // Fall back to C software routine for
-        // 64 bit divide/mod
-                if(Rn != r0) {
-                        mov(rscratch1, Rm);
-                        mov(rscratch2, Rmh);
+    // Fall back to C software routine for
+    // 64 bit divide/mod
+    if(Rn != r0) {
+      mov(rscratch1, Rm);
+      mov(rscratch2, Rmh);
 
-                        mov(r0, Rn);
-                        mov(r1, Rnh);
+      mov(r0, Rn);
+      mov(r1, Rnh);
 
-                        mov(r2, rscratch1);
-                        mov(r3, rscratch2);
-                } else if(Rm != r2) {
-                        mov(r2, Rm);
-                        mov(r3, Rmh);
-                }
-                address function;
-                if(want_remainder) function = (address)internal_lmod;
-                else               function = (address)internal_ldiv;
+      mov(r2, rscratch1);
+      mov(r3, rscratch2);
+    } else if(Rm != r2) {
+      mov(r2, Rm);
+      mov(r3, Rmh);
+    }
+    address function;
+    if(want_remainder) function = (address)internal_lmod;
+    else               function = (address)internal_ldiv;
 
-                mov(rscratch1, function);
-                bl(rscratch1);
-                if(Rd != r0) {
-                  mov(Rd, r0);
-                  if(is64b) mov(Rdh, r1);
-                }
+    mov(rscratch1, function);
+    bl(rscratch1);
+    if(Rd != r0) {
+      mov(Rd, r0);
+      if(is64b) mov(Rdh, r1);
+    }
   }
 }
 
 void MacroAssembler::extract_bits(Register dest, Register source, int lsb, int width) {
-        assert(lsb >= 0 && lsb + width <= 32 && width != 0, "Invalid lsb/width");
-        // Dispatch to the best sequence
-        if(0 == (lsb & 7) && (width == 8 || width == 16 || width == 32)) {
-                // Can use extend X
-          switch(width){
-                case 8:  uxtb(dest, source, ror(lsb)); break;
-                case 16: uxth(dest, source, ror(lsb)); break;
-                default:                               break;
-         }
-        } else if(VM_Version::features() & (FT_ARMV7 | FT_ARMV6T2)) {
-          ubfx(dest, source, lsb, width);
-        } else {
-                // Do two shifts
-                lsl(dest, source, 32 - (width + lsb));
-                lsr(dest, dest, 32 - width);
-        }
+  assert(lsb >= 0 && lsb + width <= 32 && width != 0, "Invalid lsb/width");
+  // Dispatch to the best sequence
+  if(0 == (lsb & 7) && (width == 8 || width == 16 || width == 32)) {
+    // Can use extend X
+    switch(width){
+      case 8:  uxtb(dest, source, ror(lsb)); break;
+      case 16: uxth(dest, source, ror(lsb)); break;
+      default:                               break;
+   }
+  } else if(VM_Version::features() & (FT_ARMV7 | FT_ARMV6T2)) {
+    ubfx(dest, source, lsb, width);
+  } else {
+    // Do two shifts
+    lsl(dest, source, 32 - (width + lsb));
+    lsr(dest, dest, 32 - width);
+  }
 }
 
 
 void MacroAssembler::atomic_ldrd(Register Rt, Register Rt2, Register Rbase) {
   assert(Rt->encoding_nocheck() % 2 == 0, "Must be an even register");
   assert((Register) (Rt + 1) == Rt2, "Must be contiguous");
-  if (VM_Version::features() & FT_SINGLE_CORE) {
+  if(VM_Version::features() & FT_SINGLE_CORE) {
     ldrd(Rt, Rbase);
   } else if (VM_Version::features() & (FT_ARMV7 | FT_ARMV6K)) {
 #ifdef ASSERT
@@ -2389,7 +2389,7 @@ void MacroAssembler::atomic_ldrd(Register Rt, Register Rt2, Register Rbase) {
   } else {
     // TODO: Find Java way of logging
     static bool warning_printed = false;
-    if (!warning_printed) {
+    if(!warning_printed) {
       fprintf(stderr, "Unable to provide atomic doubleword load.\n");
       warning_printed = true;
     }
@@ -2403,7 +2403,7 @@ void MacroAssembler::atomic_strd(Register Rt, Register Rt2, Register Rbase,
   assert((Register) (Rt + 1) == Rt2, "Must be contiguous");
   assert((Register) (temp + 1) == temp2, "Must be contiguous");
   assert_different_registers(temp, Rt, Rbase, temp2);
-  if (VM_Version::features() & FT_SINGLE_CORE) {
+  if(VM_Version::features() & FT_SINGLE_CORE) {
     strd(Rt, Rbase);
   } else if (VM_Version::features() & (FT_ARMV7 | FT_ARMV6K)) {
     // First need to gain exclusive access
@@ -2423,7 +2423,7 @@ void MacroAssembler::atomic_strd(Register Rt, Register Rt2, Register Rbase,
   } else {
     // TODO: Find Java way of logging
     static bool warning_printed = false;
-    if (!warning_printed) {
+    if(!warning_printed) {
       fprintf(stderr, "Unable to provide atomic doubleword store.\n");
       warning_printed = true;
     }
@@ -2470,49 +2470,49 @@ const char* j_bytecodes[N_J_BYTECODES] = {"nop", "aconstnull", "iconstm1", "icon
 int bytecodes_seen[256];
 
 void MacroAssembler::init_unseen_bytecodes() {
-        for(int i = 0; i < 256; i++ ) {
-                bytecodes_seen[i] = 0;
-        }
+  for(int i = 0; i < 256; i++ ) {
+    bytecodes_seen[i] = 0;
+  }
 }
 
 void MacroAssembler::bytecode_seen(Register bc_reg, Register scratch) {
-        if(ENABLE_DEBUGGING) {
-                mov(scratch, (address)bytecodes_seen);
-                add(scratch, scratch, bc_reg, lsl(2));
-                add(bc_reg, bc_reg, 1);
-                str(bc_reg, Address(scratch));
-                sub(bc_reg, bc_reg, 1);
-        }
+  if(ENABLE_DEBUGGING) {
+    mov(scratch, (address)bytecodes_seen);
+    add(scratch, scratch, bc_reg, lsl(2));
+    add(bc_reg, bc_reg, 1);
+    str(bc_reg, Address(scratch));
+    sub(bc_reg, bc_reg, 1);
+  }
 }
 
 void MacroAssembler::print_unseen_bytecodes() {
-        if(ENABLE_DEBUGGING) {
-                printf("=== Unseen bytecodes ===\n");
-                for(int i = 0; i < N_J_BYTECODES; i++) {
-                        if(0 == bytecodes_seen[i]) {
-                                printf("\t%s\n", j_bytecodes[i]);
-                        }
-                }
-                printf("=== End unseen ===\n");
-        } else {
-                printf("Not kept track, enable debugging to view info\n");
-        }
-        fflush(stdout);
+  if(ENABLE_DEBUGGING) {
+    printf("=== Unseen bytecodes ===\n");
+    for(int i = 0; i < N_J_BYTECODES; i++) {
+      if(0 == bytecodes_seen[i]) {
+        printf("\t%s\n", j_bytecodes[i]);
+      }
+    }
+    printf("=== End unseen ===\n");
+  } else {
+    printf("Not kept track, enable debugging to view info\n");
+  }
+  fflush(stdout);
 }
 
 int machine_state_regset = 0b0101111111111111;
 int machine_state_float_regset = 0b11;
 
 void MacroAssembler::save_machine_state() {
-        stmdb(sp, machine_state_regset);
-        vstmdb_f64(sp, machine_state_float_regset);
-        enter();
+  stmdb(sp, machine_state_regset);
+  vstmdb_f64(sp, machine_state_float_regset);
+  enter();
 }
 
 void MacroAssembler::restore_machine_state() {
-        leave();
-        vldmia_f64(sp, machine_state_float_regset);
-        ldmia(sp, machine_state_regset);
+  leave();
+  vldmia_f64(sp, machine_state_float_regset);
+  ldmia(sp, machine_state_regset);
 }
 
 void internal_internal_printf(const char *fmt, ...) {
@@ -2524,32 +2524,32 @@ void internal_internal_printf(const char *fmt, ...) {
 }
 
 void internal_printf(const char *format, uint32_t a, uint32_t b, uint32_t c) {
-        char buf[2048];
-        char fmt[2048];
-        buf[0] = '\0';
-        const char *thread_str = "THREAD 0x%08x : ";
-        int id = pthread_self();
-        strcpy(fmt, format);
+  char buf[2048];
+  char fmt[2048];
+  buf[0] = '\0';
+  const char *thread_str = "THREAD 0x%08x : ";
+  int id = pthread_self();
+  strcpy(fmt, format);
 
-        char *str = strtok(fmt, "\n");
-        int nreplace = 0;
-        while(str) {
-                strcpy(buf, thread_str);
-                strcat(buf, str);
-                strcat(buf, "\n");
-                internal_internal_printf((const char*)buf, id, a, b, c);
-                str = strtok(NULL, "\n");
-        }
+  char *str = strtok(fmt, "\n");
+  int nreplace = 0;
+  while(str) {
+    strcpy(buf, thread_str);
+    strcat(buf, str);
+    strcat(buf, "\n");
+    internal_internal_printf((const char*)buf, id, a, b, c);
+    str = strtok(NULL, "\n");
+  }
 }
 
 void MacroAssembler::get_bytecode(Register dst, Register bc) {
-        if(ENABLE_DEBUGGING) {
-                int nbytecodes = N_J_BYTECODES;
-                mov(dst, (address)j_bytecodes);
-                cmp(bc, nbytecodes);
+  if(ENABLE_DEBUGGING) {
+    int nbytecodes = N_J_BYTECODES;
+    mov(dst, (address)j_bytecodes);
+    cmp(bc, nbytecodes);
 
-                ldr(dst, Address(dst, bc, lsl(2)), Assembler::LT);
-                ldr(dst, Address(dst, wordSize * nbytecodes), Assembler::GE);
+    ldr(dst, Address(dst, bc, lsl(2)), Assembler::LT);
+    ldr(dst, Address(dst, wordSize * nbytecodes), Assembler::GE);
   }
 }
 
@@ -2557,75 +2557,75 @@ int invocation_depth_count = -1; //TODO remove this with debugging info
 
 #define MAX_FCALL_DEPTH 4096
 struct thread_method_record{
-        int thread_id;
-        char names[MAX_FCALL_DEPTH][512];
-        int invocation_depth_count;
+  int thread_id;
+  char names[MAX_FCALL_DEPTH][512];
+  int invocation_depth_count;
 };
 int ntmrs = 0;
 #define MAX_TMRS 10
 thread_method_record tmr_list[MAX_TMRS];
 
 void push_tmr(Method *meth, int *thread_id, int *invocation_depth_count, char **name) {
-        int id = pthread_self();
-        *thread_id = id;
-        for(int i = 0; i < ntmrs; i++) {
-                thread_method_record *tmr = &tmr_list[i];
-                if(id == tmr->thread_id) {
-                        // Add a new frame
-                        if(tmr->invocation_depth_count >= -1 &&
-                           tmr->invocation_depth_count < (MAX_FCALL_DEPTH - 1)) {
-                                *invocation_depth_count = ++(tmr->invocation_depth_count);
-                                *name = tmr->names[tmr->invocation_depth_count];
-                                meth->name_and_sig_as_C_string(tmr->names[tmr->invocation_depth_count], 512);
-                                return;
-                        } else {
-                                fprintf(stderr, "%s : Invalid fcall depth index, %d\n", __FUNCTION__, tmr->invocation_depth_count);
-                                exit(1);
-                        }
-                }
-        }
-        // Add a new thread
-        if(ntmrs >= MAX_TMRS) {
-                fprintf(stderr, "Too many tmrs\n");
-                exit(1);
-        }
-        //Create a new tmr
-        tmr_list[ntmrs].thread_id = id;
-        tmr_list[ntmrs].invocation_depth_count = 0;
-        meth->name_and_sig_as_C_string(tmr_list[ntmrs].names[0], 512);
-        *invocation_depth_count = 0;
-        *name = tmr_list[ntmrs].names[0];
-        ntmrs++;
+  int id = pthread_self();
+  *thread_id = id;
+  for(int i = 0; i < ntmrs; i++) {
+    thread_method_record *tmr = &tmr_list[i];
+    if(id == tmr->thread_id) {
+      // Add a new frame
+      if(tmr->invocation_depth_count >= -1 &&
+        tmr->invocation_depth_count < (MAX_FCALL_DEPTH - 1)) {
+        *invocation_depth_count = ++(tmr->invocation_depth_count);
+        *name = tmr->names[tmr->invocation_depth_count];
+        meth->name_and_sig_as_C_string(tmr->names[tmr->invocation_depth_count], 512);
+        return;
+      } else {
+        fprintf(stderr, "%s : Invalid fcall depth index, %d\n", __FUNCTION__, tmr->invocation_depth_count);
+        exit(1);
+      }
+    }
+  }
+  // Add a new thread
+  if(ntmrs >= MAX_TMRS) {
+    fprintf(stderr, "Too many tmrs\n");
+    exit(1);
+  }
+  //Create a new tmr
+  tmr_list[ntmrs].thread_id = id;
+  tmr_list[ntmrs].invocation_depth_count = 0;
+  meth->name_and_sig_as_C_string(tmr_list[ntmrs].names[0], 512);
+  *invocation_depth_count = 0;
+  *name = tmr_list[ntmrs].names[0];
+  ntmrs++;
 }
 
 void pop_tmr(int *thread_id, int *invocation_depth_count, char **name) {
-        int id = pthread_self();
-        *thread_id = id;
-        for(int i = 0; i < ntmrs; i++) {
-                thread_method_record *tmr = &tmr_list[i];
-                if(id == tmr->thread_id) {
-                        if(tmr->invocation_depth_count >= 0 &&
-                           tmr->invocation_depth_count < MAX_FCALL_DEPTH) {
-                                // Pop frame
-                                *name = tmr->names[tmr->invocation_depth_count];
-                                *invocation_depth_count = (tmr->invocation_depth_count)--;
-                                return;
-                        } else if ( -1 == tmr->invocation_depth_count) {
-                                *name = (char*)"JVM-EXCEPTION-EXIT:(NOT-REALLY-A-FRAME)";
-                                *invocation_depth_count = 0;
-                                return;
-                        } else {
-                                fprintf(stderr, "%s : Invalid fcall depth index, %d\n", __FUNCTION__, tmr->invocation_depth_count);
-                                exit(1);
-                        }
-                }
-        }
-        fprintf(stderr, "Unable to find suitable tmr\n");
+  int id = pthread_self();
+  *thread_id = id;
+  for(int i = 0; i < ntmrs; i++) {
+    thread_method_record *tmr = &tmr_list[i];
+    if(id == tmr->thread_id) {
+      if(tmr->invocation_depth_count >= 0 &&
+        tmr->invocation_depth_count < MAX_FCALL_DEPTH) {
+        // Pop frame
+        *name = tmr->names[tmr->invocation_depth_count];
+        *invocation_depth_count = (tmr->invocation_depth_count)--;
+        return;
+      } else if ( -1 == tmr->invocation_depth_count) {
+        *name = (char*)"JVM-EXCEPTION-EXIT:(NOT-REALLY-A-FRAME)";
+        *invocation_depth_count = 0;
+        return;
+      } else {
+        fprintf(stderr, "%s : Invalid fcall depth index, %d\n", __FUNCTION__, tmr->invocation_depth_count);
         exit(1);
+      }
+    }
+  }
+  fprintf(stderr, "Unable to find suitable tmr\n");
+  exit(1);
 }
 
 void prepare_entry_exit_prefix(char *buf, int id, int invocation_depth_count) {
-        sprintf(buf, "THREAD 0x%08x : ", id);
+  sprintf(buf, "THREAD 0x%08x : ", id);
   for(int i = 0; i < invocation_depth_count; i++) {
     strcat(buf, "  ");
   }
@@ -2633,132 +2633,132 @@ void prepare_entry_exit_prefix(char *buf, int id, int invocation_depth_count) {
 
 
 void print_entry(Method *meth, int native) {
-        char *name;
-        int invocation_depth_count, id;
-        push_tmr(meth, &id, &invocation_depth_count, &name);
+  char *name;
+  int invocation_depth_count, id;
+  push_tmr(meth, &id, &invocation_depth_count, &name);
 
-        if(MacroAssembler::enable_method_debug) {
-                char buf[4096], buf_b[2048];
-                prepare_entry_exit_prefix(buf, id, invocation_depth_count);
-                if(native) {
-                  sprintf(buf_b, "CALL NATIVE : %s\n", name);
-                } else {
-                  sprintf(buf_b, "CALL JAVA   : %s\n", name);
-                }
-                strcat(buf, buf_b);
-                printf("%s", buf);
-                fflush(stdout);
-        }
+  if(MacroAssembler::enable_method_debug) {
+    char buf[4096], buf_b[2048];
+    prepare_entry_exit_prefix(buf, id, invocation_depth_count);
+    if(native) {
+      sprintf(buf_b, "CALL NATIVE : %s\n", name);
+    } else {
+      sprintf(buf_b, "CALL JAVA   : %s\n", name);
+    }
+    strcat(buf, buf_b);
+    printf("%s", buf);
+    fflush(stdout);
+  }
 }
 
 void print_exit(bool normal) {
-        char *name;
-        int invocation_depth_count, id;
-        pop_tmr(&id, &invocation_depth_count, &name);
+  char *name;
+  int invocation_depth_count, id;
+  pop_tmr(&id, &invocation_depth_count, &name);
 
-        if(MacroAssembler::enable_method_debug) {
-                char buf[4096], buf_b[2048];
-                prepare_entry_exit_prefix(buf, id, invocation_depth_count);
-                sprintf(buf_b, normal ? "EXIT        : %s\n" : "EXCPN EXIT  : %s\n", name);
-                strcat(buf, buf_b);
-                printf("%s", buf);
-                fflush(stdout);
-        }
+  if(MacroAssembler::enable_method_debug) {
+    char buf[4096], buf_b[2048];
+    prepare_entry_exit_prefix(buf, id, invocation_depth_count);
+    sprintf(buf_b, normal ? "EXIT        : %s\n" : "EXCPN EXIT  : %s\n", name);
+    strcat(buf, buf_b);
+    printf("%s", buf);
+    fflush(stdout);
+  }
 }
 
 void MacroAssembler::print_method_entry(Register rmethod, bool native) {
-        if(ENABLE_DEBUGGING) {
-                save_machine_state();
+  if(ENABLE_DEBUGGING) {
+    save_machine_state();
 
-                bic(sp, sp, 7); // 8-byte align stack
-                mov(rscratch2, (address)print_entry);
-                mov(r0, rmethod);
-                mov(r1, native);
-                bl(rscratch2);
+    bic(sp, sp, 7); // 8-byte align stack
+    mov(rscratch2, (address)print_entry);
+    mov(r0, rmethod);
+    mov(r1, native);
+    bl(rscratch2);
 
-                restore_machine_state();
-        }
+    restore_machine_state();
+  }
 }
 
 void MacroAssembler::print_method_exit(bool normal) {
-        if(ENABLE_DEBUGGING) {
-                save_machine_state();
+  if(ENABLE_DEBUGGING) {
+    save_machine_state();
 
-                bic(sp, sp, 7); // 8-byte align stack
-                mov(rscratch2, (address)print_exit);
-                mov(r0, normal);
-                bl(rscratch2);
+    bic(sp, sp, 7); // 8-byte align stack
+    mov(rscratch2, (address)print_exit);
+    mov(r0, normal);
+    bl(rscratch2);
 
-                restore_machine_state();
-        }
+    restore_machine_state();
+  }
 }
 
 void MacroAssembler::reg_printf_internal(bool important, const char *fmt, Register ra, Register rb, Register rc) {
-        if(ENABLE_DEBUGGING) {
-                Label skip;
-                save_machine_state();
+  if(ENABLE_DEBUGGING) {
+    Label skip;
+    save_machine_state();
 
-                str(ra, Address(pre(sp, -wordSize)));
-                str(rb, Address(pre(sp, -wordSize)));
-                str(rc, Address(pre(sp, -wordSize)));
+    str(ra, Address(pre(sp, -wordSize)));
+    str(rb, Address(pre(sp, -wordSize)));
+    str(rc, Address(pre(sp, -wordSize)));
 
-                if(!important) {
-                        mov(r0, (address)&enable_debug);
-                        ldr(r0, Address(r0));
-                        cmp(r0, 0);
-                        b(skip, Assembler::EQ);
-                }
+    if(!important) {
+      mov(r0, (address)&enable_debug);
+      ldr(r0, Address(r0));
+      cmp(r0, 0);
+      b(skip, Assembler::EQ);
+    }
 
-                int sp_difference = wordSize * (count_bits(machine_state_regset) +
-                                                2 * count_bits(machine_state_float_regset) +
-                                                2 + 3); //Frame entry and saved
+    int sp_difference = wordSize * (count_bits(machine_state_regset) +
+                                    2 * count_bits(machine_state_float_regset) +
+                                    2 + 3); //Frame entry and saved
 
-                mov(r0, (address)fmt);
-                if(ra != sp) ldr(r1, Address(sp, 2 * wordSize));
-                else         add(r1, sp, sp_difference);
+    mov(r0, (address)fmt);
+    if(ra != sp) ldr(r1, Address(sp, 2 * wordSize));
+    else         add(r1, sp, sp_difference);
 
-                if(rb != sp) ldr(r2, Address(sp, wordSize));
-                else         add(r2, sp, sp_difference);
+    if(rb != sp) ldr(r2, Address(sp, wordSize));
+    else         add(r2, sp, sp_difference);
 
-                if(rc != sp) ldr(r3, Address(sp));
-                else         add(r3, sp, sp_difference);
+    if(rc != sp) ldr(r3, Address(sp));
+    else         add(r3, sp, sp_difference);
 
-                bic(sp, sp, 7); // 8-byte align stack
+    bic(sp, sp, 7); // 8-byte align stack
 
-                mov(rscratch2, (address)internal_printf);
-                bl(rscratch2);
+    mov(rscratch2, (address)internal_printf);
+    bl(rscratch2);
 
-                bind(skip);
-                restore_machine_state();
-        }
+    bind(skip);
+    restore_machine_state();
+  }
 }
 
 void MacroAssembler::reg_printf(const char *fmt, Register ra, Register rb, Register rc) {
-        reg_printf_internal(false, fmt, ra, rb, rc);
+  reg_printf_internal(false, fmt, ra, rb, rc);
 }
 
 void MacroAssembler::reg_printf_important(const char *fmt, Register ra, Register rb, Register rc) {
-        reg_printf_internal(true, fmt, ra, rb, rc);
+  reg_printf_internal(true, fmt, ra, rb, rc);
 }
 
 // When debugging, set the break on bkpnt
 void bkpnt() { return; }
 void MacroAssembler::create_breakpoint() {
-        if(ENABLE_DEBUGGING) {
-                save_machine_state();
-                bic(sp, sp, 7); // 8-byte align stack
+  if(ENABLE_DEBUGGING) {
+    save_machine_state();
+    bic(sp, sp, 7); // 8-byte align stack
 
-                mov(rscratch2, (address) bkpnt);
-                bl(rscratch2);
+    mov(rscratch2, (address) bkpnt);
+    bl(rscratch2);
 
-                restore_machine_state();
-        }
+    restore_machine_state();
+  }
 }
 
 
 void MacroAssembler::print_cpool(InstanceKlass *klass) {
-        ttyLocker ttyl;
-        klass->constants()->print_on(tty);
+  ttyLocker ttyl;
+  klass->constants()->print_on(tty);
 }
 
 

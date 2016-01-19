@@ -65,26 +65,26 @@ public:
     *(jlong*) (to + 1 + pos) = *from;
     pos += 2;
   }*/
-        static inline void put_long(jlong  from, intptr_t *to) {
-                uint64_t val = from;
-                uint64_t mask = (1LL << 32) - 1;
-                val = (val >> 32) | ((val & mask) << 32);
+  static inline void put_long(jlong  from, intptr_t *to) {
+    uint64_t val = from;
+    uint64_t mask = (1LL << 32) - 1;
+    val = (val >> 32) | ((val & mask) << 32);
     *(jlong*)to = (jlong)val;
   }
 
   static inline void put_long(jlong  from, intptr_t *to, int& pos) {
-                uint64_t val = from;
-                uint64_t mask = (1LL << 32) - 1;
-                val = (val >> 32) | ((val & mask) << 32);
+    uint64_t val = from;
+    uint64_t mask = (1LL << 32) - 1;
+    val = (val >> 32) | ((val & mask) << 32);
 
     *(jlong*) (to + pos) = (jlong)val;
     pos += 2;
   }
 
   static inline void put_long(jlong *from, intptr_t *to, int& pos) {
-                uint64_t val = *from;
-                uint64_t mask = (1LL << 32) - 1;
-                val = (val >> 32) | ((val & mask) << 32);
+    uint64_t val = *from;
+    uint64_t mask = (1LL << 32) - 1;
+    val = (val >> 32) | ((val & mask) << 32);
 
     *(jlong*) (to + pos) = (jlong)val;
     pos += 2;
@@ -121,24 +121,24 @@ public:
   }*/
 
   static inline void put_double(jdouble  from, intptr_t *to) {
-                uint64_t val = *(uint64_t*)&from;
-                uint64_t mask = (1LL << 32) - 1;
-                val = (val >> 32) | ((val & mask) << 32);
+    uint64_t val = *(uint64_t*)&from;
+    uint64_t mask = (1LL << 32) - 1;
+    val = (val >> 32) | ((val & mask) << 32);
     *(uint64_t*)to = val;
   }
 
   static inline void put_double(jdouble  from, intptr_t *to, int& pos) {
-                uint64_t val = *(uint64_t*)&from;
-                uint64_t mask = (1LL << 32) - 1;
-                val = (val >> 32) | ((val & mask) << 32);
+    uint64_t val = *(uint64_t*)&from;
+    uint64_t mask = (1LL << 32) - 1;
+    val = (val >> 32) | ((val & mask) << 32);
     *(uint64_t*) (to + pos) = val;
     pos += 2;
   }
 
   static inline void put_double(jdouble *from, intptr_t *to, int& pos) {
-                uint64_t val = *(uint64_t*)from;
-                uint64_t mask = (1LL << 32) - 1;
-                val = (val >> 32) | ((val & mask) << 32);
+    uint64_t val = *(uint64_t*)from;
+    uint64_t mask = (1LL << 32) - 1;
+    val = (val >> 32) | ((val & mask) << 32);
     *(uint64_t*) (to + pos) = val;
     pos += 2;
   }

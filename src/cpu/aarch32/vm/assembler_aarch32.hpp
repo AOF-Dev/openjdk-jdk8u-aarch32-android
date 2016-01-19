@@ -45,22 +45,22 @@
 class Argument VALUE_OBJ_CLASS_SPEC {
  public:
   enum {
-        n_int_register_parameters_c   = 4,  // r0, r1, ... r3 (c_rarg0, c_rarg1, ...)
-        // These are number of double registers, each double register can instead be
-        // used as two single precision registers.
-        #ifdef __VFP_FP__
-                n_float_register_parameters_c = 8,  // d0, d1, ... d7 (c_farg0, c_farg1, ... )
-                #define HARD_FLOAT_CC
-        #elif defined(__SOFTFP__)
-                n_float_register_parameters_c = 0,  // Not realy used, in this case
-                // pass_float -> pass_int & pass_double -> pass_long
-                #else
-                #error "Floating point ABI not supported";
-                #endif
+    n_int_register_parameters_c   = 4,  // r0, r1, ... r3 (c_rarg0, c_rarg1, ...)
+    // These are number of double registers, each double register can instead be
+    // used as two single precision registers.
+#ifdef __VFP_FP__
+    n_float_register_parameters_c = 8,  // d0, d1, ... d7 (c_farg0, c_farg1, ... )
+#define HARD_FLOAT_CC
+#elif defined(__SOFTFP__)
+    n_float_register_parameters_c = 0,  // Not realy used, in this case
+    // pass_float -> pass_int & pass_double -> pass_long
+#else
+  #error "Floating point ABI not supported";
+#endif
 
     // Not that these only make sense for compiled
-                // value are irrelevant currently, if c1, c2, ... will go ahead these need to be
-                // sorted out.
+    // value are irrelevant currently, if c1, c2, ... will go ahead these need to be
+    // sorted out.
     n_int_register_parameters_j   = 4, // r1, ... r7, r0 (rj_rarg0, j_rarg1, ...
     n_float_register_parameters_j = 4  // d0, d1, ... d7 (j_farg0, j_farg1, ...
   };
@@ -963,8 +963,8 @@ static u_int32_t decode_immediate12(int imm);
     wrap_label(Rd, L, cond, &Assembler::Assembler::adr);
   }
 
- private:
-        friend void entry(CodeBuffer *cb);
+private:
+  friend void entry(CodeBuffer *cb);
 #define INSN(NAME, decode, s_flg)                                                    \
   inline void NAME(Register Rd, unsigned imm, Condition cond = C_DFLT) {             \
     bool status = imm_instr(decode, Rd, ZERO_ADDR_REG, imm, cond, s_flg);            \
@@ -1599,24 +1599,24 @@ bool can_ldst_multiple( unsigned regset, const Address& adr);
   // MCR<c> <coproc>, <opc1>, <Rt>, <CRn>, <CRm>{, <opc2>}
   void mcr(int cpc_dex, int opc1, Register Rt, int cpc_reg_dex1,
            int cpc_reg_dex2, int opc2, Condition cond = C_DFLT) {
-        starti;
-        f(cond, 31, 28), f(0b1110, 27, 24), f(opc1, 23, 21), f(0, 20);
-        f(cpc_reg_dex1, 19, 16), rf(Rt, 12), f(cpc_dex, 11, 8);
-        f(opc2, 7, 5), f(1, 4), f(cpc_reg_dex2, 3, 0);
+    starti;
+    f(cond, 31, 28), f(0b1110, 27, 24), f(opc1, 23, 21), f(0, 20);
+    f(cpc_reg_dex1, 19, 16), rf(Rt, 12), f(cpc_dex, 11, 8);
+    f(opc2, 7, 5), f(1, 4), f(cpc_reg_dex2, 3, 0);
   }
 
   // These instructions do not read the value of the register passed,
   // can be any. Chosen r0.
   void cp15dmb(Condition cond = C_DFLT) {
-        mcr(15, 0, r0, 7, 10, 5, cond);
+    mcr(15, 0, r0, 7, 10, 5, cond);
   }
 
   void cp15dsb(Condition cond = C_DFLT) {
-        mcr(15, 0, r0, 7, 10, 4, cond);
+    mcr(15, 0, r0, 7, 10, 4, cond);
   }
 
   void cp15isb(Condition cond = C_DFLT) {
-        mcr(15, 0, r0, 7, 5, 4, cond);
+    mcr(15, 0, r0, 7, 5, 4, cond);
   }
 
   enum Membar_mask_bits {

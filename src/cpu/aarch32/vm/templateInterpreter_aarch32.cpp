@@ -653,7 +653,7 @@ void TemplateInterpreterGenerator::generate_fixed_frame(bool native_call) {
   // point rfp to location of old pc
   __ add(rfp, sp, 9 * wordSize);
 
-        __ reg_printf("Three-quarters through\n");
+  __ reg_printf("Three-quarters through\n");
   // set sender sp
   // leave last_sp as null
   __ mov(rscratch1, 0);
@@ -946,11 +946,11 @@ address InterpreterGenerator::generate_native_entry(bool synchronized) {
   // However, large signatures cannot be cached and are generated
   // each time here.  The slow-path generator can do a GC on return,
   // so we must reload it after the call.
-        __ reg_printf("**BEFORE**\nrlocals = %p,locals_esp = %p, sp = %p\n", rlocals, locals_esp, sp);
-        __ reg_printf("About to call the Method::signature_handler = %p\n", rscratch1);
+  __ reg_printf("**BEFORE**\nrlocals = %p,locals_esp = %p, sp = %p\n", rlocals, locals_esp, sp);
+  __ reg_printf("About to call the Method::signature_handler = %p\n", rscratch1);
   __ bl(rscratch1);
   __ reg_printf("**AFER**\nr0 : %p, r1 : %p, r2 : %p\n", r0, r1, r2);
-        __ reg_printf("r3 : %p, sp : %p\n", r3, sp);
+  __ reg_printf("r3 : %p, sp : %p\n", r3, sp);
   __ get_method(rmethod);        // slow path can do a GC, reload rmethod
 
 
@@ -1025,8 +1025,8 @@ address InterpreterGenerator::generate_native_entry(bool synchronized) {
   __ reg_printf("Calling native method, lr = %p & rmethod = %p\n", lr, rmethod);
   // Call the native method.
   /*__ reg_printf("**ONCALL**\nr0 : %p\nr1 : %p\nr2 : %p\n", r0, r1, r2);
-        __ reg_printf("r3 : %p\n\nr4 : %p\nrloc : %p\n", r3, r4, rlocals);*/
-        __ reg_printf("Stack Pointer on entry to native, sp = %p\n", sp);
+  __ reg_printf("r3 : %p\n\nr4 : %p\nrloc : %p\n", r3, r4, rlocals);*/
+  __ reg_printf("Stack Pointer on entry to native, sp = %p\n", sp);
   __ bl(native_entry_point);
   __ reg_printf("Returned from native, lr = %p, r1 = %p, r0 = %p\n", lr, r1, r0);
   __ maybe_isb();
@@ -1813,7 +1813,7 @@ void TemplateInterpreterGenerator::generate_throw_exception() {
 
   Interpreter::_remove_activation_entry = __ pc();
   __ print_method_exit(false);
-        __ reg_printf("remove_activation_entry\n");
+  __ reg_printf("remove_activation_entry\n");
 
   // preserve exception over this code sequence
   __ pop_ptr(r0);

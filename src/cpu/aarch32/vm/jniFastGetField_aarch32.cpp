@@ -49,8 +49,8 @@ address JNI_FastGetField::generate_fast_get_int_field0(BasicType type) {
   Register result   = c_rarg0;
   Register robj     = c_rarg1;
   Register rcounter = c_rarg3;
-        int      args     = RegSet::of(c_rarg0, c_rarg1, c_rarg2).bits();
-        int      nargs    = 3;
+  int      args     = RegSet::of(c_rarg0, c_rarg1, c_rarg2).bits();
+  int      nargs    = 3;
 
   const char *name;
   switch (type) {
@@ -75,8 +75,8 @@ address JNI_FastGetField::generate_fast_get_int_field0(BasicType type) {
 
   Label slow;
 
-        __ lea(rcounter, SafepointSynchronize::safepoint_counter_addr());
-        __ ldr(rcounter, rcounter);
+  __ lea(rcounter, SafepointSynchronize::safepoint_counter_addr());
+  __ ldr(rcounter, rcounter);
   __ tst(rcounter, 1);
   __ b(slow, Assembler::NE);
   __ stmdb(sp, args);
@@ -95,16 +95,16 @@ address JNI_FastGetField::generate_fast_get_int_field0(BasicType type) {
     case T_INT:     __ ldr (result, Address(robj, c_rarg2, lsr(2))); break;
     case T_BOOLEAN: __ ldrb(result, Address(robj, c_rarg2, lsr(2))); break;
     default: {
-        __ lsr(c_rarg2, c_rarg2, 2);
-        switch(type) {
-                                case T_BYTE:    __ ldrsb   (result, Address(robj, c_rarg2)); break;
-                                case T_CHAR:    __ ldrh    (result, Address(robj, c_rarg2)); break;
-                                case T_SHORT:   __ ldrsh   (result, Address(robj, c_rarg2)); break;
-                                case T_DOUBLE:
-                                case T_LONG:    __ ldrd    (result, Address(robj, c_rarg2)); break;
-                                default:        ShouldNotReachHere();
-                        }
-                }
+      __ lsr(c_rarg2, c_rarg2, 2);
+      switch(type) {
+        case T_BYTE:    __ ldrsb   (result, Address(robj, c_rarg2)); break;
+        case T_CHAR:    __ ldrh    (result, Address(robj, c_rarg2)); break;
+        case T_SHORT:   __ ldrsh   (result, Address(robj, c_rarg2)); break;
+        case T_DOUBLE:
+        case T_LONG:    __ ldrd    (result, Address(robj, c_rarg2)); break;
+        default:        ShouldNotReachHere();
+      }
+    }
   }
   __ lea(rscratch2, SafepointSynchronize::safepoint_counter_addr());
   // rscratch2 is address dependent on result.
@@ -123,7 +123,7 @@ address JNI_FastGetField::generate_fast_get_int_field0(BasicType type) {
   __ b(lr, Assembler::EQ);
 
   // Restore args for slowcase call into the vm
-        __ ldmia(sp, args);
+  __ ldmia(sp, args);
 
   // Slowcase
   slowcase_entry_pclist[count++] = __ pc();

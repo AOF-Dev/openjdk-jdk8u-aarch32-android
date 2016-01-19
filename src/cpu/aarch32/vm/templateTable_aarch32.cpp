@@ -82,7 +82,7 @@ static inline Address aaddress(int n) {
 }
 
 static inline Address iaddress(Register r) {
-        // FIXME
+  // FIXME
   return Address(rlocals, r, lsl(2));
 }
 
@@ -341,11 +341,11 @@ void TemplateTable::fconst(int value)
   float fval = value;
   assert(value == 0 || value == 1 || value == 2, "invalid float const");
   if(VM_Version::features() & FT_VFPV3) {
-                __ vmov_f32(d0, fval);
-        } else {
-                __ mov(r0, *((uint32_t*)&fval));
-                __ vmov_f32(d0, r0);
-        }
+    __ vmov_f32(d0, fval);
+  } else {
+    __ mov(r0, *((uint32_t*)&fval));
+    __ vmov_f32(d0, r0);
+  }
 }
 
 void TemplateTable::dconst(int value)
@@ -354,13 +354,13 @@ void TemplateTable::dconst(int value)
   double dval = value;
   assert(value == 0 || value == 1 || value == 2, "invalid double const");
   if(VM_Version::features() & FT_VFPV3) {
-                __ vmov_f64(d0, dval);
-        } else {
-                uint32_t* ptr = (uint32_t*)&dval;
-                __ mov(r0, *ptr);
-                __ mov(r1, *(ptr + 1));
-                __ vmov_f64(d0, r0, r1);
-        }
+    __ vmov_f64(d0, dval);
+  } else {
+    uint32_t* ptr = (uint32_t*)&dval;
+    __ mov(r0, *ptr);
+    __ mov(r1, *(ptr + 1));
+    __ vmov_f64(d0, r0, r1);
+  }
 }
 
 void TemplateTable::bipush()
@@ -1354,14 +1354,14 @@ void TemplateTable::lshl()
   // shift count is in r0 - take shift from bottom six bits only
   __ andr(r0, r0, 63);
   __ pop_l(r2); //LSB in lowest reg
-        int word_bytes = 8 * wordSize;
+  int word_bytes = 8 * wordSize;
 
-        __ sub(r1, r0, word_bytes);
-        __ lsl(r3, r3, r0);
-        __ orr(r3, r3, r2, lsl(r1));
-        __ rsb(r1, r0, word_bytes);
-        __ orr(r1, r3, r2, lsr(r1));
-        __ lsl(r0, r2, r0);
+  __ sub(r1, r0, word_bytes);
+  __ lsl(r3, r3, r0);
+  __ orr(r3, r3, r2, lsl(r1));
+  __ rsb(r1, r0, word_bytes);
+  __ orr(r1, r3, r2, lsr(r1));
+  __ lsl(r0, r2, r0);
 }
 
 void TemplateTable::lshr()
@@ -1420,10 +1420,10 @@ void TemplateTable::fop2(Operation op)
     __ vcvt_f64_f32(d1, d0);
     __ pop_f(d0);
     __ vcvt_f64_f32(d0, d0);
-    #ifndef HARD_FLOAT_CC
+#ifndef HARD_FLOAT_CC
     __ vmov_f64(r0, r1, d0);
     __ vmov_f64(r2, r3, d1);
-    #endif
+#endif
     __ mov(rscratch1, (address)fmod);
     __ bl(rscratch1);
     __ vcvt_f32_f64(d0, d0);
@@ -1457,10 +1457,10 @@ void TemplateTable::dop2(Operation op)
   case rem:
     __ vmov_f64(d1, d0);
     __ pop_d(d0);
-    #ifndef HARD_FLOAT_CC
+#ifndef HARD_FLOAT_CC
     __ vmov_f64(r0, r1, d0);
     __ vmov_f64(r2, r3, d1);
-    #endif
+#endif
     __ mov(rscratch1, (address)fmod);
     __ bl(rscratch1);
     break;
@@ -1579,7 +1579,7 @@ void TemplateTable::convert()
     __ reg_printf("Convert i2l (after) 0x%08x%08x\n", r1, r0);
     break;
   case Bytecodes::_i2f:
-        //__ bkpt(735);
+    //__ bkpt(735);
     //__ scvtfws(d0, r0);
     //__ reg_printf("VCVT Convert i2f, (before) 0x%08x\n", r0);
     __ vmov_f32(d0, r0);
@@ -1635,10 +1635,10 @@ void TemplateTable::convert()
   case Bytecodes::_f2l:
   {
     //float already in d0 long goes to <r1:r0>
-    #ifndef HARD_FLOAT_CC
+#ifndef HARD_FLOAT_CC
     //Need to move float in d0 to r0
     __ vmov_f32(r0, d0);
-    #endif
+#endif
     __ call_VM_leaf_base(CAST_FROM_FN_PTR(address, SharedRuntime::f2l), 0);
   }
     break;
@@ -1665,10 +1665,10 @@ void TemplateTable::convert()
   case Bytecodes::_d2l:
   {
     // d0 -> <r1:r0>
-    #ifndef HARD_FLOAT_CC
+#ifndef HARD_FLOAT_CC
     //Need to move float in d0 to r0
     __ vmov_f64(r0, r1, d0);
-    #endif
+#endif
     __ call_VM_leaf_base(CAST_FROM_FN_PTR(address, SharedRuntime::d2l), 0);
   }
     break;
@@ -1713,7 +1713,7 @@ void TemplateTable::lcmp()
 
 void TemplateTable::float_cmp(bool is_float, int unordered_result)
 {
-        //__ bkpt(400);
+  //__ bkpt(400);
   if (is_float) {
     __ pop_f(d1);
     __ vcmp_f32(d1, d0);
@@ -2113,7 +2113,7 @@ void TemplateTable::fast_linearswitch() {
   transition(itos, vtos);
   Label loop_entry, loop, found, continue_execution;
 
-        __ reg_printf("Linearswitching to value %d\n", r0);
+  __ reg_printf("Linearswitching to value %d\n", r0);
 
   // bswap r0 so we can avoid bswapping the table entries
   __ rev(r0, r0);
@@ -2526,7 +2526,7 @@ void TemplateTable::getfield_or_static(int byte_no, bool is_static) {
   Label Done, notByte, notInt, notShort, notChar,
               notLong, notFloat, notObj, notDouble;
 
-        //__ bkpt(324);
+  //__ bkpt(324);
   // x86 uses a shift and mask or wings it with a shift plus assert
   // the mask is not needed. aarch32 just uses bitfield extract
   __ extract_bits(flags, flags, ConstantPoolCacheEntry::tos_state_shift,  ConstantPoolCacheEntry::tos_state_bits);
@@ -2596,7 +2596,7 @@ void TemplateTable::getfield_or_static(int byte_no, bool is_static) {
   __ cmp(flags, ltos);
   __ b(notLong, Assembler::NE);
   // ltos
-        __ lea(rscratch1, field);
+  __ lea(rscratch1, field);
   __ atomic_ldrd(r0, r1, rscratch1);
   __ push(ltos);
   // Rewrite bytecode to be faster
@@ -3006,7 +3006,7 @@ void TemplateTable::fast_storefield(TosState state)
     do_oop_store(_masm, field, r0, _bs->kind(), false);
     break;
   case Bytecodes::_fast_lputfield:
-                __ lea(rscratch1, field);
+    __ lea(rscratch1, field);
     __ atomic_strd(r0, r1, rscratch1, r2, r3);
     break;
   case Bytecodes::_fast_iputfield:
@@ -3025,8 +3025,8 @@ void TemplateTable::fast_storefield(TosState state)
     __ vstr_f32(d0, Address(rscratch1));
     break;
   case Bytecodes::_fast_dputfield:
-                __ lea(rscratch1, field);
-                __ vmov_f64(r0, r1, d0);
+    __ lea(rscratch1, field);
+    __ vmov_f64(r0, r1, d0);
     __ atomic_strd(r0, r1, rscratch1, r2, r3);
     break;
   default:
@@ -3107,10 +3107,10 @@ void TemplateTable::fast_accessfield(TosState state)
     __ lea(r0, field); // r0 <= field
     __ vldr_f32(d0, Address(r0));
     __ vmov_f32(rscratch1, d0);
-           break;
+    break;
   case Bytecodes::_fast_dgetfield:
     __ lea(rscratch1, field); // r0 <= field
-                __ atomic_ldrd(r0, r1, rscratch1);
+    __ atomic_ldrd(r0, r1, rscratch1);
     __ vmov_f64(d0, r0, r1);
     break;
   default:

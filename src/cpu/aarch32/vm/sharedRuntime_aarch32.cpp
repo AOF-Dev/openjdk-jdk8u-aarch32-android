@@ -231,7 +231,7 @@ int SharedRuntime::java_calling_convention(const BasicType *sig_bt,
                                            int total_args_passed,
                                            int is_outgoing) {
 
-        // FIXME This looks like it needs to be fixed
+  // FIXME This looks like it needs to be fixed
   // Create the mapping between argument positions and
   // registers.
   static const Register INT_ArgReg[Argument::n_int_register_parameters_j] = {
