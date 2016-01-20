@@ -1924,12 +1924,12 @@ address TemplateInterpreterGenerator::generate_trace_code(TosState state) {
 
   __ push(lr);
   __ push(state);
-  __ push(RegSet::range(r0, r15), sp);
+  __ push(RegSet::range(r0, r12), sp);
   __ mov(c_rarg2, r0);  // Pass itos
   __ call_VM(noreg,
              CAST_FROM_FN_PTR(address, SharedRuntime::trace_bytecode),
              c_rarg1, c_rarg2, c_rarg3);
-  __ pop(RegSet::range(r0, r15), sp);
+  __ pop(RegSet::range(r0, r12), sp);
   __ pop(state);
   __ pop(lr);
   __ b(lr);                                   // return from result handler
