@@ -511,15 +511,6 @@ void InterpreterGenerator::generate_stack_overflow_check(void) {
   __ cmp(sp, r0);
   __ b(after_frame_check, Assembler::HI);
 
-  // Remove the incoming args, peeling the machine SP back to where it
-  // was in the caller.  This is not strictly necessary, but unless we
-  // do so the stack frame may have a garbage FP; this ensures a
-  // correct call stack that we can always unwind.  The ANDR should be
-  // unnecessary because the sender SP in r13 is always aligned, but
-  // it doesn't hurt.
-  //__ bic(sp, r13, 7);
-  __ stop("no r13 to peel back");
-
   // Note: the restored frame is not necessarily interpreted.
   // Use the shared runtime version of the StackOverflowError.
   assert(StubRoutines::throw_StackOverflowError_entry() != NULL, "stub not yet generated");

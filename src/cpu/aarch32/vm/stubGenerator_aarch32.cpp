@@ -1614,10 +1614,8 @@ class StubGenerator: public StubCodeGenerator {
     // if they expect all registers to be preserved.
     // n.b. aarch32 asserts that frame::arg_reg_save_area_bytes == 0
     enum layout {
-      rfp_off = 0,
-      rfp_off2,
+      rbp_off = frame::arg_reg_save_area_bytes/BytesPerInt,
       return_off,
-      return_off2,
       framesize // inclusive of return address
     };
 
@@ -1637,10 +1635,9 @@ class StubGenerator: public StubCodeGenerator {
 
     __ enter(); // Save FP and LR before call
 
-    assert(is_even(framesize/2), "sp not 16-byte aligned");
-
     // lr and fp are already in place
-    __ sub(sp, rfp, ((unsigned)framesize-4) << LogBytesPerInt); // prolog
+    assert(frame::arg_reg_save_area_bytes == 0, "please modify this code");
+    // __ sub(sp, rfp, frame::arg_reg_save_area_bytes + wordSize); // prolog
 
     int frame_complete = __ pc() - start;
 
