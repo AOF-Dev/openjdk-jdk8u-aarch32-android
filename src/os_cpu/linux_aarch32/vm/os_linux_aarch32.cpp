@@ -91,7 +91,7 @@
 #define REG_FP 29
 
 #define SPELL_REG_SP "sp"
-#define SPELL_REG_FP "x29"
+#define SPELL_REG_FP "fp"
 #endif
 
 address os::current_stack_pointer() {
@@ -207,11 +207,8 @@ frame os::get_sender_for_C_frame(frame* fr) {
 }
 
 intptr_t* _get_previous_fp() {
-  //FIXME Put this back and remove return
-  //register intptr_t **ebp __asm__ (SPELL_REG_FP);
-  //return (intptr_t*) *ebp;   // we want what it points to.
-  return NULL;
-  //FIXME END
+  register intptr_t **fp  __asm__ (SPELL_REG_FP);
+  return *fp;   // we want what it points to.
 }
 
 
