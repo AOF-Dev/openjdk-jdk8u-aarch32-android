@@ -1566,13 +1566,14 @@ class StubGenerator: public StubCodeGenerator {
 
     // Load *adr into c_rarg1, may fault.
     *fault_pc = __ pc();
+    __ mov(c_rarg2, c_rarg0);
     switch (size) {
       case 4:
         // int32_t
-        __ ldr(c_rarg0, Address(c_rarg0, 0));
+        __ ldr(c_rarg0, Address(c_rarg2, 0));
         break;
       case 8:
-        __ ldrd(c_rarg0, c_rarg1, Address(c_rarg0, 0));
+        __ ldrd(c_rarg0, c_rarg1, Address(c_rarg2, 0));
         break;
       default:
         ShouldNotReachHere();

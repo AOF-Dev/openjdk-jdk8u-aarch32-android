@@ -1455,10 +1455,26 @@ void MacroAssembler::popa() {
   ldmia(sp, regset);
 }
 
+static void multiple_reg_check(unsigned int bitset, Register stack) {
+  const unsigned int pcbit = 1 << r15_pc->encoding();
+  const unsigned int lrbit = 1 << lr->encoding();
+  const unsigned int spbit = 1 << sp->encoding();
+  const unsigned int stackbit = 1 << stack->encoding();
+  assert(!(bitset & spbit), "The SP can be in the list. However, "
+      "ARM deprecates using these instructions with SP in the list.");
+  assert(!(bitset & pcbit) || !(bitset & lrbit),
+      "ARM deprecates using these instructions with both "
+      "the LR and the PC in the list.");
+  assert(!(bitset & stackbit), "Instructions with the base register "
+      "in the list and ! specified are only available before ARMv7, "
+      "and ARM deprecates the use of such instructions. "
+      "The value of the base register after such an instruction is UNKNOWN");
+}
+
 // Push lots of registers in the bit set supplied.  Don't push sp.
 // Return the number of words pushed
 int MacroAssembler::push(unsigned int bitset, Register stack) {
-  //TODO add code to exclude the LR, SP, PC
+  multiple_reg_check(bitset, stack);
   unsigned bc = bitset, count = 0, i;
   for(i = 0; i <= 15; i++) {
     if (1 & bc) count++;
@@ -1470,7 +1486,7 @@ int MacroAssembler::push(unsigned int bitset, Register stack) {
 }
 
 int MacroAssembler::pop(unsigned int bitset, Register stack) {
-  //TODO add code to exclue the LR, SP, PC
+  multiple_reg_check(bitset, stack);
   unsigned bc = bitset, count = 0, i;
   for(i = 0; i <= 15; i++) {
     if (1 & bc) count++;
@@ -2094,7 +2110,8 @@ void MacroAssembler::eden_allocate(Register obj,
     b(slow_case, Assembler::HI);
 
     // If heap_top hasn't been changed by some other thread, update it.
-    strex(rscratch1, end, rscratch1);
+    mov(rscratch2, rscratch1);
+    strex(rscratch1, end, rscratch2);
     cmp(rscratch1, 0);
     b(retry, Assembler::NE);
   }

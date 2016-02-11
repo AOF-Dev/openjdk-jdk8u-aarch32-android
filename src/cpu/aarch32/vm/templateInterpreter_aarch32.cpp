@@ -1929,6 +1929,7 @@ address TemplateInterpreterGenerator::generate_trace_code(TosState state) {
 }
 
 void TemplateInterpreterGenerator::count_bytecode() {
+  __ push(c_rarg0);
   __ push(rscratch1);
   __ push(rscratch2);
   Label L;
@@ -1936,11 +1937,14 @@ void TemplateInterpreterGenerator::count_bytecode() {
   __ bind(L);
   __ ldrex(rscratch1, rscratch2);
   __ add(rscratch1, rscratch1, 1);
-  __ strex(rscratch1, rscratch1, rscratch2);
-  __ cmp(rscratch1, 0);
+  // strex stores 2nd arg to dest adressed by 3rd arg,
+  // stores status to 1st arg. So, 1st and 2nd shoud be different.
+  __ strex(c_rarg0, rscratch1, rscratch2);
+  __ cmp(c_rarg0, 0);
   __ b(L, Assembler::NE);
   __ pop(rscratch2);
   __ pop(rscratch1);
+  __ pop(c_rarg0);
 }
 
 void TemplateInterpreterGenerator::histogram_bytecode(Template* t) { ; }
