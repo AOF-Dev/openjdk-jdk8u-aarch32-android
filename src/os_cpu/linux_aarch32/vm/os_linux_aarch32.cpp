@@ -611,46 +611,19 @@ size_t os::current_stack_size() {
 /////////////////////////////////////////////////////////////////////////////
 // helper functions for fatal error handler
 
+static void print_all_registers(outputStream *st, ucontext_t *context) {
+  for (int r = 0; r < 16; r++)
+    st->print_cr(  "R%d=" INTPTR_FORMAT, r,  *((unsigned int*)&context->uc_mcontext.arm_r0 + r) );
+}
+
 void os::print_context(outputStream *st, void *context) {
   if (context == NULL) return;
 
   ucontext_t *uc = (ucontext_t*)context;
   st->print_cr("Registers:");
-#ifdef BUILTIN_SIM
-  st->print(  "RAX=" INTPTR_FORMAT, uc->uc_mcontext.gregs[REG_RAX]);
-  st->print(", RBX=" INTPTR_FORMAT, uc->uc_mcontext.gregs[REG_RBX]);
-  st->print(", RCX=" INTPTR_FORMAT, uc->uc_mcontext.gregs[REG_RCX]);
-  st->print(", RDX=" INTPTR_FORMAT, uc->uc_mcontext.gregs[REG_RDX]);
-  st->cr();
-  st->print(  "RSP=" INTPTR_FORMAT, uc->uc_mcontext.gregs[REG_RSP]);
-  st->print(", RBP=" INTPTR_FORMAT, uc->uc_mcontext.gregs[REG_RBP]);
-  st->print(", RSI=" INTPTR_FORMAT, uc->uc_mcontext.gregs[REG_RSI]);
-  st->print(", RDI=" INTPTR_FORMAT, uc->uc_mcontext.gregs[REG_RDI]);
-  st->cr();
-  st->print(  "R8 =" INTPTR_FORMAT, uc->uc_mcontext.gregs[REG_R8]);
-  st->print(", R9 =" INTPTR_FORMAT, uc->uc_mcontext.gregs[REG_R9]);
-  st->print(", R10=" INTPTR_FORMAT, uc->uc_mcontext.gregs[REG_R10]);
-  st->print(", R11=" INTPTR_FORMAT, uc->uc_mcontext.gregs[REG_R11]);
-  st->cr();
-  st->print(  "R12=" INTPTR_FORMAT, uc->uc_mcontext.gregs[REG_R12]);
-  st->print(", R13=" INTPTR_FORMAT, uc->uc_mcontext.gregs[REG_R13]);
-  st->print(", R14=" INTPTR_FORMAT, uc->uc_mcontext.gregs[REG_R14]);
-  st->print(", R15=" INTPTR_FORMAT, uc->uc_mcontext.gregs[REG_R15]);
-  st->cr();
-  st->print(  "RIP=" INTPTR_FORMAT, uc->uc_mcontext.gregs[REG_RIP]);
-  st->print(", EFLAGS=" INTPTR_FORMAT, uc->uc_mcontext.gregs[REG_EFL]);
-  st->print(", CSGSFS=" INTPTR_FORMAT, uc->uc_mcontext.gregs[REG_CSGSFS]);
-  st->print(", ERR=" INTPTR_FORMAT, uc->uc_mcontext.gregs[REG_ERR]);
-  st->cr();
-  st->print("  TRAPNO=" INTPTR_FORMAT, uc->uc_mcontext.gregs[REG_TRAPNO]);
-  st->cr();
-#else
-  for (int r = 0; r < 31; r++)
-    //FIXME
-    //st->print_cr(  "R%d=" INTPTR_FORMAT, r, (size_t)uc->uc_mcontext.regs[r]);
-    st->print_cr(  "NOT SUPPORTED");
-    //FIXME END
-#endif
+
+  print_all_registers(st, uc);
+
   st->cr();
 
   intptr_t *sp = (intptr_t *)os::Linux::ucontext_get_sp(uc);
@@ -674,36 +647,8 @@ void os::print_register_info(outputStream *st, void *context) {
   st->print_cr("Register to memory mapping:");
   st->cr();
 
-  // this is horrendously verbose but the layout of the registers in the
-  // context does not match how we defined our abstract Register set, so
-  // we can't just iterate through the gregs area
+  print_all_registers(st, uc);
 
-  // this is only for the "general purpose" registers
-
-#ifdef BUILTIN_SIM
-  st->print("RAX="); print_location(st, uc->uc_mcontext.gregs[REG_RAX]);
-  st->print("RBX="); print_location(st, uc->uc_mcontext.gregs[REG_RBX]);
-  st->print("RCX="); print_location(st, uc->uc_mcontext.gregs[REG_RCX]);
-  st->print("RDX="); print_location(st, uc->uc_mcontext.gregs[REG_RDX]);
-  st->print("RSP="); print_location(st, uc->uc_mcontext.gregs[REG_RSP]);
-  st->print("RBP="); print_location(st, uc->uc_mcontext.gregs[REG_RBP]);
-  st->print("RSI="); print_location(st, uc->uc_mcontext.gregs[REG_RSI]);
-  st->print("RDI="); print_location(st, uc->uc_mcontext.gregs[REG_RDI]);
-  st->print("R8 ="); print_location(st, uc->uc_mcontext.gregs[REG_R8]);
-  st->print("R9 ="); print_location(st, uc->uc_mcontext.gregs[REG_R9]);
-  st->print("R10="); print_location(st, uc->uc_mcontext.gregs[REG_R10]);
-  st->print("R11="); print_location(st, uc->uc_mcontext.gregs[REG_R11]);
-  st->print("R12="); print_location(st, uc->uc_mcontext.gregs[REG_R12]);
-  st->print("R13="); print_location(st, uc->uc_mcontext.gregs[REG_R13]);
-  st->print("R14="); print_location(st, uc->uc_mcontext.gregs[REG_R14]);
-  st->print("R15="); print_location(st, uc->uc_mcontext.gregs[REG_R15]);
-#else
-  for (int r = 0; r < 31; r++)
-    //FIXME
-    //st->print_cr(  "R%d=" INTPTR_FORMAT, r, (uintptr_t)uc->uc_mcontext.regs[r]);
-    st->print_cr(  "NOT SUPPORTED");
-    //FIXME END
-#endif
   st->cr();
 }
 
