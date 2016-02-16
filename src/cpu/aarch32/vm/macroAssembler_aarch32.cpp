@@ -1648,6 +1648,7 @@ void MacroAssembler::debug32(char* msg, int32_t pc, int32_t regs[])
     }
     ThreadStateTransition::transition(thread, _thread_in_vm, saved_state);
   } else {
+    {
     ttyLocker ttyl;
     ::tty->print_cr("=============== DEBUG MESSAGE: %s ================", msg);
     ::tty->print_cr(" r0 [   arg0    ] = 0x%08x", regs[1]);
@@ -1666,6 +1667,7 @@ void MacroAssembler::debug32(char* msg, int32_t pc, int32_t regs[])
     ::tty->print_cr("r13 [  sp/esp   ] = 0x%08x", regs[0]);
     ::tty->print_cr("r14 [    lr     ] = 0x%08x", regs[14]);
     ::tty->print_cr("r15 [    pc     ] = 0x%08x", pc);
+    }
     assert(false, err_msg("DEBUG MESSAGE: %s", msg));
   }
 }
