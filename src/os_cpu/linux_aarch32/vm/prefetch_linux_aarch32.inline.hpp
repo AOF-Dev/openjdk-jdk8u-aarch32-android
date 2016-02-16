@@ -31,21 +31,17 @@
 
 
 inline void Prefetch::read (void *loc, intx interval) {
-#ifndef BUILTIN_SIM
 //FIXME Put this back
 //  if (interval >= 0)
 //    asm("prfm PLDL1KEEP, [%0, %1]" : : "r"(loc), "r"(interval));
 //FIXME END
-#endif
 }
 
 inline void Prefetch::write(void *loc, intx interval) {
-#ifndef BUILTIN_SIM
 //FIXME Put this back
 //  if (interval >= 0)
 //    asm("prfm PSTL1KEEP, [%0, %1]" : : "r"(loc), "r"(interval));
 //FIXME END
-#endif
 }
 
 #endif // OS_CPU_LINUX_AARCH32_VM_PREFETCH_LINUX_AARCH32_INLINE_HPP

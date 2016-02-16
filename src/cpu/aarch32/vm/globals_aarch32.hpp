@@ -84,10 +84,6 @@ define_pd_global(bool, UseBiasedLocking, false);
 define_pd_global(intx, InlineSmallCode,          1000);
 //#endif
 
-#define UseBuiltinSim           false
-#define NotifySimulator         false
-#define UseSimulatorCache       false
-#define DisableBCCheck          true
 #define ARCH_FLAGS(develop, product, diagnostic, experimental, notproduct) \
                                                                         \
   product(bool, NearCpool, true,                                        \

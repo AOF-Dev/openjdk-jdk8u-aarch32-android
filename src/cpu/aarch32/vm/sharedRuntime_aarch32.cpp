@@ -45,9 +45,6 @@
 #include "opto/runtime.hpp"
 #endif
 
-#ifdef BUILTIN_SIM
-#include "../../../../../../simulator/simulator.hpp"
-#endif
 
 #define __ masm->
 
@@ -633,71 +630,6 @@ static void gen_i2c_adapter(MacroAssembler *masm,
   __ b(rscratch1);
 }
 
-#ifdef BUILTIN_SIM
-static void generate_i2c_adapter_name(char *result, int total_args_passed, const BasicType *sig_bt)
-{
-  strcpy(result, "i2c(");
-  int idx = 4;
-  for (int i = 0; i < total_args_passed; i++) {
-    switch(sig_bt[i]) {
-    case T_BOOLEAN:
-      result[idx++] = 'Z';
-      break;
-    case T_CHAR:
-      result[idx++] = 'C';
-      break;
-    case T_FLOAT:
-      result[idx++] = 'F';
-      break;
-    case T_DOUBLE:
-      assert((i < (total_args_passed - 1)) && (sig_bt[i+1] == T_VOID),
-             "double must be followed by void");
-      i++;
-      result[idx++] = 'D';
-      break;
-    case T_BYTE:
-      result[idx++] = 'B';
-      break;
-    case T_SHORT:
-      result[idx++] = 'S';
-      break;
-    case T_INT:
-      result[idx++] = 'I';
-      break;
-    case T_LONG:
-      assert((i < (total_args_passed - 1)) && (sig_bt[i+1] == T_VOID),
-             "long must be followed by void");
-      i++;
-      result[idx++] = 'L';
-      break;
-    case T_OBJECT:
-      result[idx++] = 'O';
-      break;
-    case T_ARRAY:
-      result[idx++] = '[';
-      break;
-    case T_ADDRESS:
-      result[idx++] = 'P';
-      break;
-    case T_NARROWOOP:
-      result[idx++] = 'N';
-      break;
-    case T_METADATA:
-      result[idx++] = 'M';
-      break;
-    case T_NARROWKLASS:
-      result[idx++] = 'K';
-      break;
-    default:
-      result[idx++] = '?';
-      break;
-    }
-  }
-  result[idx++] = ')';
-  result[idx] = '\0';
-}
-#endif
-
 // ---------------------------------------------------------------
 AdapterHandlerEntry* SharedRuntime::generate_i2c2i_adapters(MacroAssembler *masm,
                                                             int total_args_passed,
@@ -706,20 +638,6 @@ AdapterHandlerEntry* SharedRuntime::generate_i2c2i_adapters(MacroAssembler *masm
                                                             const VMRegPair *regs,
                                                             AdapterFingerPrint* fingerprint) {
   address i2c_entry = __ pc();
-#ifdef BUILTIN_SIM
-  char *name = NULL;
-  AArch64Simulator *sim = NULL;
-  size_t len = 65536;
-  if (NotifySimulator) {
-    name = NEW_C_HEAP_ARRAY(char, len, mtInternal);
-  }
-
-  if (name) {
-    generate_i2c_adapter_name(name, total_args_passed, sig_bt);
-    sim = AArch64Simulator::get_current(UseSimulatorCache, DisableBCCheck);
-    sim->notifyCompile(name, i2c_entry);
-  }
-#endif
   gen_i2c_adapter(masm, total_args_passed, comp_args_on_stack, sig_bt, regs);
 
   address c2i_unverified_entry = __ pc();
@@ -760,15 +678,6 @@ AdapterHandlerEntry* SharedRuntime::generate_i2c2i_adapters(MacroAssembler *masm
   }
 
   address c2i_entry = __ pc();
-
-#ifdef BUILTIN_SIM
-  if (name) {
-    name[0] = 'c';
-    name[2] = 'i';
-    sim->notifyCompile(name, c2i_entry);
-    FREE_C_HEAP_ARRAY(char, name, mtInternal);
-  }
-#endif
 
   gen_c2i_adapter(masm, total_args_passed, comp_args_on_stack, sig_bt, regs, skip_fixup);
 
@@ -1531,10 +1440,6 @@ nmethod* SharedRuntime::generate_native_wrapper(MacroAssembler* masm,
   // Frame is now completed as far as size and linkage.
   int frame_complete = ((intptr_t)__ pc()) - start;
 
-  // record entry into native wrapper code
-  if (NotifySimulator) {
-  }
-
   // We use r20 as the oop handle for the receiver/klass
   // It is callee save so it survives the call to native
 
@@ -2050,10 +1955,6 @@ nmethod* SharedRuntime::generate_native_wrapper(MacroAssembler* masm,
     __ cbnz(rscratch1, exception_pending);
   }
 
-  // record exit from native wrapper code
-  if (NotifySimulator) {
-  }
-
   // We're done
   __ b(lr);
 
@@ -2498,12 +2399,6 @@ void SharedRuntime::generate_deopt_blob() {
   _deopt_blob = DeoptimizationBlob::create(&buffer, oop_maps, 0, exception_offset, reexecute_offset, frame_size_in_words);
   _deopt_blob->set_unpack_with_exception_in_tls_offset(exception_in_tls_offset);
 
-#ifdef BUILTIN_SIM
-  if (NotifySimulator) {
-    unsigned char *base = _deopt_blob->code_begin();
-    simulator->notifyRelocate(start, base - start);
-  }
-#endif
 */
 }
 
@@ -2519,14 +2414,6 @@ uint SharedRuntime::out_preserve_stack_slots() {
   // Setup code generation tools
   CodeBuffer buffer("uncommon_trap_blob", 2048, 1024);
   MacroAssembler* masm = new MacroAssembler(&buffer);
-
-#ifdef BUILTIN_SIM
-  AArch64Simulator *simulator;
-  if (NotifySimulator) {
-    simulator = AArch64Simulator::get_current(UseSimulatorCache, DisableBCCheck);
-    simulator->notifyCompile(const_cast<char*>("SharedRuntime:uncommon_trap_blob"), __ pc());
-  }
-#endif
 
   assert(SimpleRuntimeFrame::framesize % 4 == 0, "sp not 16-byte aligned");
 
@@ -2700,12 +2587,6 @@ uint SharedRuntime::out_preserve_stack_slots() {
   _uncommon_trap_blob =  UncommonTrapBlob::create(&buffer, oop_maps,
                                                  SimpleRuntimeFrame::framesize >> 1);
 
-#ifdef BUILTIN_SIM
-  if (NotifySimulator) {
-    unsigned char *base = _deopt_blob->code_begin();
-    simulator->notifyRelocate(start, base - start);
-  }
-#endif
 } */
 #endif // COMPILER2
 

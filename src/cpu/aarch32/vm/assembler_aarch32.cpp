@@ -45,12 +45,6 @@ const unsigned long Assembler::asm_bp = 0x0;
 #include "runtime/interfaceSupport.hpp"
 #include "runtime/sharedRuntime.hpp"
 
-// for the moment we reuse the logical/floating point immediate encode
-// and decode functiosn provided by the simulator. when we move to
-// real hardware we will need to pull taht code into here
-
-#include "immediate_aarch32.hpp"
-
 extern "C" void entry(CodeBuffer *cb);
 
 #define __ _masm.

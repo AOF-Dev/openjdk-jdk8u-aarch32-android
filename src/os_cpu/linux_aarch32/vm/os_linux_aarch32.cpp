@@ -55,10 +55,6 @@
 #include "utilities/events.hpp"
 #include "utilities/vmError.hpp"
 
-#ifdef BUILTIN_SIM
-#include "../../../../../../simulator/simulator.hpp"
-#endif
-
 // put OS-includes here
 # include <sys/types.h>
 # include <sys/mman.h>
@@ -81,18 +77,9 @@
 # include <ucontext.h>
 # include <fpu_control.h>
 
-#ifdef BUILTIN_SIM
-#define REG_SP REG_RSP
-#define REG_PC REG_RIP
-#define REG_FP REG_RBP
-#define SPELL_REG_SP "rsp"
-#define SPELL_REG_FP "rbp"
-#else
 #define REG_FP 29
-
 #define SPELL_REG_SP "sp"
 #define SPELL_REG_FP "fp"
-#endif
 
 address os::current_stack_pointer() {
   register void *esp __asm__ (SPELL_REG_SP);
@@ -111,47 +98,31 @@ void os::initialize_thread(Thread *thr) {
 }
 
 address os::Linux::ucontext_get_pc(ucontext_t * uc) {
-#ifdef BUILTIN_SIM
-  return (address)uc->uc_mcontext.gregs[REG_PC];
-#else
   //FIXME
   //return (address)uc->uc_mcontext.pc;
   return (address)uc->uc_mcontext.arm_pc;
   //FIXME END
-#endif
 }
 
 void os::Linux::ucontext_set_pc(ucontext_t * uc, address pc) {
-#ifdef BUILTIN_SIM
-  uc->uc_mcontext.gregs[REG_PC] = (intptr_t)pc;
-#else
   //FIXME
   //uc->uc_mcontext.pc = (intptr_t)pc;
   uc->uc_mcontext.arm_pc = (intptr_t)pc;
   //FIXME END
-#endif
 }
 
 intptr_t* os::Linux::ucontext_get_sp(ucontext_t * uc) {
-#ifdef BUILTIN_SIM
-  return (intptr_t*)uc->uc_mcontext.gregs[REG_SP];
-#else
   //FIXME
   //return (intptr_t*)uc->uc_mcontext.sp;
   return (intptr_t*)uc->uc_mcontext.arm_sp;
   //FIXME END
-#endif
 }
 
 intptr_t* os::Linux::ucontext_get_fp(ucontext_t * uc) {
-#ifdef BUILTIN_SIM
-  return (intptr_t*)uc->uc_mcontext.gregs[REG_FP];
-#else
   //FIXME
   //return (intptr_t*)uc->uc_mcontext.regs[REG_FP];
   return (intptr_t*)uc->uc_mcontext.arm_fp;
   //FIXME END
-#endif
 }
 
 // For Forte Analyzer AsyncGetCallTrace profiling support - thread
@@ -199,11 +170,7 @@ frame os::fetch_frame_from_context(void* ucVoid) {
 // By default, gcc always saves frame pointer rfp on this stack. This
 // may get turned off by -fomit-frame-pointer.
 frame os::get_sender_for_C_frame(frame* fr) {
-#ifdef BUILTIN_SIM
-  return frame(fr->sender_sp(), fr->link(), fr->sender_pc());
-#else
   return frame(fr->link(), fr->link(), fr->sender_pc());
-#endif
 }
 
 intptr_t* _get_previous_fp() {
@@ -231,13 +198,6 @@ frame os::current_frame() {
 enum {
   trap_page_fault = 0xE
 };
-
-#ifdef BUILTIN_SIM
-extern "C" void Fetch32PFI () ;
-extern "C" void Fetch32Resume () ;
-extern "C" void FetchNPFI () ;
-extern "C" void FetchNResume () ;
-#endif
 
 // An operation in Unsafe has faulted.  We're going to return to the
 // instruction after the faulting load or store.  We also set
@@ -322,21 +282,10 @@ JVM_handle_linux_signal(int sig,
   if (info != NULL && uc != NULL && thread != NULL) {
     pc = (address) os::Linux::ucontext_get_pc(uc);
 
-#ifdef BUILTIN_SIM
-    if (pc == (address) Fetch32PFI) {
-       uc->uc_mcontext.gregs[REG_PC] = intptr_t(Fetch32Resume) ;
-       return 1 ;
-    }
-    if (pc == (address) FetchNPFI) {
-       uc->uc_mcontext.gregs[REG_PC] = intptr_t (FetchNResume) ;
-       return 1 ;
-    }
-#else
     if (StubRoutines::is_safefetch_fault(pc)) {
       os::Linux::ucontext_set_pc(uc, StubRoutines::continuation_for_safefetch_fault(pc));
       return 1;
     }
-#endif
 
     // Handle ALL stack overflow variations here
     if (sig == SIGSEGV) {

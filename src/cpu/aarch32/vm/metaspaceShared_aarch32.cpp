@@ -52,10 +52,6 @@
 
 #define __ masm->
 
-extern "C" {
-  void aarch32_prolog(void);
-}
-
 void MetaspaceShared::generate_vtable_methods(void** vtbl_list,
                                                    void** vtable,
                                                    char** md_top,

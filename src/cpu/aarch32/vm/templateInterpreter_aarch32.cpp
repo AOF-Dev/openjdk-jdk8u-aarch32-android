@@ -55,10 +55,6 @@
 #include "oops/method.hpp"
 #endif // !PRODUCT
 
-#ifdef BUILTIN_SIM
-#include "../../../../../../simulator/simulator.hpp"
-#endif
-
 #define __ _masm->
 
 #ifndef CC_INTERP

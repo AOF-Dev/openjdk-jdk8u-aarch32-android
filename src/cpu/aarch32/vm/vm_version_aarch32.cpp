@@ -35,13 +35,6 @@
 # include "os_linux.inline.hpp"
 #endif
 
-/*#ifndef BUILTIN_SIM
-#include <sys/auxv.h>
-#include <asm/hwcap.h>
-#else*/
-#define getauxval(hwcap) 0
-//#endif
-
 #ifndef HWCAP_AES
 #define HWCAP_AES   (1<<3)
 #endif
