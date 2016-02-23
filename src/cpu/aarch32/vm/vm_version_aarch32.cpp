@@ -119,7 +119,6 @@ void VM_Version::get_processor_features() {
   FLAG_SET_DEFAULT(PrefetchScanIntervalInBytes, 256);
   FLAG_SET_DEFAULT(PrefetchFieldsAhead, 256);
   FLAG_SET_DEFAULT(PrefetchCopyIntervalInBytes, 256);
-  FLAG_SET_DEFAULT(UseSSE42Intrinsics, false);
 
   int ncores = 0, cpu, variant, model, revision;
   enum ProcessorFeatures f = FT_NONE;

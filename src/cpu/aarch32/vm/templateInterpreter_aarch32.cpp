@@ -183,8 +183,8 @@ address TemplateInterpreterGenerator::generate_return_entry_for(TosState state, 
   __ reg_printf("A. return_entry <r1:r0> : 0x%08x%08x\n", r1, r0);
 
   // Restore stack bottom in case i2c adjusted stack
-  __ ldr(esp, Address(rfp, frame::interpreter_frame_last_sp_offset * wordSize));
-  // and NULL it as marker that esp is now tos until next java call
+  __ ldr(sp, Address(rfp, frame::interpreter_frame_last_sp_offset * wordSize));
+  // and NULL it as marker that sp is now tos until next java call
   __ mov(rscratch1, 0);
   __ str(rscratch1, Address(rfp, frame::interpreter_frame_last_sp_offset * wordSize));
   __ reg_printf("B. return_entry <r1:r0> : 0x%08x%08x\n", r1, r0);
@@ -250,7 +250,7 @@ address TemplateInterpreterGenerator::generate_deopt_entry_for(TosState state,
   __ bic(sp, rscratch1, 0xf);
 
   // Restore expression stack pointer
-  __ ldr(esp, Address(rfp, frame::interpreter_frame_last_sp_offset * wordSize));
+  __ ldr(sp, Address(rfp, frame::interpreter_frame_last_sp_offset * wordSize));
   // NULL last_sp until next java call
   __ mov(rscratch1, 0);
   __ str(rscratch1, Address(rfp, frame::interpreter_frame_last_sp_offset * wordSize));
@@ -378,7 +378,8 @@ void InterpreterGenerator::generate_counter_incr(
     __ ldr(r0, backedge_counter);
 
     __ add(r1, r1, InvocationCounter::count_increment);
-    __ andr(r0, r0, InvocationCounter::count_mask_value);
+    __ mov(rscratch1, InvocationCounter::count_mask_value);
+    __ andr(r0, r0, rscratch1);
 
     __ str(r1, invocation_counter);
     __ add(r0, r0, r1);                // add both counters
@@ -574,7 +575,6 @@ void InterpreterGenerator::lock_method(void) {
 
   // add space for monitor & lock
   __ sub(sp, sp, entry_size); // add space for a monitor entry
-  //__ sub(esp, esp, entry_size);
   __ mov(rscratch1, sp);
   __ str(rscratch1, monitor_block_top);  // set new monitor block top
   // store object
@@ -592,7 +592,7 @@ void InterpreterGenerator::lock_method(void) {
 //      rlocals: pointer to locals
 //      rcpool: cp cache
 //      stack_pointer: previous sp
-//      r2 contains the sender sp
+//      r4 contains the sender sp
 void TemplateInterpreterGenerator::generate_fixed_frame(bool native_call) {
   // initialize fixed part of activation frame
   __ reg_printf("About to print native entry, rmethod = %p\n", rmethod);
@@ -644,8 +644,8 @@ void TemplateInterpreterGenerator::generate_fixed_frame(bool native_call) {
   // set sender sp
   // leave last_sp as null
   __ mov(rscratch1, 0);
-  // r2 contains the sender sp
-  __ strd(rscratch1, r2, Address(sp, 6 * wordSize));
+  // r4 contains the sender sp
+  __ strd(rscratch1, r4, Address(sp, 6 * wordSize));
 
   // Move SP out of the way
   /*if (! native_call) {
@@ -708,7 +708,7 @@ address InterpreterGenerator::generate_Reference_get_entry(void) {
     const Register local_0 = c_rarg0;
     // Check if local 0 != NULL
     // If the receiver is null then it is OK to jump to the slow path.
-    __ ldr(local_0, Address(esp, 0));
+    __ ldr(local_0, Address(sp, 0));
     __ cbz(local_0, slow_path);
 
 
@@ -727,7 +727,8 @@ address InterpreterGenerator::generate_Reference_get_entry(void) {
                             true /* expand_call */);
     __ leave();
     // areturn
-    __ stop("Need to instead set sender_sp from other info");
+    __ mov(sp, r4);           // set sp to sender sp
+    __ stop("Check sp restored correctly, may be get_dispatch()?");
     //__ bic(sp, r13, 0xf);  // done with stack
     __ b(lr);
 
@@ -769,7 +770,7 @@ address InterpreterGenerator::generate_native_entry(bool synchronized) {
   bool inc_counter  = UseCompiler || CountCompiledCalls;
 
   // r1: Method*
-  // rscratch1: sender sp
+  // r4: sender sp
 
   address entry_point = __ pc();
   __ reg_printf("entering generate_native_entry, lr = %p, rfp = %p\n\tRBCP = %p\n", lr, rfp, rbcp);
@@ -789,7 +790,7 @@ address InterpreterGenerator::generate_native_entry(bool synchronized) {
 
   // rmethod: Method*
   // r2: size of parameters
-  // rscratch1: sender sp
+  // r4: sender sp
 
   // for natives the size of locals is zero
 
@@ -798,17 +799,13 @@ address InterpreterGenerator::generate_native_entry(bool synchronized) {
   __ sub(rlocals, rlocals, wordSize);
   __ reg_printf("(start of parameters) rlocals = %p, nparams = %d\n", rlocals, r2);
 
-  Register locals_esp = r4; // the overwrites rdispatch, we can restore at end
-  // !! If this canges, change the end of arguements in interpreterRT_aarch32.cpp
-  //__ mov(r4, sp); //Save top of arguments
-
-
-
   // initialize fixed part of activation frame
-  // Put sp into r2 ( to be saved on stack for restoration at the end ).
-  __ mov(r2, sp);
   generate_fixed_frame(true);
   __ reg_printf("pushed new fixed frame, lr = %p, rfp = %p\n", lr, rfp);
+
+  Register locals_sp = r4; // the overwrites rdispatch, we can restore at end
+  // !! If this canges, change the end of arguements in interpreterRT_aarch32.cpp
+  //__ mov(r4, sp); //Save top of arguments
 
   // make sure method is native & not abstract
 #ifdef ASSERT
@@ -903,9 +900,9 @@ address InterpreterGenerator::generate_native_entry(bool synchronized) {
   // This +1 is a hack to double the amount of space allocated for parameters, this is likely far
   // more than needed as in the worst case when parameters have to be placed on the stack they would be aligned
   // as follows LONG | INT | EMPTY | LONG ... This would only increase the space used by a half.
-  __ bic(sp, sp, 0x7);
-  __ mov(locals_esp, sp);
-  __ reg_printf("Stack Pointer on arg copy, sp = %p, locals_esp = %p, rlocals = %p\n", sp, locals_esp, rlocals);
+  __ align_stack();
+  __ mov(locals_sp, sp);
+  __ reg_printf("Stack Pointer on arg copy, sp = %p, locals_sp = %p, rlocals = %p\n", sp, locals_sp, rlocals);
 
   // get signature handler
   {
@@ -913,10 +910,10 @@ address InterpreterGenerator::generate_native_entry(bool synchronized) {
     __ ldr(rscratch1, Address(rmethod, Method::signature_handler_offset()));
     __ cmp(rscratch1, 0);
     __ b(L, Assembler::NE);
-    __ reg_printf("Prepare_native_call, locals_esp = %p, rlocals = %p\n", locals_esp, rlocals);
+    __ reg_printf("Prepare_native_call, locals_sp = %p, rlocals = %p\n", locals_sp, rlocals);
     __ call_VM(noreg, CAST_FROM_FN_PTR(address,
                                        InterpreterRuntime::prepare_native_call), rmethod);
-    __ reg_printf("Finished prepare_native_call, locals_esp = %p, rlocals = %p\n", locals_esp, rlocals);
+    __ reg_printf("Finished prepare_native_call, locals_sp = %p, rlocals = %p\n", locals_sp, rlocals);
     __ ldr(rscratch1, Address(rmethod, Method::signature_handler_offset()));
     __ bind(L);
   }
@@ -924,7 +921,7 @@ address InterpreterGenerator::generate_native_entry(bool synchronized) {
   // call signature handler
   assert(InterpreterRuntime::SignatureHandlerGenerator::from() == rlocals,
          "adjust this code");
-  assert(InterpreterRuntime::SignatureHandlerGenerator::to() == locals_esp,
+  assert(InterpreterRuntime::SignatureHandlerGenerator::to() == locals_sp,
          "adjust this code");
   assert(InterpreterRuntime::SignatureHandlerGenerator::temp() == rscratch1,
           "adjust this code");
@@ -933,10 +930,10 @@ address InterpreterGenerator::generate_native_entry(bool synchronized) {
   // However, large signatures cannot be cached and are generated
   // each time here.  The slow-path generator can do a GC on return,
   // so we must reload it after the call.
-  __ reg_printf("**BEFORE**\nrlocals = %p,locals_esp = %p, sp = %p\n", rlocals, locals_esp, sp);
+  __ reg_printf("**BEFORE**\nrlocals = %p,locals_sp = %p, sp = %p\n", rlocals, locals_sp, sp);
   __ reg_printf("About to call the Method::signature_handler = %p\n", rscratch1);
   __ bl(rscratch1);
-  __ reg_printf("**AFER**\nr0 : %p, r1 : %p, r2 : %p\n", r0, r1, r2);
+  __ reg_printf("**AFTER**\nr0 : %p, r1 : %p, r2 : %p\n", r0, r1, r2);
   __ reg_printf("r3 : %p, sp : %p\n", r3, sp);
   __ get_method(rmethod);        // slow path can do a GC, reload rmethod
 
@@ -988,7 +985,7 @@ address InterpreterGenerator::generate_native_entry(bool synchronized) {
 
   // It is enough that the pc() points into the right code
   // segment. It does not have to be the correct return pc.
-  __ set_last_Java_frame(esp, rfp, (address)NULL, rscratch1);
+  __ set_last_Java_frame(sp, rfp, (address)NULL, rscratch1);
 
   // change thread state
 #ifdef ASSERT
@@ -1005,9 +1002,8 @@ address InterpreterGenerator::generate_native_entry(bool synchronized) {
   // Change state to native
   __ mov(rscratch1, _thread_in_native);
   __ lea(rscratch2, Address(rthread, JavaThread::thread_state_offset()));
+  __ dmb(Assembler::ISH);
   __ str(rscratch1, Address(rscratch2));
-  // FIXME aarch64 uses stlr presumably for memory ordering reasons?
-  //__ stop("fix strex");
 
   __ reg_printf("Calling native method, lr = %p & rmethod = %p\n", lr, rmethod);
   // Call the native method.
@@ -1021,7 +1017,7 @@ address InterpreterGenerator::generate_native_entry(bool synchronized) {
   // result potentially in r0, <r0:r1> or v0
 
   // make room for the pushes we're about to do
-  //__ sub(rscratch1, esp, 4 * wordSize);
+  //__ sub(rscratch1, sp, 4 * wordSize);
   //__ bic(sp, rscratch1, 0xf);
   // NOTE: The order of these pushes is known to frame::interpreter_frame_result
   // in order to extract the result of a method call. If the order of these
@@ -1034,8 +1030,8 @@ address InterpreterGenerator::generate_native_entry(bool synchronized) {
   // change thread state
   __ mov(rscratch1, _thread_in_native_trans);
   __ lea(rscratch2, Address(rthread, JavaThread::thread_state_offset()));
+  __ dmb(Assembler::ISH);
   __ str(rscratch1, Address(rscratch2));
-  // FIXME This uses stlr in the aarch64 version presumably for ordering semantics
   __ reg_printf("before os::is_MP\n");
   if (os::is_MP()) {
     if (UseMembar) {
@@ -1079,8 +1075,8 @@ address InterpreterGenerator::generate_native_entry(bool synchronized) {
   // change thread state
   __ mov(rscratch1, _thread_in_Java);
   __ lea(rscratch2, Address(rthread, JavaThread::thread_state_offset()));
+  __ dmb(Assembler::ISH);
   __ str(rscratch1, Address(rscratch2));
-  // FIXME This uses stlr in the aarch64 version presumably for ordering semantics
 
   // reset_last_Java_frame
   __ reset_last_Java_frame(true, true);
@@ -1251,9 +1247,8 @@ address InterpreterGenerator::generate_normal_entry(bool synchronized) {
   // determine code generation flags
   bool inc_counter = UseCompiler || CountCompiledCalls;
 
-  // rscratch1: sender sp
+  // r4: sender sp
   address entry_point = __ pc();
-  __ reg_printf("start of generate_normal_entry; rmethod = %p, lr = %p\n", rmethod, lr);
 
   const Address constMethod(rmethod, Method::const_offset());
   const Address access_flags(rmethod, Method::access_flags_offset());
@@ -1265,7 +1260,6 @@ address InterpreterGenerator::generate_normal_entry(bool synchronized) {
   // need to load the const method first
   __ ldr(r3, constMethod);
   __ load_unsigned_short(r2, size_of_parameters);
-  __ reg_printf("Expected %d parameters(words)\n", r2);
 
   // r2: size of parameters
 
@@ -1274,18 +1268,15 @@ address InterpreterGenerator::generate_normal_entry(bool synchronized) {
 
   // see if we've got enough room on the stack for locals plus overhead.
   generate_stack_overflow_check();
-  __ reg_printf("Done stack overflow check\n");
 
   // compute beginning of parameters (rlocals)
   __ add(rlocals, sp, r2, lsl(2));
   __ sub(rlocals, rlocals, wordSize);
 
-  // put sender sp into r2 - used by generate_fixed_frame
-  __ mov(r2, sp);
-
   // Make room for locals
   __ sub(rscratch1, sp, r3, lsl(2));
-  __ bic(sp, rscratch1, 0x7);
+  // Align the sp value
+  __ bic(sp, rscratch1, StackAlignmentInBytes-1);
 
   // r3 - # of additional locals
   // allocate space for locals
@@ -1303,11 +1294,11 @@ address InterpreterGenerator::generate_normal_entry(bool synchronized) {
   }
   __ reg_printf("Done locals space\n", r2);
 
-  // And the base dispatch table
-  __ get_dispatch();
   // initialize fixed part of activation frame
   __ reg_printf("About to do fixed frame\n", r2);
   generate_fixed_frame(false);
+  // And the base dispatch table
+  __ get_dispatch();
   // make sure method is not native & not abstract
   __ reg_printf("Just done generate_fixed_frame; rmethod = %p\n", rmethod);
 #ifdef ASSERT
@@ -1388,7 +1379,7 @@ address InterpreterGenerator::generate_normal_entry(bool synchronized) {
      const Address monitor_block_top (rfp,
                  frame::interpreter_frame_monitor_block_top_offset * wordSize);
     __ ldr(rscratch1, monitor_block_top);
-    __ cmp(esp, rscratch1);
+    __ cmp(sp, rscratch1);
     __ b(L, Assembler::EQ);
     __ stop("broken stack frame setup in interpreter");
     __ bind(L);
@@ -1588,10 +1579,10 @@ void AbstractInterpreter::layout_activation(Method* method,
   interpreter_frame->interpreter_frame_set_monitor_end(monbot);
 
   // Set last_sp
-  intptr_t*  esp = (intptr_t*) monbot -
+  intptr_t*  last_sp = (intptr_t*) monbot -
     tempcount*Interpreter::stackElementWords -
     popframe_extra_args;
-  interpreter_frame->interpreter_frame_set_last_sp(esp);
+  interpreter_frame->interpreter_frame_set_last_sp(last_sp);
 
   // All frames but the initial (oldest) interpreter frame we fill in have
   // a value for sender_sp that allows walking the stack but isn't
@@ -1744,7 +1735,7 @@ void TemplateInterpreterGenerator::generate_throw_exception() {
                        /* notify_jvmdi */ false);
 
   // Restore the last_sp and null it out
-  __ ldr(esp, Address(rfp, frame::interpreter_frame_last_sp_offset * wordSize));
+  __ ldr(sp, Address(rfp, frame::interpreter_frame_last_sp_offset * wordSize));
   __ mov(rscratch1, 0);
   __ str(rscratch1, Address(rfp, frame::interpreter_frame_last_sp_offset * wordSize));
   // remove_activation restores sp?
@@ -1761,7 +1752,7 @@ void TemplateInterpreterGenerator::generate_throw_exception() {
   }
 
   // Clear the popframe condition flag
-  __ mov(rscratch1, 0);
+  __ mov(rscratch1, JavaThread::popframe_inactive);
   __ str(rscratch1, Address(rthread, JavaThread::popframe_condition_offset()));
   assert(JavaThread::popframe_inactive == 0, "fix popframe_inactive");
 
@@ -1781,7 +1772,7 @@ void TemplateInterpreterGenerator::generate_throw_exception() {
 
     __ cbz(r0, L_done);
 
-    __ str(r0, Address(esp, 0));
+    __ str(r0, Address(sp, 0));
     __ bind(L_done);
   }
 #endif // INCLUDE_JVMTI

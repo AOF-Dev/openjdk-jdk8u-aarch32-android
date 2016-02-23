@@ -27,20 +27,20 @@
 #ifndef OS_CPU_LINUX_AARCH32_VM_GLOBALS_LINUX_AARCH32_HPP
 #define OS_CPU_LINUX_AARCH32_VM_GLOBALS_LINUX_AARCH32_HPP
 
-// Sets the default values for platform dependent flags used by the runtime system.
-// (see globals.hpp)
+// Set the default values for platform dependent flags used by the runtime
+// system (see globals.hpp)
 
-define_pd_global(bool, DontYieldALot,            false);
-define_pd_global(intx, ThreadStackSize,          2048); // 0 => use system default
-define_pd_global(intx, VMThreadStackSize,        2048);
+// DontYieldALot should always be set to false on Linux.
+define_pd_global(bool,  DontYieldALot,           false);
 
-define_pd_global(intx, CompilerThreadStackSize,  0);
+// Thread stack sizes are given in Kbytes.
+define_pd_global(intx,  ThreadStackSize,         320);
+define_pd_global(intx,  VMThreadStackSize,       512);
+define_pd_global(intx,  CompilerThreadStackSize, 512);
 
-define_pd_global(uintx,JVMInvokeMethodSlack,     8192);
+define_pd_global(uintx, JVMInvokeMethodSlack,    8192);
 
-// Used on 64 bit platforms for UseCompressedOops base address
-define_pd_global(uintx,HeapBaseMinAddress,       2*G);
-
-extern __thread Thread *aarch64_currentThread;
+// HeapBaseMinAddress is used on 64 bit platforms only.
+define_pd_global(uintx, HeapBaseMinAddress,      2*G);
 
 #endif // OS_CPU_LINUX_AARCH32_VM_GLOBALS_LINUX_AARCH32_HPP

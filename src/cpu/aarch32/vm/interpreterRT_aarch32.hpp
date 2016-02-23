@@ -55,7 +55,8 @@ class SignatureHandlerGenerator: public NativeSignatureIterator {
   {
     _masm = new MacroAssembler(buffer);
     _num_int_args = (method->is_static() ? 1 : 0);
-    _fp_arg_mask =  (1 <<(Argument::n_float_register_parameters_c * 2)) - 1;
+    // See layout in interpreter_aarch32.cpp
+    _fp_arg_mask =  (1 <<(Argument::n_float_register_parameters_c * 3)) - 1;
   }
 
   // Code generation

@@ -153,9 +153,9 @@ bool frame::safe_for_sender(JavaThread *thread) {
 
       sender_sp = _unextended_sp + _cb->frame_size();
       sender_unextended_sp = sender_sp;
-      sender_pc = (address) *(sender_sp-1);
+      sender_pc = (address) *(sender_sp - 1);
       // Note: frame::sender_sp_offset is only valid for compiled frame
-      saved_fp = (intptr_t*) *(sender_sp - frame::sender_sp_offset);
+      saved_fp = (intptr_t*) *(sender_sp - 2);
     }
 
 
@@ -435,13 +435,6 @@ void frame::update_map_with_saved_link(RegisterMap* map, intptr_t** link_addr) {
   // we don't have to always save fp on entry and exit to c2 compiled
   // code, on entry will be enough.
   map->set_location(rfp->as_VMReg(), (address) link_addr);
-  // this is weird "H" ought to be at a higher address however the
-  // oopMaps seems to have the "H" regs at the same address and the
-  // vanilla register.
-  // XXXX make this go away
-  if (true) {
-    map->set_location(rfp->as_VMReg()->next(), (address) link_addr);
-  }
 }
 
 
@@ -510,13 +503,13 @@ frame frame::sender_for_compiled_frame(RegisterMap* map) const {
   // have to find it relative to the unextended sp
 
   assert(_cb->frame_size() >= 0, "must have non-zero frame size");
-  intptr_t* l_sender_sp = _fp + 1;
+  intptr_t* l_sender_sp = unextended_sp() + _cb->frame_size();
   intptr_t* unextended_sp = l_sender_sp;
 
   // the return_address is always the word on the stack
-  address sender_pc = (address) *(l_sender_sp-1);
+  address sender_pc = (address) *(l_sender_sp - 1);
 
-  intptr_t** saved_fp_addr = (intptr_t**)(_fp + link_offset);
+  intptr_t** saved_fp_addr = (intptr_t**)(l_sender_sp - 2);
 
   // assert (sender_sp() == l_sender_sp, "should be");
   // assert (*saved_fp_addr == link(), "should be");

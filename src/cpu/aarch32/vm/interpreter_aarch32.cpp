@@ -77,15 +77,17 @@ address AbstractInterpreterGenerator::generate_slow_signature_handler() {
 
   // Stack layout:
   // rsp: return address           <- sp (lowest addr)
-  //      1 float/double identifiers
+  //      1 float/double identifiers with the following structure:
+  //        16 bit - 2 bits per word free/in use indication (0==in use)
+  //        8 bits - 1 bit per word, double/float indication (0==double)
   //      4 integer args (if static first is unused)
-  //      8 double args FIXME how many for ARM, need to adjust
+  //      8 double args (defined by ARM calling convention spec)
   //        stack args              <- sp (on entry)
   //        garbage
   //        expression stack bottom
   //        bcp (NULL)
   //        ...
-  // If this changes, update interpreterRt_aarch32.cpp slowpath
+  // If this changes, update interpreterRt_aarch32.cpp slowpath!
 
   // Restore LR
   __ ldr(lr, sp);
@@ -93,17 +95,25 @@ address AbstractInterpreterGenerator::generate_slow_signature_handler() {
   // Do FP first so we can use c_rarg3 as temp
   __ ldr(c_rarg3, Address(sp, wordSize)); // float/double identifiers
 
-  for (int i = 0; i < Argument::n_float_register_parameters_c; i++) {
-    const FloatRegister r = as_FloatRegister(i);
+  {
+    Label fp_done;
+    // each iteration covers either single double register or up to 2 float registers
+    for (int i = 0; i < Argument::n_float_register_parameters_c; i++) {
+      Label d, done;
 
-    Label d, done;
-
-    __ tbnz(c_rarg3, i, d);
-    __ vldr_f32(r, Address(sp, (6 + 2 * i) * wordSize));
-    __ b(done);
-    __ bind(d);
-    __ vldr_f64(r, Address(sp, (6 + 2 * i) * wordSize));
-    __ bind(done);
+      __ tst(c_rarg3, 1 << i+16);
+      __ b(d, __ EQ);
+      __ tst(c_rarg3, 1 << i*2);
+      __ b(fp_done, __ NE);
+      __ vldr_f32(as_FloatRegister(i*2), Address(sp, (6 + 2 * i) * wordSize));
+      __ tst(c_rarg3, 1 << i*2+1);
+      __ vldr_f32(as_FloatRegister(i*2+1), Address(sp, (7 + 2 * i) * wordSize), __ EQ);
+      __ b(done);
+      __ bind(d);
+      __ vldr_f64(as_DoubleFloatRegister(i), Address(sp, (6 + 2 * i) * wordSize));
+      __ bind(done);
+    }
+    __ bind(fp_done);
   }
 
   // c_rarg0 contains the result from the call of
@@ -125,8 +135,8 @@ address AbstractInterpreterGenerator::generate_slow_signature_handler() {
 
 address InterpreterGenerator::generate_math_entry(AbstractInterpreter::MethodKind kind) {
   // rmethod: Method*
-  // r13: sender sp
-  // esp: args
+  // r4: sender sp
+  // sp: args
 
   //if (!InlineIntrinsics) return NULL; // Generate a vanilla entry
   // FIXME currently ignoring this flag and inlining anyway
@@ -143,7 +153,7 @@ address InterpreterGenerator::generate_math_entry(AbstractInterpreter::MethodKin
   // computation)
   //
   // stack:
-  //        [ arg ] <-- esp
+  //        [ arg ] <-- sp
   //        [ arg ]
   // retaddr in lr
 
@@ -153,14 +163,14 @@ address InterpreterGenerator::generate_math_entry(AbstractInterpreter::MethodKin
   case Interpreter::java_lang_math_abs:
     entry_point = __ pc();
     __ vldr_f64(d0, Address(sp));
+    __ mov(sp, r4);
     __ vabs_f64(d0, d0);
-    __ add(sp, sp, Interpreter::stackElementSize);
     break;
   case Interpreter::java_lang_math_sqrt:
     entry_point = __ pc();
     __ vldr_f64(d0, Address(sp));
+    __ mov(sp, r4);
     __ vsqrt_f64(d0, d0);
-    __ add(sp, sp, Interpreter::stackElementSize);
     break;
   case Interpreter::java_lang_math_sin :
   case Interpreter::java_lang_math_cos :
@@ -170,19 +180,19 @@ address InterpreterGenerator::generate_math_entry(AbstractInterpreter::MethodKin
   case Interpreter::java_lang_math_exp :
     entry_point = __ pc();
     __ vldr_f64(d0, Address(sp));
-    __ add(sp, sp, Interpreter::stackElementSize);
+    __ mov(sp, r4);
     __ mov(r4, lr);
     continuation = r4;  // The first callee-saved register
-    generate_transcendental_entry(kind, 1);
+    generate_transcendental_entry(kind);
     break;
   case Interpreter::java_lang_math_pow :
     entry_point = __ pc();
+    __ vldr_f64(d0, Address(sp, 2*Interpreter::stackElementSize));
+    __ vldr_f64(d1, Address(sp));
+    __ mov(sp, r4);
     __ mov(r4, lr);
     continuation = r4;
-    __ vldr_f64(d0, Address(sp, 2 * Interpreter::stackElementSize));
-    __ vldr_f64(d1, Address(sp));
-    __ add(sp, sp, 2 * Interpreter::stackElementSize);
-    generate_transcendental_entry(kind, 2);
+    generate_transcendental_entry(kind);
     break;
   default:
     ;
@@ -203,8 +213,8 @@ address InterpreterGenerator::generate_math_entry(AbstractInterpreter::MethodKin
   // static jdouble dexp(jdouble x);
   // static jdouble dpow(jdouble x, jdouble y);
 
-void InterpreterGenerator::generate_transcendental_entry(AbstractInterpreter::MethodKind kind, int fpargs) {
-  address fn = NULL;
+void InterpreterGenerator::generate_transcendental_entry(AbstractInterpreter::MethodKind kind) {
+  address fn;
   switch (kind) {
   case Interpreter::java_lang_math_sin :
     fn = CAST_FROM_FN_PTR(address, SharedRuntime::dsin);
@@ -225,13 +235,12 @@ void InterpreterGenerator::generate_transcendental_entry(AbstractInterpreter::Me
     fn = CAST_FROM_FN_PTR(address, SharedRuntime::dexp);
     break;
   case Interpreter::java_lang_math_pow :
-    fpargs = 2;
     fn = CAST_FROM_FN_PTR(address, SharedRuntime::dpow);
     break;
   default:
     ShouldNotReachHere();
   }
-  const int gpargs = 0, rtype = 3;
+  __ align_stack();
   __ mov(rscratch1, fn);
   __ bl(rscratch1);
 }

@@ -68,7 +68,7 @@
 //
 // Layout of C++ interpreter frame: (While executing in BytecodeInterpreter::run)
 //
-//                             <- SP (current esp/rsp)
+//                             <- SP (current sp)
 //    [local variables         ] BytecodeInterpreter::run local variables
 //    ...                        BytecodeInterpreter::run local variables
 //    [local variables         ] BytecodeInterpreter::run local variables
@@ -104,7 +104,7 @@
 
  public:
   enum {
-    pc_return_offset                                 =  -1,
+    pc_return_offset                                 =  0,
     // All frames
     link_offset                                      =  -1,
     return_addr_offset                               =  0,
@@ -133,7 +133,7 @@
     // Entry frames
     // n.b. these values are determined by the layout defined in
     // stubGenerator for the Java call stub
-    entry_frame_after_call_words                     = 13,
+    entry_frame_after_call_words                     = 12+(StackAlignmentInBytes/BytesPerWord),
     entry_frame_call_wrapper_offset                  = -12,
 
     // we don't need a save area

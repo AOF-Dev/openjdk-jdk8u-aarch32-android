@@ -27,8 +27,8 @@
 #include "precompiled.hpp"
 #include "asm/assembler.hpp"
 #include "asm/register.hpp"
-#include "register_aarch32.hpp"
-# include "interp_masm_aarch32.hpp"
+
+REGISTER_DEFINITION(Register, noreg);
 
 REGISTER_DEFINITION(Register, r0);
 REGISTER_DEFINITION(Register, r1);
@@ -47,8 +47,7 @@ REGISTER_DEFINITION(Register, r13);
 REGISTER_DEFINITION(Register, r14);
 REGISTER_DEFINITION(Register, r15);
 
-REGISTER_DEFINITION(Register, sp);
-
+REGISTER_DEFINITION(FloatRegister, fnoreg);
 
 REGISTER_DEFINITION(FloatRegister, d0);
 REGISTER_DEFINITION(FloatRegister, d1);
@@ -58,47 +57,51 @@ REGISTER_DEFINITION(FloatRegister, d4);
 REGISTER_DEFINITION(FloatRegister, d5);
 REGISTER_DEFINITION(FloatRegister, d6);
 REGISTER_DEFINITION(FloatRegister, d7);
+REGISTER_DEFINITION(FloatRegister, d8);
+REGISTER_DEFINITION(FloatRegister, d9);
+REGISTER_DEFINITION(FloatRegister, d10);
+REGISTER_DEFINITION(FloatRegister, d11);
+REGISTER_DEFINITION(FloatRegister, d12);
+REGISTER_DEFINITION(FloatRegister, d13);
+REGISTER_DEFINITION(FloatRegister, d14);
+REGISTER_DEFINITION(FloatRegister, d15);
 
+REGISTER_DEFINITION(FloatRegister, f0);
+REGISTER_DEFINITION(FloatRegister, f1);
+REGISTER_DEFINITION(FloatRegister, f2);
+REGISTER_DEFINITION(FloatRegister, f3);
+REGISTER_DEFINITION(FloatRegister, f4);
+REGISTER_DEFINITION(FloatRegister, f5);
+REGISTER_DEFINITION(FloatRegister, f6);
+REGISTER_DEFINITION(FloatRegister, f7);
+REGISTER_DEFINITION(FloatRegister, f8);
+REGISTER_DEFINITION(FloatRegister, f9);
+REGISTER_DEFINITION(FloatRegister, f10);
+REGISTER_DEFINITION(FloatRegister, f11);
+REGISTER_DEFINITION(FloatRegister, f12);
+REGISTER_DEFINITION(FloatRegister, f13);
+REGISTER_DEFINITION(FloatRegister, f14);
+REGISTER_DEFINITION(FloatRegister, f15);
 
 REGISTER_DEFINITION(Register, c_rarg0);
 REGISTER_DEFINITION(Register, c_rarg1);
 REGISTER_DEFINITION(Register, c_rarg2);
 REGISTER_DEFINITION(Register, c_rarg3);
 
-REGISTER_DEFINITION(FloatRegister, c_farg0);
-REGISTER_DEFINITION(FloatRegister, c_farg1);
-REGISTER_DEFINITION(FloatRegister, c_farg2);
-REGISTER_DEFINITION(FloatRegister, c_farg3);
-REGISTER_DEFINITION(FloatRegister, c_farg4);
-REGISTER_DEFINITION(FloatRegister, c_farg5);
-REGISTER_DEFINITION(FloatRegister, c_farg6);
-REGISTER_DEFINITION(FloatRegister, c_farg7);
-
 REGISTER_DEFINITION(Register, j_rarg0);
 REGISTER_DEFINITION(Register, j_rarg1);
 REGISTER_DEFINITION(Register, j_rarg2);
 REGISTER_DEFINITION(Register, j_rarg3);
 
-REGISTER_DEFINITION(FloatRegister, j_farg0);
-REGISTER_DEFINITION(FloatRegister, j_farg1);
-REGISTER_DEFINITION(FloatRegister, j_farg2);
-REGISTER_DEFINITION(FloatRegister, j_farg3);
-REGISTER_DEFINITION(FloatRegister, j_farg4);
-REGISTER_DEFINITION(FloatRegister, j_farg5);
-REGISTER_DEFINITION(FloatRegister, j_farg6);
-REGISTER_DEFINITION(FloatRegister, j_farg7);
-
-REGISTER_DEFINITION(Register, rscratch1);
-REGISTER_DEFINITION(Register, rscratch2);
-REGISTER_DEFINITION(Register, esp);
 REGISTER_DEFINITION(Register, rdispatch);
-REGISTER_DEFINITION(Register, rcpool);
-REGISTER_DEFINITION(Register, rmethod);
-REGISTER_DEFINITION(Register, rlocals);
 REGISTER_DEFINITION(Register, rbcp);
-
-REGISTER_DEFINITION(Register, lr);
-REGISTER_DEFINITION(Register, rfp);
+REGISTER_DEFINITION(Register, rlocals);
+REGISTER_DEFINITION(Register, rcpool);
 REGISTER_DEFINITION(Register, rthread);
+REGISTER_DEFINITION(Register, rscratch1);
+REGISTER_DEFINITION(Register, rmethod);
+REGISTER_DEFINITION(Register, rfp);
+REGISTER_DEFINITION(Register, rscratch2);
+REGISTER_DEFINITION(Register, sp);
+REGISTER_DEFINITION(Register, lr);
 REGISTER_DEFINITION(Register, r15_pc);
-

@@ -129,11 +129,6 @@ class MacroAssembler: public Assembler {
     a.lea(this, r);
   }
 
-  // Frame creation and destruction shared between JITs.
-  void build_frame(int framesize);
-  void remove_frame(int framesize);
-
-
   virtual void _call_Unimplemented(address call_site) {
     mov(rscratch2, call_site);
     stop("HALT");
@@ -190,6 +185,7 @@ public:
   // TODO add sflag compatibility
   void movptr(Register r, uintptr_t imm32, Condition cond = C_DFLT);
 
+  void ret(Register reg);
 
   // Both of these are aarch64 instructions that can easily be emulated
   // Note that this does not quite have the same semantics as aarch64
@@ -211,8 +207,25 @@ public:
     b(l, NE);
   }
 
-  // END COMPAT
+  void addmw(Address a, Register incr, Register scratch) {
+    ldr(scratch, a);
+    add(scratch, scratch, incr);
+    str(scratch, a);
+  }
 
+  // Add constant to memory word
+  void addmw(Address a, int imm, Register scratch) {
+    ldr(scratch, a);
+    if (imm > 0)
+      add(scratch, scratch, (unsigned)imm);
+    else
+      sub(scratch, scratch, (unsigned)-imm);
+    str(scratch, a);
+  }
+
+// XXX stubs
+
+  Register tlab_refill(Label& retry, Label& try_eden, Label& slow_case);
 
   // macro instructions for accessing and updating floating point
   // status register
@@ -222,7 +235,7 @@ public:
   //        CRm == 0100
   //        op2 == 001
 
-  inline void get_fpsr(Register reg) {
+  inline void get_fpsr(Register reg = as_Register(0xf)) {
     vmrs(reg);
   }
 
@@ -234,10 +247,6 @@ public:
     mov(rscratch1, 0);
     set_fpsr(rscratch1);
   }
-
-  // idiv variant which deals with MINLONG as dividend and -1 as divisor
-  int corrected_idivq(Register result, Register ra, Register rb,
-                      bool want_remainder, Register tmp = rscratch1);
 
   // Support for NULL-checks
   //
@@ -261,16 +270,12 @@ public:
   static void pd_patch_instruction(address branch, address target) {
     pd_patch_instruction_size(branch, target);
   }
-  static address pd_call_destination(address branch) {
-    return target_addr_for_insn(branch);
-  }
+
 #ifndef PRODUCT
   static void pd_print_patched_instruction(address branch);
 #endif
 
   static int patch_oop(address insn_addr, address o);
-
-  void emit_trampoline_stub(int insts_call_instruction_offset, address target);
 
   // The following 4 methods return the offset of the appropriate move instruction
 
@@ -288,6 +293,18 @@ public:
   // Load and store values by size and signed-ness
   void load_sized_value(Register dst, Address src, size_t size_in_bytes, bool is_signed, Register dst2 = noreg);
   void store_sized_value(Address dst, Register src, size_t size_in_bytes, Register src2 = noreg);
+
+  // Support for inc/dec with optimal instruction selection depending on value.
+  // increment()/decrement() calls with an address destination will need to use
+  // rscratch1 to load the value to be incremented. increment()/decrement()
+  // calls which add or subtract a constant value greater than 2^12 will need
+  // to use rscratch2 to hold the constant. So, a register increment()/
+  // decrement() may trash rscratch2, and an address increment()/decrement()
+  // may trash rscratch1 and rscratch2.
+  void decrement(Register reg, int value = 1);
+  void decrement(Address dst, int value = 1);
+  void increment(Register reg, int value = 1);
+  void increment(Address dst, int value = 1);
 
   // Alignment
   void align(int modulus);
@@ -562,15 +579,21 @@ public:
 
   void unimplemented(const char* what = "")      { char* b = new char[1024];  jio_snprintf(b, 1024, "unimplemented: %s", what);  stop(b); }
 
-  void should_not_reach_here()                   { stop("should not reach here"); }
+#define should_not_reach_here() should_not_reach_here_line(__FILE__, __LINE__)
+  void should_not_reach_here_line(const char *file, int line) {
+    mov(rscratch1, line);
+    reg_printf_important(file);
+    reg_printf_important(": %d", rscratch1);
+    stop("should_not_reach_here");
+  }
 
   // Stack overflow checking
   void bang_stack_with_offset(int offset) {
     // stack grows down, caller passes positive offset
     assert(offset > 0, "must bang with negative offset");
     mov(rscratch2, -offset);
-    mov(rscratch1, 0);
-    str(rscratch1, Address(sp, rscratch2));
+    // bang with random number from r0
+    str(r0, Address(sp, rscratch2));
   }
 
   // Writes to stack successive pages until offset reached to check for
@@ -630,11 +653,16 @@ public:
   void far_jump(Address entry, CodeBuffer *cbuf = NULL, Register tmp = rscratch1);
 
   static int far_branch_size() {
+    // TODO performance issue: always generate real far jumps
+#if 0
     if (far_branches()) {
       return 3 * 4;  // movw, movt, br
     } else {
       return 4;
     }
+#else
+      return 3 * 4;  // movw, movt, br
+#endif
   }
 
   // Emit the CompiledIC call idiom
@@ -663,17 +691,10 @@ public:
   void repne_scanw(Register addr, Register value, Register count,
                    Register scratch);
 
-  //void adrp(Register reg1, const Address &dest, unsigned long &byte_offset);
-
-  //void tableswitch(Register index, jint lowbound, jint highbound,
-  //                 Label &jumptable, Label &jumptable_end, int stride = 1) {
-  //  adr(rscratch1, jumptable);
-  //  subsw(rscratch2, index, lowbound);
-  //  subsw(zr, rscratch2, highbound - lowbound);
-  //  b(jumptable_end, Assembler::HS);
-  //  add(rscratch1, rscratch1, rscratch2, lsl(exact_log2(stride * Assembler::instruction_size)));
-  //  b(rscratch1);
-  //}
+  // Form an address from base + offset in Rd. Rd may or may not actually be
+  // used: you must use the Address that is returned. It is up to you to ensure
+  // that the shift provided matches the size of your data.
+  Address form_address(Register Rd, Register base, long byte_offset, int shift);
 
  public:
 
@@ -686,37 +707,37 @@ public:
     }
   }
 
-  //address read_polling_page(Register r, address page, relocInfo::relocType rtype);
-  //address read_polling_page(Register r, relocInfo::relocType rtype);
+  address read_polling_page(Register r, address page, relocInfo::relocType rtype);
+  address read_polling_page(Register r, relocInfo::relocType rtype);
 
 
-  // Auto dispatch for barriers isb, dmb & dsb.
-  void isb() {
-    if(VM_Version::features() & FT_ARMV7) {
-      Assembler::isb();
-    } else {
-      cp15isb();
+    // Auto dispatch for barriers isb, dmb & dsb.
+    void isb() {
+        if(VM_Version::features() & FT_ARMV7) {
+            Assembler::isb();
+        } else {
+            cp15isb();
+        }
     }
-  }
 
-  void dsb(enum barrier option) {
-    if(VM_Version::features() & FT_ARMV7) {
-      Assembler::dsb(option);
-    } else {
-      cp15dsb();
-    }
+    void dsb(enum barrier option) {
+        if(VM_Version::features() & FT_ARMV7) {
+            Assembler::dsb(option);
+        } else {
+            cp15dsb();
+        }
   }
 
   void dmb(enum barrier option) {
-    if(VM_Version::features() & FT_ARMV7) {
-      Assembler::dmb(option);
-    } else {
-      cp15dmb();
-    }
+        if(VM_Version::features() & FT_ARMV7) {
+            Assembler::dmb(option);
+        } else {
+            cp15dmb();
+        }
   }
 
   void membar(Membar_mask_bits order_constraint) {
-    dmb(Assembler::barrier(order_constraint));
+      dmb(Assembler::barrier(order_constraint));
   }
 
   // ISB may be needed because of a safepoint
@@ -725,6 +746,8 @@ public:
   // Helper functions for 64-bit multipliction, division and remainder
   // does <Rd+1:Rd> = <Rn+1:Rn> * <Rm+1:Rm>
   void mult_long(Register Rd, Register Rn, Register Rm);
+  // does <Rdh:Rd> = <Rnh:Rn> * <Rmh:Rm>
+  void mult_long(Register Rd, Register Rdh, Register Rn, Register Rnh, Register Rm, Register Rmh);
 
  private:
   void divide32(Register res, Register num, Register den, bool want_mod);
@@ -745,6 +768,38 @@ public:
   void atomic_ldrd(Register Rt, Register RtII, Register Rbase);
   void atomic_strd(Register Rt, Register RtII, Register Rbase,
                    Register temp, Register tempII);
+
+ private:
+  // generic fallback ldrd generator. may need to use temporary register
+  // when register collisions are found
+  void double_ld_failed_dispatch(Register Rt, Register Rt2, const Address& adr,
+                            void (Assembler::* mul)(unsigned, const Address&, Condition),
+                            void (Assembler::* sgl)(Register, const Address&, Condition),
+                            Register Rtmp, Condition cond);
+  // ldrd/strd generator. can handle all strd cases and those ldrd where there
+  // are no register collisions
+  void double_ldst_failed_dispatch(Register Rt, Register Rt2, const Address& adr,
+                            void (Assembler::* mul)(unsigned, const Address&, Condition),
+                            void (Assembler::* sgl)(Register, const Address&, Condition),
+                            Condition cond);
+public:
+  // override ldrd/strd to perform a magic for when Rt + 1 != Rt2 or any other
+  // conditions which prevent to use single ldrd/strd insn. a pair of ldr/str
+  // is used instead then
+  using Assembler::ldrd;
+  void ldrd(Register Rt, Register Rt2, const Address& adr, Register Rmp = rscratch1, Condition cond = C_DFLT);
+  using Assembler::strd;
+  void strd(Register Rt, Register Rt2, const Address& adr, Condition cond = C_DFLT);
+
+  void align_stack() {
+    // sp &= ~StackAlignmentInBytes, assuming it's the power of 2
+    if (StackAlignmentInBytes > 4)
+      bfc(sp, 0, __builtin_ctz(StackAlignmentInBytes));
+  }
+
+#ifdef ASSERT
+  void verify_stack_alignment();
+#endif
 
   // Debug helper
   void save_machine_state();
@@ -793,11 +848,13 @@ class SkipIfEqual {
    ~SkipIfEqual();
 };
 
-//struct tableswitch {
-//  Register _reg;
-//  int _insn_index; jint _first_key; jint _last_key;
-//  Label _after;
-//  Label _branches;
-//};
+struct tableswitch {
+  Register _reg;
+  int _insn_index;
+  jint _first_key;
+  jint _last_key;
+  Label _after;
+  Label _branches;
+};
 
 #endif // CPU_AARCH32_VM_MACROASSEMBLER_AARCH32_HPP

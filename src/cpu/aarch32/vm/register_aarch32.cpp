@@ -25,26 +25,26 @@
  */
 
 #include "precompiled.hpp"
-#include "register_aarch32.hpp"
+#include "asm/register.hpp"
 
-const int ConcreteRegisterImpl::max_gpr = RegisterImpl::number_of_registers << 1;
-
-const int ConcreteRegisterImpl::max_fpr
-  = ConcreteRegisterImpl::max_gpr + (FloatRegisterImpl::number_of_registers << 1);
+const int ConcreteRegisterImpl::max_gpr = RegisterImpl::number_of_registers;
+const int ConcreteRegisterImpl::max_fpr = ConcreteRegisterImpl::max_gpr +
+                                          FloatRegisterImpl::number_of_registers;
 
 const char* RegisterImpl::name() const {
   const char* names[number_of_registers] = {
-    "c_rarg0", "c_rarg1", "c_rarg2", "c_rarg3",
-    "rdispatch", "rbcp", "rlocals", "rmethod", "rcpool", "rthread", "rfp",
-    "rscratch1", "rscratch2",
-    "sp", "lr/r14", "r15_pc"
+    "r0", "r1", "r2", "r3", "r4", "r5", "r6", "r7",
+    "r8", "r9", "r10", "r11", "r12", "r13", "r14", "r15"
   };
   return is_valid() ? names[encoding()] : "noreg";
 }
 
 const char* FloatRegisterImpl::name() const {
   const char* names[number_of_registers] = {
-    "d0", "d1", "d2", "d3", "d4", "d5", "d6", "d7"
+    "s0", "s1", "s2", "s3", "s4", "s5", "s6", "s7",
+    "s8", "s9", "s10", "s11", "s12", "s13", "s14", "s15",
+    "s16", "s17", "s18", "s19", "s20", "s21", "s22", "s23",
+    "s24", "s25", "s26", "s27", "s28", "s29", "s30", "s31"
   };
-  return is_valid() ? names[encoding()] : "noreg";
+  return is_valid() ? names[encoding()] : "fnoreg";
 }

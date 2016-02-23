@@ -35,7 +35,7 @@
 #include "oops/oop.inline.hpp"
 
 int InlineCacheBuffer::ic_stub_code_size() {
-  return (MacroAssembler::far_branches() ? 6 : 4) * NativeInstruction::instruction_size;
+  return 5 * NativeInstruction::arm_insn_sz;
 }
 
 #define __ masm->
@@ -56,7 +56,7 @@ void InlineCacheBuffer::assemble_ic_buffer_code(address code_begin, void* cached
   __ far_jump(ExternalAddress(entry_point));
   __ align(wordSize);
   __ bind(l);
-  __ emit_int64((int64_t)cached_value);
+  __ emit_int32((int32_t)cached_value);
   // Only need to invalidate the 1st two instructions - not the whole ic stub
   ICache::invalidate_range(code_begin, InlineCacheBuffer::ic_stub_code_size());
   assert(__ pc() - start == ic_stub_code_size(), "must be");

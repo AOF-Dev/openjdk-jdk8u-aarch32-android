@@ -28,17 +28,22 @@
 #define CPU_AARCH32_VM_VMREG_AARCH32_INLINE_HPP
 
 inline VMReg RegisterImpl::as_VMReg() {
-  if( this==noreg ) return VMRegImpl::Bad();
-  return VMRegImpl::as_VMReg(encoding() << 1 );
+  if (this == noreg) {
+    return VMRegImpl::Bad();
+  }
+  return VMRegImpl::as_VMReg(encoding());
 }
 
 inline VMReg FloatRegisterImpl::as_VMReg() {
-  return VMRegImpl::as_VMReg((encoding() << 1) + ConcreteRegisterImpl::max_gpr);
+  if (this == fnoreg) {
+    return VMRegImpl::Bad();
+  }
+  return VMRegImpl::as_VMReg(encoding() + ConcreteRegisterImpl::max_gpr);
 }
 
 inline bool VMRegImpl::is_concrete() {
-  assert(is_reg(), "must be");
-  return is_even(value());
+  assert(is_reg(), "sanity check");
+  return true;
 }
 
 #endif // CPU_AARCH32_VM_VMREG_AARCH32_INLINE_HPP

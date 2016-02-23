@@ -95,7 +95,7 @@ inline frame::frame(intptr_t* sp, intptr_t* fp) {
   _sp = sp;
   _unextended_sp = sp;
   _fp = fp;
-  _pc = (address)(sp[-1]);
+  _pc = (address)(fp[0]);
 
   // Here's a sticky one. This constructor can be called via AsyncGetCallTrace
   // when last_Java_sp is non-null but the pc fetched is junk. If we are truly
@@ -210,7 +210,7 @@ inline intptr_t* frame::interpreter_frame_tos_address() const {
 }
 
 #else /* asm interpreter */
-inline intptr_t*    frame::sender_sp()        const { return            addr_at(   sender_sp_offset); }
+inline intptr_t*    frame::sender_sp()        const { return            addr_at(sender_sp_offset); }
 
 inline intptr_t** frame::interpreter_frame_locals_addr() const {
   return (intptr_t**)addr_at(interpreter_frame_locals_offset);

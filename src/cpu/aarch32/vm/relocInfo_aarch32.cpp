@@ -31,82 +31,87 @@
 #include "oops/oop.inline.hpp"
 #include "runtime/safepoint.hpp"
 
-
 void Relocation::pd_set_data_value(address x, intptr_t o, bool verify_only) {
   if (verify_only)
     return;
 
   int bytes;
 
-  switch(type()) {
-  case relocInfo::oop_type:
-    {
-      oop_Relocation *reloc = (oop_Relocation *)this;
-      if (NativeInstruction::is_ldr_literal_at(addr())) {
-        address constptr = (address)code()->oop_addr_at(reloc->oop_index());
-        bytes = MacroAssembler::pd_patch_instruction_size(addr(), constptr);
-        assert(*(address*)constptr == x, "error in oop relocation");
-      } else{
-        bytes = MacroAssembler::patch_oop(addr(), x);
-      }
-    }
-    break;
-  default:
-    bytes = MacroAssembler::pd_patch_instruction_size(addr(), x);
-    break;
+  NativeInstruction *ni = NativeInstruction::from(addr());
+  if (ni->is_mov_const_reg()) {
+    NativeMovConstReg *nm = NativeMovConstReg::from(addr());
+    nm->set_data((uintptr_t) x);
+    bytes = nm->next_instruction_address() - nm->addr();
+  } else {
+    ShouldNotReachHere();
   }
+
   ICache::invalidate_range(addr(), bytes);
 }
 
 address Relocation::pd_call_destination(address orig_addr) {
-  assert(is_call(), "should be a call here");
-  if (is_call()) {
-    address trampoline = nativeCall_at(addr())->get_trampoline();
-    if (trampoline) {
-      return nativeCallTrampolineStub_at(trampoline)->destination();
-    }
-  }
+  intptr_t adj = 0;
   if (orig_addr != NULL) {
-    return MacroAssembler::pd_call_destination(orig_addr);
+    // We just moved this call instruction from orig_addr to addr().
+    // This means its target will appear to have grown by addr() - orig_addr.
+    adj = -( addr() - orig_addr );
   }
-  return MacroAssembler::pd_call_destination(addr());
+
+  NativeInstruction *ni = NativeInstruction::from(addr());
+
+  if (ni->is_call()) {
+    return NativeCall::from(addr())->destination();
+  } else if (ni->is_jump()) {
+    return NativeJump::from(addr())->jump_destination();
+  }
+
+  ShouldNotReachHere();
 }
 
-
 void Relocation::pd_set_call_destination(address x) {
-  assert(is_call(), "should be a call here");
-  if (NativeCall::is_call_at(addr())) {
-    address trampoline = nativeCall_at(addr())->get_trampoline();
-    if (trampoline) {
-      nativeCall_at(addr())->set_destination_mt_safe(x, /* assert_lock */false);
-      return;
-    }
+  assert(addr() != x, "call instruction in an infinite loop"); // FIXME what's wrong to _generate_ loop?
+  NativeInstruction *ni = NativeInstruction::from(addr());
+
+  if (ni->is_call()) {
+    NativeCall::from(addr())->set_destination(x);
+  } else if (ni->is_jump()) {
+    NativeJump::from(addr())->set_jump_destination(x);
+  } else {
+    ShouldNotReachHere();
   }
-  assert(addr() != x, "call instruction in an infinite loop");
-  MacroAssembler::pd_patch_instruction(addr(), x);
+
   assert(pd_call_destination(addr()) == x, "fail in reloc");
 }
 
 address* Relocation::pd_address_in_code() {
-  return (address*)(addr() + 8);
+  ShouldNotCallThis();
 }
 
-
 address Relocation::pd_get_address_from_code() {
-  return MacroAssembler::pd_call_destination(addr());
+  ShouldNotCallThis();
 }
 
 void poll_Relocation::fix_relocation_after_move(const CodeBuffer* src, CodeBuffer* dest) {
-  if (NativeInstruction::maybe_cpool_ref(addr())) {
+  NativeInstruction *ni = NativeInstruction::from(addr());
+  if (ni->is_mov_const_reg()) {
     address old_addr = old_addr_for(addr(), src, dest);
-    MacroAssembler::pd_patch_instruction(addr(), MacroAssembler::target_addr_for_insn(old_addr));
+    NativeMovConstReg *nm2 = NativeMovConstReg::from(old_addr);
+    NativeMovConstReg::from(addr())->set_data(nm2->data());
+  } else {
+#if 0
+#endif
   }
 }
 
 void poll_return_Relocation::fix_relocation_after_move(const CodeBuffer* src, CodeBuffer* dest)  {
-  if (NativeInstruction::maybe_cpool_ref(addr())) {
+  NativeInstruction *ni = NativeInstruction::from(addr());
+  if (ni->is_mov_const_reg()) {
     address old_addr = old_addr_for(addr(), src, dest);
-    MacroAssembler::pd_patch_instruction(addr(), MacroAssembler::target_addr_for_insn(old_addr));
+    NativeMovConstReg *nm2 = NativeMovConstReg::from(old_addr);
+    NativeMovConstReg::from(addr())->set_data(nm2->data());
+  } else {
+#if 0
+#endif
   }
 }
 

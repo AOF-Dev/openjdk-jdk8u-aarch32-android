@@ -27,7 +27,17 @@
 #ifndef CPU_AARCH32_VM_GLOBALDEFINITIONS_AARCH32_HPP
 #define CPU_AARCH32_VM_GLOBALDEFINITIONS_AARCH32_HPP
 
-const int StackAlignmentInBytes = 4;
+// __ARM_PCS_VFP indicates that gcc runs with "-mfloat-abi=hard" option.
+// This option allows generation of floating point instructions and enforces
+// usage of FPU-specific calling conventions.
+#ifdef __ARM_PCS_VFP
+#define HARD_FLOAT_CC
+#endif // __ARM_PCS_VFP
+
+// If changing this please be sure to review all code which saves the registers
+// and the corresponding register maps to ensure that the respective frame
+// sizes are multiple of this new value
+const int StackAlignmentInBytes = 8;
 
 // Indicates whether the C calling conventions require that
 // 32-bit integer argument values are properly extended to 64 bits.
@@ -52,7 +62,7 @@ const bool CCallingConventionRequiresIntsAsLongs = false;
 // This makes the games we play when patching difficult, so when we
 // come across an access that needs patching we deoptimize.  There are
 // ways we can avoid this, but these would slow down C1-compiled code
-// in the defauilt case.  We could revisit this decision if we get any
+// in the default case.  We could revisit this decision if we get any
 // evidence that it's worth doing.
 #define DEOPTIMIZE_WHEN_PATCHING
 

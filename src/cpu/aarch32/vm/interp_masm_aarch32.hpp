@@ -132,12 +132,12 @@ class InterpreterMacroAssembler: public MacroAssembler {
 
   void pop_ptr(Register r = r0);
   void pop_i(Register r = r0);
-  void pop_l(Register r = r0);
+  void pop_l(Register rLo = r0, Register rHi = r1);
   void pop_f(FloatRegister r = d0);
   void pop_d(FloatRegister r = d0);
   void push_ptr(Register r = r0);
   void push_i(Register r = r0);
-  void push_l(Register r = r0);
+  void push_l(Register rLo = r0, Register rHi = r1);
   void push_f(FloatRegister r = d0);
   void push_d(FloatRegister r = d0);
 
@@ -152,7 +152,7 @@ class InterpreterMacroAssembler: public MacroAssembler {
   void push(RegSet regs, Register stack) { ((MacroAssembler*)this)->push(regs, stack); }
 
   void empty_expression_stack() {
-    ldr(esp, Address(rfp, frame::interpreter_frame_monitor_block_top_offset * wordSize));
+    ldr(sp, Address(rfp, frame::interpreter_frame_monitor_block_top_offset * wordSize));
     // NULL last_sp until next java call
     mov(rscratch1, 0);
     str(rscratch1, Address(rfp, frame::interpreter_frame_last_sp_offset * wordSize));
@@ -206,7 +206,7 @@ class InterpreterMacroAssembler: public MacroAssembler {
   virtual void null_check(Register reg, int offset = -1) {
 // #ifdef ASSERT
 //     save_bcp();
-//     set_last_Java_frame(esp, rfp, (address) pc());
+//     set_last_Java_frame(sp, rfp, (address) pc());
 // #endif
     MacroAssembler::null_check(reg, offset);
 // #ifdef ASSERT
@@ -287,7 +287,7 @@ class InterpreterMacroAssembler: public MacroAssembler {
 
   virtual void _call_Unimplemented(address call_site) {
     save_bcp();
-    set_last_Java_frame(esp, rfp, (address) pc(), rscratch1);
+    set_last_Java_frame(sp, rfp, (address) pc(), rscratch1);
     MacroAssembler::_call_Unimplemented(call_site);
   }
 };

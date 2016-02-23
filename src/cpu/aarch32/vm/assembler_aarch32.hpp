@@ -29,63 +29,48 @@
 
 #include "asm/register.hpp"
 
-// definitions of various symbolic names for machine registers
+// Definitions of various symbolic names for machine registers
 
-// First intercalls between C and Java which use 8 general registers
-// and 8 floating registers
-
-// we also have to copy between x86 and ARM registers but that's a
-// secondary complication -- not all code employing C call convention
-// executes as x86 code though -- we generate some of it
-
-
-/* Calling conventions : this is perhaps not always what is wanted however currently all
-  JNI code needs to use the same calling convention as OpenJDK */
+// Here we define how many integer and double precision floating point
+// registers are used for passing parameters by the C and Java calling
+// conventions. Each double precision floating point register can be used
+// as two single precision registers.
 
 class Argument VALUE_OBJ_CLASS_SPEC {
  public:
   enum {
-    n_int_register_parameters_c   = 4,  // r0, r1, ... r3 (c_rarg0, c_rarg1, ...)
-    // These are number of double registers, each double register can instead be
-    // used as two single precision registers.
-#ifdef __VFP_FP__
-    n_float_register_parameters_c = 8,  // d0, d1, ... d7 (c_farg0, c_farg1, ... )
-#define HARD_FLOAT_CC
-#elif defined(__SOFTFP__)
-    n_float_register_parameters_c = 0,  // Not realy used, in this case
-    // pass_float -> pass_int & pass_double -> pass_long
-#else
-  #error "Floating point ABI not supported";
-#endif
-
-    // Not that these only make sense for compiled
-    // value are irrelevant currently, if c1, c2, ... will go ahead these need to be
-    // sorted out.
-    n_int_register_parameters_j   = 4, // r1, ... r7, r0 (rj_rarg0, j_rarg1, ...
-    n_float_register_parameters_j = 4  // d0, d1, ... d7 (j_farg0, j_farg1, ...
+    n_int_register_parameters_c = 4,   // c_rarg0, c_rarg1, c_rarg2, c_rarg3
+#ifdef HARD_FLOAT_CC
+    n_float_register_parameters_c = 8, // c_farg0, c_farg1, ..., c_farg7
+#else // HARD_FLOAT_CC
+    n_float_register_parameters_c = 0, // 0 registers used to pass arguments
+#endif // HARD_FLOAT_CC
+    n_int_register_parameters_j = 4,   // j_rarg0, j_rarg1, j_rarg2, j_rarg3
+#ifdef HARD_FLOAT_CC
+    n_float_register_parameters_j = 8  // j_farg0, j_farg1, ..., j_farg7
+#else // HARD_FLOAT_CC
+    n_float_register_parameters_j = 0  // 0 registers used to pass arguments
+#endif // HARD_FLOAT_CC
   };
 };
+
+// Symbolic names for the register arguments used by the C calling convention
+// (the calling convention for C runtime calls and calls to JNI native
+// methods)
 
 REGISTER_DECLARATION(Register, c_rarg0, r0);
 REGISTER_DECLARATION(Register, c_rarg1, r1);
 REGISTER_DECLARATION(Register, c_rarg2, r2);
 REGISTER_DECLARATION(Register, c_rarg3, r3);
 
-REGISTER_DECLARATION(FloatRegister, c_farg0, d0);
-REGISTER_DECLARATION(FloatRegister, c_farg1, d1);
-REGISTER_DECLARATION(FloatRegister, c_farg2, d2);
-REGISTER_DECLARATION(FloatRegister, c_farg3, d3);
-REGISTER_DECLARATION(FloatRegister, c_farg4, d4);
-REGISTER_DECLARATION(FloatRegister, c_farg5, d5);
-REGISTER_DECLARATION(FloatRegister, c_farg6, d6);
-REGISTER_DECLARATION(FloatRegister, c_farg7, d7);
+// Symbolic names for the register arguments used by the Java calling
+// convention (the calling convention for calls to compiled Java methods)
 
-// Symbolically name the register arguments used by the Java calling convention.
-// We have control over the convention for java so we can do what we please.
-// What pleases us is to offset the java calling convention so that when
-// we call a suitable jni method the arguments are lined up and we don't
-// have to do much shuffling. A suitable jni method is non-static and a
-// small number of arguments
+// We have control over the convention for Java so we can do what we please.
+// What pleases us is to offset the Java calling convention so that when
+// we call a suitable JNI method the arguments are lined up and we don't
+// have to do much shuffling. A suitable JNI method is non-static and with
+// a small number of arguments.
 //
 //  |-----------------------------------|
 //  | c_rarg0  c_rarg1  c_rarg2 c_rarg3 |
@@ -101,62 +86,35 @@ REGISTER_DECLARATION(Register, j_rarg1, c_rarg2);
 REGISTER_DECLARATION(Register, j_rarg2, c_rarg3);
 REGISTER_DECLARATION(Register, j_rarg3, c_rarg0);
 
-// Java floating args are passed as per C
+// Common register aliases used in assembler code
 
-REGISTER_DECLARATION(FloatRegister, j_farg0, d0);
-REGISTER_DECLARATION(FloatRegister, j_farg1, d1);
-REGISTER_DECLARATION(FloatRegister, j_farg2, d2);
-REGISTER_DECLARATION(FloatRegister, j_farg3, d3);
-REGISTER_DECLARATION(FloatRegister, j_farg4, d4);
-REGISTER_DECLARATION(FloatRegister, j_farg5, d5);
-REGISTER_DECLARATION(FloatRegister, j_farg6, d6);
-REGISTER_DECLARATION(FloatRegister, j_farg7, d7);
+// These registers are used to hold VM data either temporarily within a method
+// or across method calls. According to AAPCS, r0-r3 and r12 are caller-saved,
+// the rest are callee-saved.
 
-// registers used to hold VM data either temporarily within a method
-// or across method calls
-// non-volatile (callee-save) registers are r4-r11,r13,r14
-// of which the following are dedicated global state
+// These 4 aliases are used in the template interpreter only.
 
-//Program counter
-REGISTER_DECLARATION(Register, r15_pc,    r15);
-// link register
-REGISTER_DECLARATION(Register, lr,        r14);
-// Java stack pointer
-REGISTER_DECLARATION(Register, sp,        r13);
-//TODO REMOVE THIS AND REPLACE ALL OCCURANCES
-// WITH JUST SP
-REGISTER_DECLARATION(Register, esp,       r13);
-//r4 & r5 are callee saved but used as scratch registers
-REGISTER_DECLARATION(Register, rscratch2, r12);
-REGISTER_DECLARATION(Register, rscratch1, r9); //NOTE this is not actually a scratch register!
-// current method -- must be in a call-clobbered register
-//Potentially FIXME - it's not!
-REGISTER_DECLARATION(Register, rmethod,   r10);
-// frame pointer
-REGISTER_DECLARATION(Register, rfp,    r11);
-// current thread
-REGISTER_DECLARATION(Register, rthread,   r8);
-// constant pool cache
-REGISTER_DECLARATION(Register, rcpool,       r7);
-// locals on stack
-REGISTER_DECLARATION(Register, rlocals,   r6);
-// bytecode pointer
-REGISTER_DECLARATION(Register, rbcp,      r5);
-// Dispatch table base
-REGISTER_DECLARATION(Register, rdispatch, r4);
+REGISTER_DECLARATION(Register, rdispatch, r4);  // Address of dispatch table
+REGISTER_DECLARATION(Register, rbcp,      r5);  // Bytecode pointer
+REGISTER_DECLARATION(Register, rlocals,   r6);  // Address of local variables section of current frame
+REGISTER_DECLARATION(Register, rcpool,    r7);  // Address of constant pool cache
+
+// The following aliases are used in all VM components.
+
+REGISTER_DECLARATION(Register, rthread,   r8);  // Address of current thread
+REGISTER_DECLARATION(Register, rscratch1, r9);  // Scratch register
+REGISTER_DECLARATION(Register, rmethod,   r10); // Address of current method
+REGISTER_DECLARATION(Register, rfp,       r11); // Frame pointer
+REGISTER_DECLARATION(Register, rscratch2, r12); // Scratch register
+REGISTER_DECLARATION(Register, sp,        r13); // Stack pointer
+REGISTER_DECLARATION(Register, lr,        r14); // Link register
+REGISTER_DECLARATION(Register, r15_pc,    r15); // Program counter
 
 
 extern "C" void entry(CodeBuffer *cb);
 
 
 #define assert_cond(ARG1) assert(ARG1, #ARG1)
-
-namespace asm_util {
-  uint32_t encode_logical_immediate(bool is32, uint64_t imm);
-};
-
-using namespace asm_util;
-
 
 class Assembler;
 
@@ -382,7 +340,7 @@ class shift_op {
 
   int shift() const {
     assert(imm_s == _source, "Not an immediate shift");
-    return _shift;
+    return _shift % 32;
   }
   Register reg() const {
     assert(reg_s == _source, "Not a register shift");
@@ -545,6 +503,12 @@ class Address VALUE_OBJ_CLASS_SPEC {
   Register index() const {
     return _index;
   }
+  shift_op shift() const {
+    return _shift;
+  }
+  reg_op op() const {
+    return _as_op;
+  }
   access_mode get_mode() const {
     return _acc_mode;
   }
@@ -561,7 +525,35 @@ class Address VALUE_OBJ_CLASS_SPEC {
 
   void lea(MacroAssembler *, Register) const;
 
-  static bool offset_ok_for_immed(long imm12);
+  typedef enum {
+    IDT_BOOLEAN     = T_BOOLEAN,
+    IDT_CHAR        = T_CHAR,
+    IDT_FLOAT       = T_FLOAT,
+    IDT_DOUBLE      = T_DOUBLE,
+    IDT_BYTE        = T_BYTE,
+    IDT_SHORT       = T_SHORT,
+    IDT_INT         = T_INT,
+    IDT_LONG        = T_LONG,
+    IDT_OBJECT      = T_OBJECT,
+    IDT_ARRAY       = T_ARRAY,
+    IDT_ADDRESS     = T_ADDRESS,
+    IDT_METADATA    = T_METADATA,
+    // not really a data type, denotes the use when address value is needed
+    // itself, and Address instance is not used to fetch actual data from memory
+    IDT_LEA         = 100,
+    // multi-word memory access insn (ldmia/stmia etc)
+    IDT_MULTIWORD
+  } InsnDataType;
+
+  inline static InsnDataType toInsnDataType(BasicType type) {
+    return (InsnDataType)type;
+  }
+
+  Address safe_for(InsnDataType type, MacroAssembler *, Register temp);
+  bool is_safe_for(InsnDataType);
+
+  static bool offset_ok_for_immed(long offset, InsnDataType type);
+  static bool shift_ok_for_index(shift_op shift, InsnDataType type);
 };
 
 // Convience classes
@@ -595,31 +587,13 @@ class InternalAddress: public Address {
 };
 
 
-
-//TODO Change this back to 16 * 2
-const int FPUStateSizeInWords = 32 * 2;
-typedef enum {
-  PLDL1KEEP = 0b00000, PLDL1STRM, PLDL2KEEP, PLDL2STRM, PLDL3KEEP, PLDL3STRM,
-  PSTL1KEEP = 0b10000, PSTL1STRM, PSTL2KEEP, PSTL2STRM, PSTL3KEEP, PSTL3STRM,
-  PLIL1KEEP = 0b01000, PLIL1STRM, PLIL2KEEP, PLIL2STRM, PLIL3KEEP, PLIL3STRM
-} prfop;
-
+const int FPUStateSizeInWords = 16 * 2;
 
 
 class Assembler : public AbstractAssembler {
-#ifndef PRODUCT
-  static const unsigned long asm_bp;
-
-  void emit_long(jint x) {
-    if ((unsigned long)pc() == asm_bp)
-      asm volatile ("nop");
-    AbstractAssembler::emit_int32(x);
-  }
-#else
   void emit_long(jint x) {
     AbstractAssembler::emit_int32(x);
   }
-#endif
 
 public:
   //TODO REMOVE shift_kind from here once done
@@ -652,8 +626,17 @@ public:
       return Address(base, offset, Address::post);
   }
 
+  Address adjust(Register base, Register index, shift_op shift,
+      enum Address::reg_op op, bool preIncrement) {
+    return Address(base, index, shift, op, preIncrement ? Address::pre : Address::post);
+  }
+
   Address pre(Register base, int offset) {
     return adjust(base, offset, true);
+  }
+
+  Address pre(Register base, Register index, shift_op shift, enum Address::reg_op op) {
+    return adjust(base, index, shift, op, true);
   }
 
   Address post (Register base, int offset) {
@@ -741,7 +724,6 @@ public:
   INSN(rsc,  0b0111, 0);
   INSN(orr,  0b1100, 0);
   INSN(bic,  0b1110, 0);
-  INSN(mvn,  0b1111, 0);
 
   INSN(ands, 0b0000, 1);
   INSN(eors, 0b0001, 1);
@@ -753,11 +735,13 @@ public:
   INSN(rscs, 0b0111, 1);
   INSN(orrs, 0b1100, 1);
   INSN(bics, 0b1110, 1);
-  INSN(mvns, 0b1111, 1);
 
 #undef INSN
 
 #define INSN(NAME, decode)                                                           \
+  void NAME(Register Rn, Register Rm, Condition cond) {                              \
+    NAME(Rn, Rm, S_DFLT, cond);                                                      \
+  }                                                                                  \
   void NAME(Register Rn, Register Rm, shift_op shift = S_DFLT,                       \
             Condition cond = C_DFLT) {                                               \
     starti;                                                                          \
@@ -776,27 +760,40 @@ public:
 #undef INSN
 
 // TODO appears that if Rd = 15 and s flag set then perhaps different method
-void mov_internal(Register Rd, Register Rnm, shift_op shift, bool s, Condition cond) {
+void mov_internal(int decode, Register Rd, Register Rnm, shift_op shift, bool s, Condition cond) {
   starti;
   if(shift.is_register()) {
-    reg_shift_reg_instr(0b1101, shift.kind(), cond, s);
+    reg_shift_reg_instr(decode, shift.kind(), cond, s);
     f(0b0000, 19, 16), rf(Rd, 12), rf(shift.reg(), 8), rf(Rnm, 0);
   } else {
-    reg_instr(0b1101, shift, cond, s);
+    reg_instr(decode, shift, cond, s);
     f(0, 19, 16), rf(Rd, 12), rf(Rnm, 0);
   }
 }
 void mov(Register Rd, Register Rm, shift_op shift, Condition cond = C_DFLT) {
-  mov_internal(Rd, Rm, shift, false, cond);
+  mov_internal(0b1101, Rd, Rm, shift, false, cond);
 }
 void movs(Register Rd, Register Rm, shift_op shift, Condition cond = C_DFLT) {
-  mov_internal(Rd, Rm, shift, true, cond);
+  mov_internal(0b1101, Rd, Rm, shift, true, cond);
 }
 void mov(Register Rd, Register Rm, Condition cond = C_DFLT) {
-  mov_internal(Rd, Rm, S_DFLT, false, cond);
+  mov_internal(0b1101, Rd, Rm, S_DFLT, false, cond);
 }
 void movs(Register Rd, Register Rm, Condition cond = C_DFLT) {
-  mov_internal(Rd, Rm, S_DFLT, true, cond);
+  mov_internal(0b1101, Rd, Rm, S_DFLT, true, cond);
+}
+
+void mvn(Register Rd, Register Rm, shift_op shift, Condition cond = C_DFLT) {
+  mov_internal(0b1111, Rd, Rm, shift, false, cond);
+}
+void mvns(Register Rd, Register Rm, shift_op shift, Condition cond = C_DFLT) {
+  mov_internal(0b1111, Rd, Rm, shift, true, cond);
+}
+void mvn(Register Rd, Register Rm, Condition cond = C_DFLT) {
+  mov_internal(0b1111, Rd, Rm, S_DFLT, false, cond);
+}
+void mvns(Register Rd, Register Rm, Condition cond = C_DFLT) {
+  mov_internal(0b1111, Rd, Rm, S_DFLT, true, cond);
 }
 
 #define INSN(NAME, type, s_flg, ASSERTION)                                           \
@@ -842,22 +839,14 @@ void movs(Register Rd, Register Rm, Condition cond = C_DFLT) {
   INSN(rors, shift_op::ROR, 1);
 #undef INSN
 
-
-
-//Data processing (immediate)
-static bool operand_valid_immediate12(int imm);
-static u_int32_t encode_immediate12(int imm);
-static u_int32_t decode_immediate12(int imm);
-
-
   bool imm_instr(int decode, Register Rd, Register Rn, int imm, Condition cond,
                  bool s) {
-    if(!operand_valid_immediate12(imm))
+    if(!is_valid_for_imm12(imm))
       return false;
     {
       starti;
       f(cond, 31, 28), f(0b001, 27, 25), f(decode, 24, 21), f(s, 20), rf(Rn, 16);
-      int imm12 = encode_immediate12(imm);
+      int imm12 = encode_imm12(imm);
       rf(Rd, 12), f(imm12, 11, 0);
     }
     return true;
@@ -893,21 +882,17 @@ static u_int32_t decode_immediate12(int imm);
  public:
 #define INSN(NAME, decode, s_flg)                                                    \
   inline void NAME(Register Rd, Register Rn, int imm, Condition cond = C_DFLT) {     \
-    assert(Rn->encoding_nocheck() != 0b1111, "add/sub with PC is adr");              \
     add_sub_imm(decode, Rd, Rn, imm, cond, s_flg);                                   \
   }                                                                                  \
   inline void NAME(Register Rd, Register Rn, unsigned imm,                           \
                    Condition cond = C_DFLT) {                                        \
-    assert(Rn->encoding_nocheck() != 0b1111, "add/sub with PC is adr");              \
     add_sub_imm(decode, Rd, Rn, imm, cond, s_flg);                                   \
   }                                                                                  \
   inline void NAME(Register Rd, Register Rn, long imm, Condition cond = C_DFLT) {    \
-    assert(Rn->encoding_nocheck() != 0b1111, "add/sub with PC is adr");              \
     add_sub_imm(decode, Rd, Rn, imm, cond, s_flg);                                   \
   }                                                                                  \
   inline void NAME(Register Rd, Register Rn, unsigned long imm,                      \
                    Condition cond = C_DFLT) {                                        \
-    assert(Rn->encoding_nocheck() != 0b1111, "add/sub with PC is adr");              \
     add_sub_imm(decode, Rd, Rn, imm, cond, s_flg);                                   \
   }                                                                                  \
   /*Addition dispatch - place in macroassembler?*/                                   \
@@ -918,7 +903,16 @@ static u_int32_t decode_immediate12(int imm);
     } else {                                                                         \
       NAME(Rd, Rn, (unsigned)operand.as_constant(), cond);                           \
     }                                                                                \
-  }
+  }                                                                                  \
+  inline void NAME(Register Rd, Register Rn, unsigned imm, Register Rtmp,            \
+      Condition cond = C_DFLT) {                                                     \
+    if (Assembler::operand_valid_for_add_sub_immediate(imm))                         \
+      NAME(Rd, Rn, imm, cond);                                                       \
+    else {                                                                           \
+      mov_immediate(Rtmp, imm, cond, false);                                         \
+      NAME(Rd, Rn, Rtmp, cond);                                                      \
+    }                                                                                \
+  }                                                                                  \
   //Note that the RegisterOrConstant version can't take a shift even though
   // one of the instructions dispatched to can
   INSN(sub,  0b0010, 0);
@@ -937,10 +931,9 @@ static u_int32_t decode_immediate12(int imm);
 #undef INSN
   //No need to do reverse as register subtracted from immediate
 
-  //Helper op
+  // alias for mvn
   void inv(Register Rd, Register Rn, Condition cond = C_DFLT) {
-    rsb(Rd, Rn, 0, cond);
-    sub(Rd, Rd, 1);
+      mvn(Rd, Rn, cond);
   }
   //alias for rsb
   void neg(Register Rd, Register Rn, Condition cond = C_DFLT) {
@@ -952,7 +945,18 @@ static u_int32_t decode_immediate12(int imm);
 
   // PC-rel. addressing
   void adr_encode(Register Rd, int imm, Condition cond) {
-    add_sub_imm(0b0100, Rd, r15_pc, imm, cond, false); //opcode for add
+    if (is_valid_for_imm12(imm) || is_valid_for_imm12(-imm)) {
+      add_sub_imm(0b0100, Rd, r15_pc, imm, cond, false); //opcode for add
+    } else {
+      int adjust = 0;
+      if (VM_Version::features() & (FT_ARMV7 | FT_ARMV6T2))  {
+        adjust = 8; // mov_w/mov_t
+      } else {
+        adjust = 16; // mov and 3 orr
+      }
+      mov_immediate32(Rd, imm - adjust, cond, false);
+      add(Rd, r15_pc, Rd, cond);
+    }
   }
 
   void adr(Register Rd, address dest, Condition cond = C_DFLT);
@@ -996,14 +1000,30 @@ void movt_i(Register Rd, unsigned imm, Condition cond = C_DFLT) {
 }
  public:
 
-#define INSN(NAME, decode)                                                           \
-  inline void NAME(Register Rn, int imm, Condition cond = C_DFLT) {                  \
-    bool status = imm_instr(decode, ZERO_ADDR_REG, Rn, imm, cond, true);             \
-    assert(status, "invalid imm");                                                   \
-  }                                                                                  \
-  inline void NAME(Register Rn, unsigned imm, Condition cond = C_DFLT) {             \
-    bool status = imm_instr(decode, ZERO_ADDR_REG, Rn, imm, cond, true);             \
-    assert(status, "invalid imm");                                                   \
+#define INSN(NAME, decode)                                                              \
+  inline void NAME(Register Rn, int imm, Condition cond = C_DFLT) {                     \
+    bool status = imm_instr(decode, ZERO_ADDR_REG, Rn, imm, cond, true);                \
+    assert(status, "invalid imm");                                                      \
+  }                                                                                     \
+  inline void NAME(Register Rn, unsigned imm, Condition cond = C_DFLT) {                \
+    bool status = imm_instr(decode, ZERO_ADDR_REG, Rn, imm, cond, true);                \
+    assert(status, "invalid imm");                                                      \
+  }                                                                                     \
+  inline void NAME(Register Rn, int imm, Register Rtmp, Condition cond = C_DFLT) {      \
+    if (Assembler::operand_valid_for_add_sub_immediate(imm))                            \
+      NAME(Rn, imm, cond);                                                              \
+    else {                                                                              \
+      mov_immediate(Rtmp, imm, cond, false);                                            \
+      NAME(Rn, Rtmp, cond);                                                             \
+    }                                                                                   \
+  }                                                                                     \
+  inline void NAME(Register Rn, unsigned imm, Register Rtmp, Condition cond = C_DFLT) { \
+    if (Assembler::operand_valid_for_add_sub_immediate(imm))                            \
+      NAME(Rn, imm, cond);                                                              \
+    else {                                                                              \
+      mov_immediate(Rtmp, imm, cond, false);                                            \
+      NAME(Rn, Rtmp, cond);                                                             \
+    }                                                                                   \
   }
   INSN(tst, 0b1000);
   INSN(teq, 0b1001);
@@ -1168,10 +1188,10 @@ void movt_i(Register Rd, unsigned imm, Condition cond = C_DFLT) {
     switch(decode) {
       case 0b010:
         // LDR, LDRB, STR, STRB
-        return uabs(offset) < ((1 << 12) - 1);
+        return uabs(offset) < (1 << 12);
       case 0b000:
         //LDRD, LDRH, LDRSB, LDRSH, STRH, STRD
-        return uabs(offset) < ((1 << 8) - 1);
+        return uabs(offset) < (1 << 8);
       default:
         ShouldNotReachHere();
     }
@@ -1491,27 +1511,11 @@ bool can_ldst_multiple( unsigned regset, const Address& adr);
   INSN(push, stmdb);
 #undef INSN
 
- private:
-  void double_ldst_failed_dispatch(Register Rt, Register Rt2, const Address& adr,
-                            void (Assembler::* mul)(unsigned, const Address&, Condition),
-                            void (Assembler::* sgl)(Register, const Address&, Condition),
-                            Condition cond);
  public:
 
 #define INSN(NAME, PREFIX, op, op2, a, b, isload)                                    \
-  void NAME(Register Rt, Register Rt2, const Address& adr,                           \
-            Condition cond = C_DFLT) {                                               \
-    if(0 == Rt->encoding_nocheck() % 2 &&                                            \
-       (Rt->encoding_nocheck() + 1 == Rt2->encoding_nocheck())) {                    \
-      /* Good to go with a ldrd/strd */                                              \
-      load_store_instr(Rt, adr, op, op2, a, b, cond);                                \
-    } else {                                                                         \
-      double_ldst_failed_dispatch(Rt, Rt2, adr, &Assembler::PREFIX##m,               \
-                                  &Assembler::PREFIX##r, cond);                      \
-    }                                                                                \
-  }                                                                                  \
   void NAME(Register Rt, const Address& adr, Condition cond = C_DFLT) {              \
-    NAME(Rt, (Register)(Rt + 1), adr, cond);                                         \
+    load_store_instr(Rt, adr, op, op2, a, b, cond);                                  \
   }                                                                                  \
   INSN_INT(NAME, op, op2, a, b, isload);
 
@@ -1631,16 +1635,20 @@ bool can_ldst_multiple( unsigned regset, const Address& adr);
     AnyAny     = ISH
   };
 
-// Floating point operations
+  void mrs(Register Rd, Condition cond = C_DFLT) {
+    starti;
+    f(cond, 31, 28), f(0b00010, 27, 23), f(0, 22), f(0b00, 21, 20), f(0b1111, 19, 16);
+    rf(Rd, 12), f(0b000000000000, 11, 0);
+  }
 
-// A note on floating point operations:
-// As we're not short on floating point registers if we're given a bit D which
-// in 64 bit mode allows access to the higher double support registers or in
-// single precision mode allow access to the odd number registers. We always
-// clear the bit reducing the number of single and double precision registers
-// available but simplifiying encoding.
-// the fp rencode function can be easily modified however to do something
-// a bit snazzier!
+  void msr(Register Rn, bool nzcvq = true, bool g = true, Condition cond = C_DFLT) {
+    starti;
+    f(cond, 31, 28), f(0b00010, 27, 23), f(0, 22), f(0b10, 21, 20);
+    f(nzcvq ? 1 : 0, 19), f(g ? 1 : 0, 18), f(0b00, 17, 16);
+    f(0b111100000000, 15, 4), rf(Rn, 0);
+  }
+
+// Floating point operations
 
 enum fpscr_cond { FP_EQ = 0b0110 << 28,
                   FP_LT = 0b1000 << 28,
@@ -1654,17 +1662,13 @@ enum fpscr_cond { FP_EQ = 0b0110 << 28,
 
   void fp_rencode(FloatRegister reg, bool is64bit, int base, int bit) {
     int reg_val = reg->encoding_nocheck();
-    /*if(is64bit) {
+    if(!is64bit) {
       f( reg_val >> 1, base + 3, base);
       f( reg_val & 1, bit);
     } else {
       f( reg_val & 0xf, base + 3, base);
       f( reg_val >> 4, bit);
-    }*/
-    f(reg_val & 0xf, base + 3, base);
-    f(0, bit);
-    // Force alignment to double registers
-    // for all ops.
+    }
   }
 
   void fp_instr(int decode, int op, bool is64bit, FloatRegister Rd, FloatRegister Rn,
@@ -1672,9 +1676,10 @@ enum fpscr_cond { FP_EQ = 0b0110 << 28,
     fp_instr_base(is64bit, cond);
     f(decode, 23, 20), f(op, 6);
     // Register encoding is a bit involved
-    fp_rencode(Rn, is64bit, 16, 7);
-    fp_rencode(Rd, is64bit, 12, 22);
-    fp_rencode(Rm, is64bit,  0, 5);
+    // double register passed (see 'd0'-'dN' encoding), not reencode it's number
+    fp_rencode(Rn, false, 16, 7);
+    fp_rencode(Rd, false, 12, 22);
+    fp_rencode(Rm, false,  0, 5);
   }
 
 #define INSN(NAME, decode, op, is64bit)                                              \
@@ -1723,8 +1728,9 @@ enum fpscr_cond { FP_EQ = 0b0110 << 28,
 #define INSN(NAME, is64bit, ntype)                                                   \
   unsigned encode_##ntype##_fp_imm(ntype imm_f);                                     \
   void NAME(FloatRegister Rd, ntype imm, Condition cond = C_DFLT) {                  \
-    if(0.0 == imm) vmov_imm_zero(Rd, is64bit, cond);                                 \
-    else           vmov_imm(Rd, encode_##ntype##_fp_imm(imm), is64bit, cond);        \
+    bool positive_zero = (imm == 0.0) && !signbit(imm);                              \
+    if(positive_zero) vmov_imm_zero(Rd, is64bit, cond);                              \
+    else              vmov_imm(Rd, encode_##ntype##_fp_imm(imm), is64bit, cond);     \
   }
   INSN(vmov_f32, false, float);
   INSN(vmov_f64, true, double);
@@ -1735,8 +1741,9 @@ enum fpscr_cond { FP_EQ = 0b0110 << 28,
     starti;                                                                          \
     fp_instr_base(is64bit, cond);                                                    \
     f(0b1011, 23, 20), f(decode, 19, 16), f(op, 7, 6), f(0b00, 5, 4);                \
-    fp_rencode(Rd, is64bit, 12, 22);                                                 \
-    fp_rencode(Rm, is64bit, 0, 5);                                                   \
+    /* double register passed (see 'd0'-'dN' encoding), not reencode it's number */  \
+    fp_rencode(Rd, false, 12, 22);                                                   \
+    fp_rencode(Rm, false, 0, 5);                                                     \
   }
   INSN(vmov_f32,  0b0000, 0b01, 0);
   INSN(vmov_f64,  0b0000, 0b01, 1);
@@ -1756,7 +1763,8 @@ void vmov64_instr_base(FloatRegister Rm, Register Rt, Register Rt2, int op,
   starti;
   f(cond, 31, 28), f(0b1100010, 27, 21), f(op, 20);
   rf(Rt2, 16), rf(Rt, 12), f(0b101100, 11, 6), f(1, 4);
-  fp_rencode(Rm, true, 0, 5);
+  // double register passed (see 'd0'-'dN' encoding), not reencode it's number
+  fp_rencode(Rm, false, 0, 5);
 }
 
 void vmov_f64(FloatRegister Rm, Register Rt, Register Rt2, Condition cond = C_DFLT) {
@@ -1771,6 +1779,7 @@ void vmov_f32(FloatRegister Rn, Register Rt, Condition cond = C_DFLT) {
   fp_instr_base(false, cond);
   f(0b000, 23, 21), f(0, 20);
   rf(Rt, 12), f(0b101000010000, 11, 0);
+  // double register passed (see 'd0'-'dN' encoding), not reencode it's number
   fp_rencode(Rn, false, 16, 7);
 }
 void vmov_f32(Register Rt, FloatRegister Rn, Condition cond = C_DFLT) {
@@ -1778,6 +1787,7 @@ void vmov_f32(Register Rt, FloatRegister Rn, Condition cond = C_DFLT) {
   fp_instr_base(false, cond);
   f(0b000, 23, 21), f(1, 20);
   rf(Rt, 12), f(0b101000010000, 11, 0);
+  // double register passed (see 'd0'-'dN' encoding), not reencode it's number
   fp_rencode(Rn, false, 16, 7);
 }
 
@@ -1788,13 +1798,15 @@ void vmov_f32(Register Rt, FloatRegister Rn, Condition cond = C_DFLT) {
     starti;                                                                          \
     fp_instr_base(is64bit, cond);                                                    \
     f(0b10110101, 23, 16), f(E, 7), f(0b1000000, 6, 0);                              \
-    fp_rencode(Rd, is64bit, 12, 22);                                                 \
+    /* double register passed (see 'd0'-'dN' encoding), not reencode it's number */  \
+    fp_rencode(Rd, false, 12, 22);                                                   \
   }                                                                                  \
   void NAME(FloatRegister Vd, FloatRegister Vm, Condition cond = C_DFLT) {           \
     starti;                                                                          \
     fp_instr_base(is64bit, cond);                                                    \
     f(0b10110100, 23, 16), f(E, 7), f(1, 6), f(0, 4);                                \
-    fp_rencode(Vd, is64bit, 12, 22), fp_rencode(Vm, is64bit, 0, 5);                  \
+    /* double register passed (see 'd0'-'dN' encoding), not reencode it's number */  \
+    fp_rencode(Vd, false, 12, 22), fp_rencode(Vm, false, 0, 5);                      \
   }
   INSN(vcmpe_f64, 1, 1);
   INSN(vcmpe_f32, 1, 0);
@@ -1816,26 +1828,27 @@ void vmsr(Register Rt, Condition cond = C_DFLT) {
 
 // TODO These instructions use round towards zero mode. It is possible
 //  for the mode to be taken from the FPSCR however it doesn't do it currently
-#define INSN(NAME, decode2, b19, op, is64bit)                                        \
+#define INSN(NAME, decode2, b19, op, is64bitRd, is64bitRm, sz)                       \
   void NAME(FloatRegister Rd, FloatRegister Rm, Condition cond = C_DFLT) {           \
     starti;                                                                          \
-    fp_instr_base(is64bit, cond);                                                    \
+    fp_instr_base(sz, cond);                                                         \
     f(0b1011, 23, 20), f(b19, 19), f(decode2, 18, 16), f(op, 7), f(0b100, 6, 4);     \
-    fp_rencode(Rd, is64bit, 12, 22);                                                 \
-    fp_rencode(Rm, is64bit, 0, 5);                                                   \
+    /* double register passed (see 'd0'-'dN' encoding), not reencode it's number */  \
+    fp_rencode(Rd, false, 12, 22);                                                   \
+    fp_rencode(Rm, false, 0, 5);                                                     \
   }
-  INSN(vcvt_s32_f32, 0b101, 1, 1, 0);
-  INSN(vcvt_s32_f64, 0b101, 1, 1, 1);
-  INSN(vcvt_u32_f32, 0b100, 1, 1, 0);
-  INSN(vcvt_u32_f64, 0b100, 1, 1, 1);
+  INSN(vcvt_s32_f32, 0b101, 1, 1, 0, 0, 0);
+  INSN(vcvt_s32_f64, 0b101, 1, 1, 0, 1, 1);
+  INSN(vcvt_u32_f32, 0b100, 1, 1, 0, 0, 0);
+  INSN(vcvt_u32_f64, 0b100, 1, 1, 0, 1, 1);
 
-  INSN(vcvt_f64_s32, 0b000, 1, 1, 1);
-  INSN(vcvt_f64_u32, 0b000, 1, 0, 1);
-  INSN(vcvt_f32_s32, 0b000, 1, 1, 0);
-  INSN(vcvt_f32_u32, 0b000, 1, 0, 0);
+  INSN(vcvt_f64_s32, 0b000, 1, 1, 1, 0, 1);
+  INSN(vcvt_f64_u32, 0b000, 1, 0, 1, 0, 1);
+  INSN(vcvt_f32_s32, 0b000, 1, 1, 0, 0, 0);
+  INSN(vcvt_f32_u32, 0b000, 1, 0, 0, 0, 0);
 
-  INSN(vcvt_f32_f64, 0b111, 0, 1, 1);
-  INSN(vcvt_f64_f32, 0b111, 0, 1, 0);
+  INSN(vcvt_f32_f64, 0b111, 0, 1, 0, 1, 1);
+  INSN(vcvt_f64_f32, 0b111, 0, 1, 1, 0, 0);
 #undef INSN
 
 //Vector load/store
@@ -1847,7 +1860,8 @@ void vmsr(Register Rt, Condition cond = C_DFLT) {
   void NAME(FloatRegister Vd, const Address &adr, Condition cond = C_DFLT) {         \
     starti;                                                                          \
     fp_ldst_instr(decode, is64bit, adr, cond);                                       \
-    fp_rencode(Vd, is64bit, 12, 22);                                                 \
+    /* double register passed (see 'd0'-'dN' encoding), not reencode it's number */  \
+    fp_rencode(Vd, false, 12, 22);                                                   \
   }                                                                                  \
   void NAME(FloatRegister Vd, address dest, Condition cond = C_DFLT) {               \
     long offset = dest - pc();                                                       \
@@ -1868,33 +1882,10 @@ void vmsr(Register Rt, Condition cond = C_DFLT) {
   INSN(vldr_f32, 0b10001, 0);
 #undef INSN
 
-// This is a hack. Because of the way floating point registers have been used we reach a
-// tricky situation when calling out the C land that doesn't expect all single precision
-// arguments to be on a double boundary.
-  void fp_rencode_real(int reg_val, bool is64bit, int base, int bit) {
-    if(is64bit) {
-      f( reg_val & 0xf, base + 3, base);
-      f( reg_val >> 4, bit);
-    } else {
-      f( reg_val >> 1, base + 3, base);
-      f( reg_val & 1, bit);
-    }
-  }
-
-  void vldr_f32_real(int reg_val, const Address &adr, Condition cond = C_DFLT) {
-    starti;
-    fp_ldst_instr(0b10001, false, adr, cond);
-    fp_rencode_real(reg_val, false, 12, 22);
-  }
-
  private:
   enum fp_mode { ia_wb, ia, db_wb };
   void fp_ldst_mul(Register Rn, int regset, bool load, bool is64bit, enum fp_mode mode, Condition cond);
  public:
-// A note here - load/store multiple only works on consecutive vector registers.
-// The 32bit version therefore works on consecutive 32bit float registers.
-// We are not using consecutive registers for single precision and so for single
-// precision storage only one register is allowed.
 #define INSN(NAME, EXT, is64bit, load)                                               \
   inline void NAME##ia##EXT(Register Rn, unsigned regset, bool wb = true,            \
                             Condition cond = C_DFLT) {                               \
@@ -1908,6 +1899,22 @@ void vmsr(Register Rt, Condition cond = C_DFLT) {
   INSN(vldm, _f64, 1, 1);
   INSN(vstm, _f32, 0, 0);
   INSN(vstm, _f64, 1, 0);
+#undef INSN
+
+ public:
+#define INSN(NAME, r)                                                                \
+  inline void NAME(Register Rb, int imm) {                                           \
+    starti;                                                                          \
+    f(0b1111, 31, 28);                                                               \
+    f(0b0101, 27, 24), f(0b01, 21, 20);                                              \
+    f(0b1111, 15, 12);                                                               \
+    f(imm >= 0 ? 1 : 0, 23);                                                         \
+    f(r, 22);                                                                        \
+    rf(Rb, 16);                                                                      \
+    f(imm >= 0 ? imm : -imm, 11, 0);                                                 \
+  }
+  INSN(pld,  1);
+  INSN(pldw, 0);
 #undef INSN
 
 #undef ZERO_ADDR_REG
@@ -1926,13 +1933,71 @@ void vmsr(Register Rt, Condition cond = C_DFLT) {
   // Stack overflow checking
   virtual void bang_stack_with_offset(int offset);
 
-  //static bool operand_valid_for_logical_immediate(bool is32, uint64_t imm);
-  static bool operand_valid_for_add_sub_immediate(long imm);
-  //static bool operand_valid_for_float_immediate(double imm);
-  static bool operand_valid_for_mov_immediate(u_int32_t imm, bool s);
+  // Immediate values checks and transformations
+
+  static uint32_t encode_imm12(int imm);
+  static int decode_imm12(uint32_t imm12);
+  static bool is_valid_for_imm12(int imm);
+
+  static bool is_valid_for_offset_imm(int imm, int nbits) {
+    return uabs(imm) < (1u << nbits);
+  }
+
+  static bool operand_valid_for_logical_immediate(bool is32, uint64_t imm);
+  static bool operand_valid_for_add_sub_immediate(int imm);
+  static bool operand_valid_for_add_sub_immediate(unsigned imm);
+  static bool operand_valid_for_add_sub_immediate(unsigned long imm);
+  static bool operand_valid_for_add_sub_immediate(jlong imm);
+  static bool operand_valid_for_float_immediate(float imm);
+  static bool operand_valid_for_double_immediate(double imm);
 
   void emit_data64(jlong data, relocInfo::relocType rtype, int format = 0);
   void emit_data64(jlong data, RelocationHolder const& rspec, int format = 0);
+
+  // useful to revert back the effect of post/pre addressing modifications
+  // applied to the base register
+  void compensate_addr_offset(const Address &adr, Condition cond) {
+    compensate_addr_offset(adr.base(), adr.index(), adr.shift(), adr.op() == Address::ADD, cond);
+  }
+  void compensate_addr_offset(Register Rd, Register Roff, shift_op shift, bool isAdd, Condition cond) {
+    shift_op shift_back;
+
+    if (shift.is_register()) {
+      switch (shift.kind()) {
+        case shift_op::LSL:
+        case shift_op::LSR:
+          shift_back = asr(shift.reg());
+          break;
+        case shift_op::ASR:
+          shift_back = lsl(shift.reg());
+          break;
+        case shift_op::ROR:
+          Unimplemented(); // need a temp register here
+          break;
+        default:
+          ShouldNotReachHere();
+      }
+    } else {
+      switch (shift.kind()) {
+        case shift_op::LSL:
+        case shift_op::LSR:
+          shift_back = asr(shift.shift());
+          break;
+        case shift_op::ASR:
+          shift_back = lsl(shift.shift());
+          break;
+        case shift_op::ROR:
+          shift_back = ror(32-shift.shift());
+          break;
+        default:
+          ShouldNotReachHere();
+      }
+    }
+    if (isAdd)
+      sub(Rd, Rd, Roff, shift_back, cond);
+    else
+      add(Rd, Rd, Roff, shift_back, cond);
+  }
 };
 
 inline Assembler::Membar_mask_bits operator|(Assembler::Membar_mask_bits a,

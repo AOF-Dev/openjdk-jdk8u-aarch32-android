@@ -81,7 +81,7 @@ void CompiledStaticCall::emit_to_interp_stub(CodeBuffer &cbuf) {
 #undef __
 
 int CompiledStaticCall::to_interp_stub_size() {
-  return 7 * NativeInstruction::instruction_size;
+  return 7 * NativeInstruction::arm_insn_sz;
 }
 
 // Relocation entries for call stub, compiled java to interpreter.
@@ -142,9 +142,6 @@ void CompiledStaticCall::verify() {
   // Verify stub.
   address stub = find_stub();
   assert(stub != NULL, "no stub found for static call");
-  // Creation also verifies the object.
-  NativeMovConstReg* method_holder = nativeMovConstReg_at(stub);
-  NativeJump*        jump          = nativeJump_at(method_holder->next_instruction_address());
 
   // Verify state.
   assert(is_clean() || is_call_to_compiled() || is_call_to_interpreted(), "sanity check");

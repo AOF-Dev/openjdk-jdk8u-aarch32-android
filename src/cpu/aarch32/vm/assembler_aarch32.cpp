@@ -31,19 +31,12 @@
 #include "precompiled.hpp"
 #include "asm/assembler.hpp"
 #include "asm/assembler.inline.hpp"
-#include "interpreter/interpreter.hpp"
-
-#ifndef PRODUCT
-// FIXME This has been changed to make it compile for arm 32
-//const unsigned long Assembler::asm_bp = 0x00007fffee09ac88;
-const unsigned long Assembler::asm_bp = 0x0;
-//FIXME END
-#endif
-
 #include "compiler/disassembler.hpp"
+#include "interpreter/interpreter.hpp"
 #include "memory/resourceArea.hpp"
 #include "runtime/interfaceSupport.hpp"
 #include "runtime/sharedRuntime.hpp"
+#include "register_aarch32.hpp"
 
 extern "C" void entry(CodeBuffer *cb);
 
@@ -527,14 +520,14 @@ void entry(CodeBuffer *cb) {
     __ bl(r1);                                         // blx r1
 
 // ThreeFltNon
-    __ vmla_f32(d2, d4, d6, Assembler::MI);            // vmlaMI.f32 s4, s8, s12
-    __ vmls_f32(d2, d5, d5);                           // vmls.f32 s4, s10, s10
-    __ vnmla_f32(d1, d5, d6);                          // vnmla.f32 s2, s10, s12
-    __ vnmls_f32(d4, d3, d4, Assembler::LT);           // vnmlsLT.f32 s8, s6, s8
-    __ vnmul_f32(d3, d6, d7, Assembler::MI);           // vnmulMI.f32 s6, s12, s14
-    __ vadd_f32(d0, d1, d0);                           // vadd.f32 s0, s2, s0
-    __ vsub_f32(d1, d2, d5, Assembler::AL);            // vsubAL.f32 s2, s4, s10
-    __ vdiv_f32(d0, d1, d6, Assembler::CS);            // vdivCS.f32 s0, s2, s12
+    __ vmla_f32(f4, f8, f12, Assembler::MI);            // vmlaMI.f32 s4, s8, s12
+    __ vmls_f32(f4, f10, f10);                           // vmls.f32 s4, s10, s10
+    __ vnmla_f32(f2, f10, f12);                          // vnmla.f32 s2, s10, s12
+    __ vnmls_f32(f8, f6, f8, Assembler::LT);           // vnmlsLT.f32 s8, s6, s8
+    __ vnmul_f32(f6, f12, f14, Assembler::MI);           // vnmulMI.f32 s6, s12, s14
+    __ vadd_f32(f0, f2, f0);                           // vadd.f32 s0, s2, s0
+    __ vsub_f32(f2, f4, f10, Assembler::AL);            // vsubAL.f32 s2, s4, s10
+    __ vdiv_f32(f0, f2, f12, Assembler::CS);            // vdivCS.f32 s0, s2, s12
 
 // ThreeFltNon
     __ vmla_f64(d0, d3, d6);                           // vmla.f64 d0, d3, d6
@@ -547,9 +540,9 @@ void entry(CodeBuffer *cb) {
     __ vdiv_f64(d0, d1, d5, Assembler::MI);            // vdivMI.f64 d0, d1, d5
 
 // TwoFltNon
-    __ vabs_f32(d3, d3);                               // vabs.f32 s6, s6
-    __ vneg_f32(d3, d4, Assembler::PL);                // vnegPL.f32 s6, s8
-    __ vsqrt_f32(d0, d4);                              // vsqrt.f32 s0, s8
+    __ vabs_f32(f6, f6);                               // vabs.f32 s6, s6
+    __ vneg_f32(f6, f8, Assembler::PL);                // vnegPL.f32 s6, s8
+    __ vsqrt_f32(f0, f8);                              // vsqrt.f32 s0, s8
 
 // TwoFltNon
     __ vabs_f64(d0, d4);                               // vabs.f64 d0, d4
@@ -557,10 +550,10 @@ void entry(CodeBuffer *cb) {
     __ vsqrt_f64(d0, d1);                              // vsqrt.f64 d0, d1
 
 // vmov_f32
-    __ vmov_f32(d0, lr, Assembler::PL);                // vmovPL.f32 s0, lr
+    __ vmov_f32(f0, lr, Assembler::PL);                // vmovPL.f32 s0, lr
 
 // vmov_f32
-    __ vmov_f32(r11, d4);                              // vmov.f32 r11, s8
+    __ vmov_f32(r11, f8);                              // vmov.f32 r11, s8
 
 // vmov_f64
     __ vmov_f64(d1, r11, lr, Assembler::LT);           // vmovLT.f64 d1, r11, lr
@@ -569,26 +562,26 @@ void entry(CodeBuffer *cb) {
     __ vmov_f64(r7, r5, d5);                           // vmov.f64 r7, r5, d5
 
 // vmov_f32
-    __ vmov_f32(d4, d6);                               // vmov.f32 s8, s12
+    __ vmov_f32(f8, f12);                               // vmov.f32 s8, s12
 
 // vmov_f64
     __ vmov_f64(d1, d2, Assembler::HI);                // vmovHI.f64 d1, d2
 
 // vmov_f32
-    __ vmov_f32(d2, 1.0f, Assembler::VS);              // vmovVS.f32 s4, #1.0
+    __ vmov_f32(f4, 1.0f, Assembler::VS);              // vmovVS.f32 s4, #1.0
 
 // vmov_f64
     __ vmov_f64(d2, 1.0);                              // vmov.f64 d2, #1.0
 
 // vmov_f32
-    __ vmov_f32(d3, 2.0f);                             // vmov.f32 s6, #2.0
+    __ vmov_f32(f6, 2.0f);                             // vmov.f32 s6, #2.0
 
 // vmov_f64
     __ vmov_f64(d1, 2.0);                              // vmov.f64 d1, #2.0
 
 // vector memory
-    __ vldr_f32(d2, Address(r5, 116));                 // vldr.f32 s4, [r5, #116]
-    __ vstr_f32(d1, Address(r1, 56), Assembler::CC);   // vstrCC.f32 s2, [r1, #56]
+    __ vldr_f32(f4, Address(r5, 116));                 // vldr.f32 s4, [r5, #116]
+    __ vstr_f32(f2, Address(r1, 56), Assembler::CC);   // vstrCC.f32 s2, [r1, #56]
 
 // vector memory
     __ vldr_f64(d7, Address(r5, 16), Assembler::NE);   // vldrNE.f64 d7, [r5, #16]
@@ -597,32 +590,32 @@ void entry(CodeBuffer *cb) {
     __ bind(near_flt);
 
 // vector memory
-    __ vldr_f32(d1, near_post_flt);                    // vldr.f32 s2, near_post_flt
-    __ vstr_f32(d3, near_post_flt);                    // vstr.f32 s6, near_post_flt
+    __ vldr_f32(f2, near_post_flt);                    // vldr.f32 s2, near_post_flt
+    __ vstr_f32(f6, near_post_flt);                    // vstr.f32 s6, near_post_flt
 
 // vector memory
     __ vldr_f64(d2, near_flt, Assembler::LT);          // vldrLT.f64 d2, near_flt
     __ vstr_f64(d3, __ pc(), Assembler::GT);           // vstrGT.f64 d3, .
 
 // vector memory
-    __ vldr_f32(d2, near_post_flt, Assembler::CC);     // vldrCC.f32 s4, near_post_flt
-    __ vstr_f32(d0, near_post_flt);                    // vstr.f32 s0, near_post_flt
+    __ vldr_f32(f4, near_post_flt, Assembler::CC);     // vldrCC.f32 s4, near_post_flt
+    __ vstr_f32(f0, near_post_flt);                    // vstr.f32 s0, near_post_flt
 
 // vector memory
     __ vldr_f64(d4, near_post_flt, Assembler::GT);     // vldrGT.f64 d4, near_post_flt
     __ vstr_f64(d0, near_flt);                         // vstr.f64 d0, near_flt
 
 // vector memory
-    __ vldr_f32(d4, near_post_flt);                    // vldr.f32 s8, near_post_flt
-    __ vstr_f32(d3, near_post_flt);                    // vstr.f32 s6, near_post_flt
+    __ vldr_f32(f8, near_post_flt);                    // vldr.f32 s8, near_post_flt
+    __ vstr_f32(f6, near_post_flt);                    // vstr.f32 s6, near_post_flt
 
 // vector memory
     __ vldr_f64(d4, near_flt, Assembler::PL);          // vldrPL.f64 d4, near_flt
     __ vstr_f64(d5, near_flt);                         // vstr.f64 d5, near_flt
 
 // vector memory
-    __ vldr_f32(d4, near_post_flt, Assembler::LS);     // vldrLS.f32 s8, near_post_flt
-    __ vstr_f32(d6, __ pc(), Assembler::CC);           // vstrCC.f32 s12, .
+    __ vldr_f32(f8, near_post_flt, Assembler::LS);     // vldrLS.f32 s8, near_post_flt
+    __ vstr_f32(f12, __ pc(), Assembler::CC);           // vstrCC.f32 s12, .
 
 // vector memory
     __ vldr_f64(d6, near_post_flt, Assembler::AL);     // vldrAL.f64 d6, near_post_flt
@@ -631,26 +624,26 @@ void entry(CodeBuffer *cb) {
     __ bind(near_post_flt);
 
 // FltMultMemOp
-    __ vldmia_f32(r1, 4U, false);                      // vldmia.f32 r1, {s4}
-    __ vstmia_f32(r6, 4U, true, Assembler::CS);        // vstmiaCS.f32 r6!, {s4}
+    __ vldmia_f32(r1, FloatRegSet::of(f4).bits(), false);                      // vldmia.f32 r1, {s4}
+    __ vstmia_f32(r6, FloatRegSet::of(f4).bits(), true, Assembler::CS);        // vstmiaCS.f32 r6!, {s4}
 
 // DblMultMemOp
-    __ vldmia_f64(r9, 30U, true);                      // vldmia.f64 r9!, {d1, d2, d3, d4}
-    __ vstmia_f64(r3, 192U, true);                     // vstmia.f64 r3!, {d6, d7}
+    __ vldmia_f64(r9, DoubleFloatRegSet::of(d1, d2, d3, d4).bits(), true);     // vldmia.f64 r9!, {d1, d2, d3, d4}
+    __ vstmia_f64(r3, DoubleFloatRegSet::of(d6, d7).bits(), true);             // vstmia.f64 r3!, {d6, d7}
 
 // FltMultMemOp
-    __ vldmdb_f32(r2, 8U, Assembler::VS);              // vldmdbVS.f32 r2!, {s6}
-    __ vstmdb_f32(r6, 128U);                           // vstmdb.f32 r6!, {s14}
+    __ vldmdb_f32(r2, FloatRegSet::of(f6).bits(), Assembler::VS);              // vldmdbVS.f32 r2!, {s6}
+    __ vstmdb_f32(r6, FloatRegSet::of(f14).bits());                            // vstmdb.f32 r6!, {s14}
 
 // DblMultMemOp
-    __ vldmdb_f64(sp, 240U);                           // vldmdb.f64 sp!, {d4, d5, d6, d7}
-    __ vstmdb_f64(r0, 224U);                           // vstmdb.f64 r0!, {d5, d6, d7}
+    __ vldmdb_f64(sp, DoubleFloatRegSet::of(d4, d5, d6, d7).bits());           // vldmdb.f64 sp!, {d4, d5, d6, d7}
+    __ vstmdb_f64(r0, DoubleFloatRegSet::of(d5, d6, d7).bits());               // vstmdb.f64 r0!, {d5, d6, d7}
 
 // vcmp_f32
-    __ vcmp_f32(d1, d1);                               // vcmp.f32 s2, s2
+    __ vcmp_f32(f2, f2);                               // vcmp.f32 s2, s2
 
 // vcmpe_f32
-    __ vcmpe_f32(d4, d4, Assembler::VC);               // vcmpeVC.f32 s8, s8
+    __ vcmpe_f32(f8, f8, Assembler::VC);               // vcmpeVC.f32 s8, s8
 
 // vcmp_f64
     __ vcmp_f64(d0, d6);                               // vcmp.f64 d0, d6
@@ -659,10 +652,10 @@ void entry(CodeBuffer *cb) {
     __ vcmpe_f64(d3, d7, Assembler::GE);               // vcmpeGE.f64 d3, d7
 
 // vcmp_f32
-    __ vcmp_f32(d1, 0.0f, Assembler::LT);              // vcmpLT.f32 s2, #0.0
+    __ vcmp_f32(f2, 0.0f, Assembler::LT);              // vcmpLT.f32 s2, #0.0
 
 // vcmpe_f32
-    __ vcmpe_f32(d7, 0.0f, Assembler::GT);             // vcmpeGT.f32 s14, #0.0
+    __ vcmpe_f32(f14, 0.0f, Assembler::GT);             // vcmpeGT.f32 s14, #0.0
 
 // vcmp_f64
     __ vcmp_f64(d4, 0.0);                              // vcmp.f64 d4, #0.0
@@ -671,20 +664,20 @@ void entry(CodeBuffer *cb) {
     __ vcmpe_f64(d1, 0.0);                             // vcmpe.f64 d1, #0.0
 
 // vcvt
-    __ vcvt_s32_f32(d1, d3, Assembler::VS);            // vcvtVS.s32.f32 s2, s6
-    __ vcvt_u32_f32(d3, d7, Assembler::GT);            // vcvtGT.u32.f32 s6, s14
-    __ vcvt_f32_s32(d0, d1, Assembler::CC);            // vcvtCC.f32.s32 s0, s2
-    __ vcvt_f32_u32(d1, d2, Assembler::CC);            // vcvtCC.f32.u32 s2, s4
+    __ vcvt_s32_f32(f2, f6, Assembler::VS);            // vcvtVS.s32.f32 s2, s6
+    __ vcvt_u32_f32(f6, f14, Assembler::GT);            // vcvtGT.u32.f32 s6, s14
+    __ vcvt_f32_s32(f0, f2, Assembler::CC);            // vcvtCC.f32.s32 s0, s2
+    __ vcvt_f32_u32(f2, f4, Assembler::CC);            // vcvtCC.f32.u32 s2, s4
 
 // vcvt
-    __ vcvt_s32_f64(d2, d4, Assembler::HI);            // vcvtHI.s32.f64 s4, d4
-    __ vcvt_u32_f64(d3, d6, Assembler::HI);            // vcvtHI.u32.f64 s6, d6
-    __ vcvt_f32_f64(d3, d7, Assembler::LS);            // vcvtLS.f32.f64 s6, d7
+    __ vcvt_s32_f64(f4, d4, Assembler::HI);            // vcvtHI.s32.f64 s4, d4
+    __ vcvt_u32_f64(f6, d6, Assembler::HI);            // vcvtHI.u32.f64 s6, d6
+    __ vcvt_f32_f64(f6, d7, Assembler::LS);            // vcvtLS.f32.f64 s6, d7
 
 // vcvt
-    __ vcvt_f64_s32(d3, d4);                           // vcvt.f64.s32 d3, s8
-    __ vcvt_f64_u32(d5, d7, Assembler::EQ);            // vcvtEQ.f64.u32 d5, s14
-    __ vcvt_f64_f32(d4, d5, Assembler::AL);            // vcvtAL.f64.f32 d4, s10
+    __ vcvt_f64_s32(d3, f8);                           // vcvt.f64.s32 d3, s8
+    __ vcvt_f64_u32(d5, f14, Assembler::EQ);            // vcvtEQ.f64.u32 d5, s14
+    __ vcvt_f64_f32(d4, f10, Assembler::AL);            // vcvtAL.f64.f32 d4, s10
 
 // BKPT
     __ bkpt((unsigned)26U);                            // bkpt #26
@@ -743,21 +736,21 @@ Disassembly of section .text:
   a8:   e226e87d        eor     lr, r6, #8192000        ; 0x7d0000
   ac:   e2332f49        eors    r2, r3, #292    ; 0x124
   b0:   e24d46d9        sub     r4, sp, #227540992      ; 0xd900000
-  b4:   b25e1402        subslt  r1, lr, #33554432       ; 0x2000000
-  b8:   e2650325        rsb     r0, r5, #-1811939328    ; 0x94000000
-  bc:   3274882f        rsbscc  r8, r4, #3080192        ; 0x2f0000
-  c0:   b2849102        addlt   r9, r4, #-2147483648    ; 0x80000000
-  c4:   e2948902        adds    r8, r4, #32768  ; 0x8000
-  c8:   22aeac2a        adccs   sl, lr, #10752  ; 0x2a00
+  b4:   b25e1780        subslt  r1, lr, #33554432       ; 0x2000000
+  b8:   e2650494        rsb     r0, r5, #-1811939328    ; 0x94000000
+  bc:   327489bc        rsbscc  r8, r4, #3080192        ; 0x2f0000
+  c0:   b2849480        addlt   r9, r4, #-2147483648    ; 0x80000000
+  c4:   e2948c80        adds    r8, r4, #32768  ; 0x8000
+  c8:   22aeada8        adccs   sl, lr, #10752  ; 0x2a00
   cc:   e2b6aabd        adcs    sl, r6, #774144 ; 0xbd000
-  d0:   e2cc2426        sbc     r2, ip, #637534208      ; 0x26000000
+  d0:   e2cc2598        sbc     r2, ip, #637534208      ; 0x26000000
   d4:   e2da85a5        sbcs    r8, sl, #692060160      ; 0x29400000
   d8:   e2e6d871        rsc     sp, r6, #7405568        ; 0x710000
   dc:   12fba6e9        rscsne  sl, fp, #244318208      ; 0xe900000
   e0:   638737ff        orrvs   r3, r7, #66846720       ; 0x3fc0000
   e4:   03952951        orrseq  r2, r5, #1327104        ; 0x144000
   e8:   63c18eea        bicvs   r8, r1, #3744   ; 0xea0
-  ec:   33d2020a        bicscc  r0, r2, #-1610612736    ; 0xa0000000
+  ec:   33d204a0        bicscc  r0, r2, #-1610612736    ; 0xa0000000
   f0:   e118028d        tst     r8, sp, lsl #5
   f4:   e13601a7        teq     r6, r7, lsr #3
   f8:   e15c0164        cmp     ip, r4, ror #2
@@ -767,9 +760,9 @@ Disassembly of section .text:
  108:   915e0b37        cmpls   lr, r7, lsr fp
  10c:   617a0b17        cmnvs   sl, r7, lsl fp
  110:   e3120585        tst     r2, #557842432  ; 0x21400000
- 114:   433e071b        teqmi   lr, #7077888    ; 0x6c0000
- 118:   e355030e        cmp     r5, #939524096  ; 0x38000000
- 11c:   3377010a        cmncc   r7, #-2147483646        ; 0x80000002
+ 114:   433e086c        teqmi   lr, #7077888    ; 0x6c0000
+ 118:   e35505e0        cmp     r5, #939524096  ; 0x38000000
+ 11c:   337703a0        cmncc   r7, #-2147483646        ; 0x80000002
  120:   e1a00b84        lsl     r0, r4, #23
  124:   e1b01484        lsls    r1, r4, #9
  128:   e1a001aa        lsr     r0, sl, #3
@@ -788,7 +781,7 @@ Disassembly of section .text:
  15c:   b1b0165a        asrslt  r1, sl, r6
  160:   e1a0a003        mov     sl, r3
  164:   e1b00009        movs    r0, r9
- 168:   73a03e29        movvc   r3, #656        ; 0x290
+ 168:   73a03fa4        movvc   r3, #656        ; 0x290
  16c:   e3b0497e        movs    r4, #2064384    ; 0x1f8000
  170:   e1a0c1a6        lsr     ip, r6, #3
  174:   71b0554d        asrsvc  r5, sp, #10
@@ -1118,18 +1111,18 @@ Disassembly of section .text:
     0x80ca835e,     0xe0dc1615,     0x60e54a7e,     0xe0fc181d,
     0x61818076,     0xe19db577,     0xe1ce4216,     0xe1dba31d,
     0x828d8261,     0xe29ed69b,     0xe226e87d,     0xe2332f49,
-    0xe24d46d9,     0xb25e1402,     0xe2650325,     0x3274882f,
-    0xb2849102,     0xe2948902,     0x22aeac2a,     0xe2b6aabd,
-    0xe2cc2426,     0xe2da85a5,     0xe2e6d871,     0x12fba6e9,
-    0x638737ff,     0x03952951,     0x63c18eea,     0x33d2020a,
+    0xe24d46d9,     0xb25e1780,     0xe2650494,     0x327489bc,
+    0xb2849480,     0xe2948c80,     0x22aeada8,     0xe2b6aabd,
+    0xe2cc2598,     0xe2da85a5,     0xe2e6d871,     0x12fba6e9,
+    0x638737ff,     0x03952951,     0x63c18eea,     0x33d204a0,
     0xe118028d,     0xe13601a7,     0xe15c0164,     0xb1750807,
     0xe112073e,     0x31300572,     0x915e0b37,     0x617a0b17,
-    0xe3120585,     0x433e071b,     0xe355030e,     0x3377010a,
+    0xe3120585,     0x433e086c,     0xe35505e0,     0x337703a0,
     0xe1a00b84,     0xe1b01484,     0xe1a001aa,     0xe1b00a2a,
     0xe1a015c9,     0x61b0254b,     0x31a08fe2,     0xe1b0946c,
     0xe1a0877e,     0xe1b0c473,     0xc1a0ce1d,     0xe1b0c61d,
     0xc1a00931,     0xc1b0bc33,     0xd1a0265c,     0xb1b0165a,
-    0xe1a0a003,     0xe1b00009,     0x73a03e29,     0xe3b0497e,
+    0xe1a0a003,     0xe1b00009,     0x73a03fa4,     0xe3b0497e,
     0xe1a0c1a6,     0x71b0554d,     0xe1a0137e,     0x01b0897c,
     0x330cbf31,     0x33429bf7,     0xd001059d,     0xe0100b9a,
     0xe0207c93,     0x0038639b,     0xe084e695,     0xe0940796,
@@ -1226,16 +1219,6 @@ Disassembly of section .text:
     }
     assert(ok, "Assembler smoke test failed");
   }
-
-#ifndef PRODUCT
-
-  //address PC = __ pc();
-  //__ ld1(v0, __ T16B, Address(r16)); // No offset
-  //__ ld1(v0, __ T16B, __ post(r16, 0)); // Post-index
-  //__ ld1(v0, __ T16B, Address(r16, r17)); //
-
-
-#endif // PRODUCT
 #endif // ASSERT
 }
 
@@ -1392,12 +1375,91 @@ void Address::lea(MacroAssembler *as, Register r) const {
 }
 #undef __
 
-bool Address::offset_ok_for_immed(long imm12) {
-  assert(false, "Size varies for instructions - answer inaccurate");
-  return imm12 >= 0 && imm12 < (1 << 12);
+#define __ as->
+class Address;
+
+// Adapts given Address to the capabilities of instructions respective to the
+// provided data type. E.g. some of the instructions cannot use index register
+// while others cannot have an offset field.
+// Returns a copy of this Address is it's good or constructs a new Address
+// good for respective instructions by emitting necessary code to calculate
+// the address in tmp register
+Address Address::safe_for(InsnDataType type, MacroAssembler *as, Register tmp) {
+  if (is_safe_for(type))
+    return *this;
+  assert(tmp->is_valid(), "must be");
+  lea(as, tmp);
+  return Address(tmp);
+}
+#undef __
+
+bool Address::is_safe_for(InsnDataType type) {
+  switch (_acc_mode) {
+    case imm:
+    case lit:
+      return offset_ok_for_immed(_offset, type);
+    case reg:
+      return shift_ok_for_index(_shift, type);
+    case no_mode:
+    default:
+      ShouldNotReachHere();
+  }
 }
 
 
+bool Address::offset_ok_for_immed(long offset, InsnDataType type) {
+  const int o = offset < 0 ? -offset : offset;
+  switch (type) {
+    case IDT_INT:
+    case IDT_BOOLEAN:
+    case IDT_OBJECT:
+    case IDT_ADDRESS:
+    case IDT_METADATA:
+    case IDT_ARRAY:
+      return o <= 0xfff;
+    case IDT_BYTE:
+    case IDT_SHORT:
+    case IDT_LONG:
+    case IDT_CHAR:
+      return o <= 0xff;
+    case IDT_FLOAT:
+    case IDT_DOUBLE:
+      return !(o & ~0x3fc);
+    case IDT_LEA:
+      return true;
+    case IDT_MULTIWORD:
+      return !o;
+    default:
+      ShouldNotReachHere();
+      return false;
+  }
+}
+
+bool Address::shift_ok_for_index(shift_op shift, InsnDataType type) {
+  switch (type) {
+    case IDT_INT:
+    case IDT_BOOLEAN:
+    case IDT_OBJECT:
+    case IDT_ADDRESS:
+    case IDT_METADATA:
+    case IDT_ARRAY:
+      return !shift.is_register();
+    case IDT_BYTE:
+    case IDT_SHORT:
+    case IDT_LONG:
+    case IDT_CHAR:
+      return !shift.is_register() && shift.shift() == 0;
+    case IDT_LEA:
+      return true;
+    case IDT_FLOAT:
+    case IDT_DOUBLE:
+    case IDT_MULTIWORD:
+      return false;
+    default:
+      ShouldNotReachHere();
+      return false;
+  }
+}
 
 void Assembler::emit_data64(jlong data,
                             relocInfo::relocType rtype,
@@ -1438,7 +1500,7 @@ extern "C" {
 #define starti Instruction_aarch32 do_not_use(this); set_current(&do_not_use)
 
   void Assembler::adr(Register Rd, address adr, Condition cond) {
-    int offset = adr - pc();
+    int offset = adr - pc() - 8;
     adr_encode(Rd, offset, cond);
   }
 
@@ -1528,47 +1590,73 @@ void Assembler::wrap_label(FloatRegister r, Label &L, Condition cond,
   }
 }
 
-bool Assembler::operand_valid_for_add_sub_immediate(long imm) {
-  return operand_valid_immediate12(imm) ||
-         operand_valid_immediate12(-imm);
+uint32_t Assembler::encode_imm12(int imm) {
+  // Note that this algorithm encodes 0 as 0x400. If for some reason it is not
+  // desired, a special case for 0 needs to be added here.
+  uint32_t n = (uint32_t) imm;
+  uint32_t shift = __builtin_clz(n) & 0xFFFFFFFE;
+  uint32_t value = n << shift;
+  if ((value & 0x00FFFFFF) == 0) {
+    return (((shift + 8) & 0x0000001F) << 7) | (value >> 24);
+  }
+  n = (n << 16) | (n >> 16);
+  shift = __builtin_clz(n) & 0xFFFFFFFE;
+  value = n << shift;
+  if ((value & 0x00FFFFFF) == 0) {
+    return (((shift - 8) & 0x0000001F) << 7) | (value >> 24);
+  }
+  ShouldNotReachHere();
+  return 0xFFFFFFFF;
 }
 
-bool Assembler::operand_valid_for_mov_immediate(u_int32_t imm, bool s) {
-  bool vi12 = operand_valid_immediate12(imm);
-  return (s && vi12) || (!s && !(imm >> 16));
+int Assembler::decode_imm12(uint32_t imm12) {
+  assert((imm12 & 0xFFFFF000) == 0, "bad imm12");
+  uint32_t shift = (imm12 & 0x00000F00) >> 7;
+  uint32_t value = imm12 & 0x000000FF;
+  return (int) ((value >> shift) | (value << (32 - shift)));
 }
 
+bool Assembler::is_valid_for_imm12(int imm) {
+  uint32_t n = (uint32_t) imm;
+  uint32_t shift = __builtin_clz(n) & 0xFFFFFFFE;
+  uint32_t result = n << shift;
+  if ((result & 0x00FFFFFF) == 0) {
+    return true;
+  }
+  n = (n << 16) | (n >> 16);
+  shift = __builtin_clz(n) & 0xFFFFFFFE;
+  result = n << shift;
+  if ((result & 0x00FFFFFF) == 0) {
+    return true;
+  }
+  return false;
+}
+
+bool Assembler::operand_valid_for_logical_immediate(bool is32, uint64_t imm) {
+  return is32 && is_valid_for_imm12(imm);
+}
+
+bool Assembler::operand_valid_for_add_sub_immediate(int imm) {
+  return is_valid_for_imm12(imm);
+}
+
+bool Assembler::operand_valid_for_add_sub_immediate(unsigned long imm) {
+  return is_valid_for_imm12(imm);
+}
+
+bool Assembler::operand_valid_for_add_sub_immediate(unsigned imm) {
+  return is_valid_for_imm12(imm);
+}
+
+bool Assembler::operand_valid_for_add_sub_immediate(jlong imm) {
+  return is_valid_for_imm12(imm >> 32) && is_valid_for_imm12(imm);
+}
 
 // n.b. this is implemented in subclass MacroAssembler
 void Assembler::bang_stack_with_offset(int offset) { Unimplemented(); }
 
 int AbstractAssembler::code_fill_byte() {
   return 0;
-}
-
-bool Assembler::operand_valid_immediate12(int imm) {
-  //Check that it can be formed through rotations.
-  return encode_immediate12(imm) != 0xffffffff;
-}
-
-u_int32_t Assembler::encode_immediate12(int imm) {
-  //Right rotatates in multiples of two
-  //Just trying the rotations out - probably a way to make this nicer.
-  int i;
-  u_int32_t imm32 = (u_int32_t)imm;
-  for(i = 0; i < 16; i++) {
-    if(0 == (0xffffff00 & imm32))
-      return i << 8 | imm32;
-    //Left rotate by 2 (instruction rotates right)
-    imm32 = (imm32 << 2) | (imm32 >> 30);
-  }
-  return 0xffffffff;
-}
-
-u_int32_t Assembler::decode_immediate12(int imm) {
-  int rotation = (imm >> 7) & 1;
-  u_int32_t imm32 = imm;
-  return imm32 >> rotation | imm32 << (32 - rotation);
 }
 
 void Assembler::mov_immediate(Register dst, uint32_t imm32, Condition cond, bool s) {
@@ -1579,15 +1667,19 @@ void Assembler::mov_immediate(Register dst, uint32_t imm32, Condition cond, bool
       block_comment(buffer);
     }
 #endif
-  if(operand_valid_immediate12(imm32)) {
+  if(is_valid_for_imm12(imm32)) {
     if(s) movs_i(dst, (unsigned)imm32, cond);
     else  mov_i (dst, (unsigned)imm32, cond);
-  } else if(operand_valid_immediate12(~imm32)) {
+  } else if(is_valid_for_imm12(~imm32)) {
     if(s) mvns_i(dst, (unsigned)~imm32, cond);
     else  mvn_i (dst, (unsigned)~imm32, cond);
   } else if (!s && VM_Version::features() & (FT_ARMV7 | FT_ARMV6T2) &&
              (imm32 < (1 << 16))) {
     movw_i(dst, (unsigned)imm32, cond);
+  } else if (!s && VM_Version::features() & (FT_ARMV7 | FT_ARMV6T2) &&
+             !(imm32 & ((1 << 16) - 1))) {
+    movw_i(dst, (unsigned)0, cond);
+    movt_i(dst, (unsigned)(imm32 >> 16), cond);
   } else { // TODO Could expand to varied numbers of mov and orrs
     //Need to do a full 32 bits
     mov_immediate32(dst, imm32, cond, s);
@@ -1651,7 +1743,8 @@ void Assembler::vmov_imm(FloatRegister Rd, unsigned imm, bool is64bit,
   starti;
   fp_instr_base(is64bit, cond);
   f(0b1011, 23, 20);
-  fp_rencode(Rd, is64bit, 12, 22);
+  // double register passed (see 'd0'-'dN' encoding), not reencode it's number
+  fp_rencode(Rd, false, 12, 22);
   f(0b0000, 7, 4);
   f(imm & 0xf, 3, 0);
   f(imm >> 4, 19, 16);
@@ -1669,7 +1762,8 @@ void Assembler::vmov_imm_zero(FloatRegister Rd, bool is64bit,
     f(0b1111001, 31, 25);
     f(0, 24); // imm1
     f(0b10000, 23, 19);
-    fp_rencode(Rd, is64bit, 12, 22);
+    // double register passed (see 'd0'-'dN' encoding), not reencode it's number
+    fp_rencode(Rd, false, 12, 22);
     f(0b000, 18, 16); //imm3
     f(cmod, 11, 8);
     f(0b00, 7, 6);
@@ -1677,6 +1771,41 @@ void Assembler::vmov_imm_zero(FloatRegister Rd, bool is64bit,
     f(1, 4);
     f(0b0000, 3, 0); //imm4
   }
+}
+
+bool Assembler::operand_valid_for_float_immediate(float v) {
+    union ufloat {
+        float f;
+        uint32_t u;
+    } imm;
+    unsigned tmp;
+    imm.f = v;
+
+    if (imm.u & ((1 << 19) - 1))
+        return false;
+
+    tmp = (imm.u >> 25) & ((1 << 6) - 1);
+    return tmp == 32 || tmp == 31;
+}
+
+bool Assembler::operand_valid_for_double_immediate(double v) {
+    union ufloat {
+        double f;
+        uint64_t u;
+    } imm;
+    unsigned tmp;
+    imm.f = v;
+
+    if (imm.u == 0)
+        return true;
+
+    if (imm.u & (uint64_t) 0xffffffffffffLL)
+        return false;
+
+    imm.u >>= 48;
+
+    tmp = (imm.u >> 6) & ((1 << 9) - 1);
+    return tmp == 0x100 || tmp == 0xff;
 }
 
 unsigned Assembler::encode_float_fp_imm(float imm_f) {
@@ -1731,28 +1860,6 @@ bool Assembler::can_ldst_multiple( unsigned regset, const Address& adr) {
            adr.get_wb_mode() == Address::post));
 }
 
-void Assembler::double_ldst_failed_dispatch(Register Rt, Register Rt2, const Address& adr,
-                                            void (Assembler::* mul)(unsigned, const Address&, Condition),
-                                            void (Assembler::* sgl)(Register, const Address&, Condition),
-                                            Condition cond) {
-  if(can_ldst_multiple(RegSet::of(Rt, Rt2).bits(), adr) &&
-     (Rt->encoding_nocheck() < Rt2->encoding_nocheck())) {
-    /* Do a load or store multiple instruction */
-    (this->*mul)(RegSet::of(Rt, Rt2).bits(), adr, cond);
-  } else if(adr.get_wb_mode() == Address::pre) {
-    (this->*sgl)(Rt, adr, cond);
-    (this->*sgl)(Rt2, Address(adr.base(), wordSize), cond);
-  } else if(adr.get_wb_mode() == Address::post) {
-    (this->*sgl)(Rt, adr, cond);
-    (this->*sgl)(Rt2, Address(adr.base(), wordSize - adr.offset()), cond);
-  } else if(adr.get_wb_mode() == Address::off) {
-    (this->*sgl)(Rt, adr, cond);
-    (this->*sgl)(Rt2, Address(adr.base(), adr.offset() + wordSize), cond);
-  } else {
-    ShouldNotReachHere();
-  }
-}
-
 void Assembler::fp_ldst_instr(int decode, bool is64bit, const Address& adr,
                               Condition cond) {
   f(cond, 31, 28), f(0b110, 27, 25), f(decode, 24, 20);
@@ -1762,10 +1869,6 @@ void Assembler::fp_ldst_instr(int decode, bool is64bit, const Address& adr,
 
 void Assembler::fp_ldst_mul(Register Rn, int regset, bool load, bool is64bit,
                             enum fp_mode mode, Condition cond) {
-  assert(is64bit || (1 == count_bits(regset)),
-         "Due to non contiguous single precision registers (could be fixed) "
-         "and fpldstm contiguous registers requirement, only a single "
-         "register is permitted in single-precision mode.");
   starti;
   bool P = db_wb == mode;
   bool U = ia_wb == mode || ia == mode;
@@ -1784,13 +1887,11 @@ void Assembler::fp_ldst_mul(Register Rn, int regset, bool load, bool is64bit,
       enc_z = true;
     }
   }
-  // Disable multiple store for single precsion, see note below
-  assert(is64bit || (1 == nregs), "Single precision fp_ldst_mul only operates on one register");
-
-  if(is64bit) nregs *= 2;
+  assert(!is64bit || nregs <= 16, "Too many registers in a set");
   f(cond, 31, 28), f(0b110, 27, 25); f(P, 24), f(U, 23), f(W, 21), f(load, 20);
+  // vstm/vstm uses double register number, not it's encoding. Should reencode it.
   rf(Rn, 16), fp_rencode(Rd, is64bit, 12, 22), f(0b101, 11, 9), f(is64bit, 8);
-  f(nregs, 7, 0);
+  f(is64bit ? nregs * 2 : nregs, 7, 0);
 }
 
 #undef starti

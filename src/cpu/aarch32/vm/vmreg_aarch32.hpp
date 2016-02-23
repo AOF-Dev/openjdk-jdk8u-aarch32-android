@@ -27,25 +27,25 @@
 #ifndef CPU_AARCH32_VM_VMREG_AARCH32_HPP
 #define CPU_AARCH32_VM_VMREG_AARCH32_HPP
 
-inline bool is_Register() {
-  return (unsigned int) value() < (unsigned int) ConcreteRegisterImpl::max_gpr;
-}
+  bool is_Register() {
+    // BAD_REG should not pass this test.
+    return (unsigned int) value() <
+           (unsigned int) ConcreteRegisterImpl::max_gpr;
+  }
 
-inline bool is_FloatRegister() {
-  return value() >= ConcreteRegisterImpl::max_gpr && value() < ConcreteRegisterImpl::max_fpr;
-}
+  bool is_FloatRegister() {
+    return value() >= ConcreteRegisterImpl::max_gpr &&
+           value() < ConcreteRegisterImpl::max_fpr;
+  }
 
-inline Register as_Register() {
+  Register as_Register() {
+    assert(is_Register(), "sanity check");
+    return ::as_Register(value());
+  }
 
-  assert( is_Register(), "must be");
-  // Yuk
-  return ::as_Register(value() >> 1);
-}
-
-inline FloatRegister as_FloatRegister() {
-  assert( is_FloatRegister() && is_even(value()), "must be" );
-  // Yuk
-  return ::as_FloatRegister((value() - ConcreteRegisterImpl::max_gpr) >> 1);
-}
+  FloatRegister as_FloatRegister() {
+    assert(is_FloatRegister(), "sanity check");
+    return ::as_FloatRegister(value() - ConcreteRegisterImpl::max_gpr);
+  }
 
 #endif // CPU_AARCH32_VM_VMREG_AARCH32_HPP

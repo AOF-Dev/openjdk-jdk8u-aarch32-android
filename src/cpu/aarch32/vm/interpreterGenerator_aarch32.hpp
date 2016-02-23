@@ -45,7 +45,7 @@ private:
   address generate_jump_to_normal_entry(void);
   address generate_accessor_entry(void) { return generate_jump_to_normal_entry(); }
   address generate_empty_entry(void) { return generate_jump_to_normal_entry(); }
-  void generate_transcendental_entry(AbstractInterpreter::MethodKind kind, int fpargs);
+  void generate_transcendental_entry(AbstractInterpreter::MethodKind kind);
   address generate_Reference_get_entry();
   address generate_CRC32_update_entry();
   address generate_CRC32_updateBytes_entry(AbstractInterpreter::MethodKind kind);

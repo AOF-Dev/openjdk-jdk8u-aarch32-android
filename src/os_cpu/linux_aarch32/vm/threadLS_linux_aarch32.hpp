@@ -29,10 +29,9 @@
 
   // Processor dependent parts of ThreadLocalStorage
 
-public:
-
-  static Thread *thread() {
-    return aarch64_currentThread;
+ public:
+  static Thread* thread() {
+    return (Thread*) os::thread_local_storage_at(thread_index());
   }
 
 #endif // OS_CPU_LINUX_AARCH32_VM_THREADLS_LINUX_AARCH32_HPP

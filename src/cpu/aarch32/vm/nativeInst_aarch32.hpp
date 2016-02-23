@@ -37,7 +37,6 @@
 // - NativeInstruction
 // - - NativeCall
 // - - NativeMovConstReg
-// - - NativeMovConstRegPatching
 // - - NativeMovRegMem
 // - - NativeMovRegMemPatching
 // - - NativeJump
@@ -55,11 +54,11 @@ class NativeInstruction VALUE_OBJ_CLASS_SPEC {
   friend class Relocation;
   friend bool is_NativeCallTrampolineStub_at(address);
  public:
-  enum { instruction_size = 4 };
+  enum { arm_insn_sz = 4 };
+
   inline bool is_nop();
   inline bool is_illegal();
   inline bool is_return();
-  bool is_jump();
   inline bool is_jump_or_nop();
   inline bool is_cond_jump();
   bool is_safepoint_poll();
@@ -67,8 +66,25 @@ class NativeInstruction VALUE_OBJ_CLASS_SPEC {
   bool is_orr();
   bool is_sigill_zombie_not_entrant();
 
+  bool is_movt(Register dst, unsigned imm, Assembler::Condition cond = Assembler::C_DFLT);
+  bool is_movw(Register dst, unsigned imm, Assembler::Condition cond = Assembler::C_DFLT);
+  bool is_ldr(Register dst, Address addr, Assembler::Condition cond = Assembler::C_DFLT);
+
+
+  inline bool is_jump() const;
+  inline bool is_call() const;
+
+  inline bool is_mov_const_reg() const;
+  inline bool is_reg_call() const;
+  inline bool is_imm_call() const;
+  inline bool is_reg_jump() const;
+  inline bool is_imm_jump() const;
+
  protected:
-  address addr_at(int offset) const    { return address(this) + offset; }
+  address addr() const { return address(this); }
+  // TODO remove this, every command is 4byte long
+#if 1
+  address addr_at(int offset) const    { return addr() + offset; }
 
   s_char sbyte_at(int offset) const    { return *(s_char*) addr_at(offset); }
   u_char ubyte_at(int offset) const    { return *(u_char*) addr_at(offset); }
@@ -86,78 +102,144 @@ class NativeInstruction VALUE_OBJ_CLASS_SPEC {
   void set_uint_at(int offset, jint  i)       { *(juint*)addr_at(offset) = i; }
   void set_ptr_at (int offset, address  ptr)  { *(address*) addr_at(offset) = ptr; }
   void set_oop_at (int offset, oop  o)        { *(oop*) addr_at(offset) = o; }
+#endif
+
+  static juint as_uint(address addr) {
+    return *(juint *) addr;
+  }
+
+  juint as_uint() const {
+    return as_uint(addr());
+  }
+
+  void set_uint(juint v) {
+    *(juint *) addr() = v;
+  }
 
  public:
 
   // unit test stuff
   static void test() {}                 // override for testing
 
-  inline friend NativeInstruction* nativeInstruction_at(address address);
+  static bool is_at(address address);
+  static NativeInstruction* from(address address);
 
-  static bool is_movw_movt_at(address instr);
-  static bool is_ldr_literal_at(address instr);
+};
 
-  static bool maybe_cpool_ref(address instr) {
-    return is_movw_movt_at(instr) || is_ldr_literal_at(instr);
+inline NativeInstruction* nativeInstruction_at(address addr) {
+  return NativeInstruction::from(addr);
+}
+
+inline NativeInstruction* nativeInstruction_at(uint32_t *addr) {
+  return NativeInstruction::from(address(addr));
+}
+
+class NativeBranchType: public NativeInstruction {
+ protected:
+  static bool is_branch_type(uint32_t insn);
+  void patch_offset_to(address addr);
+ public:
+  enum {
+    instruction_size = arm_insn_sz,
+  };
+
+  address next_instruction_address() const {
+    return addr() + arm_insn_sz;
   }
 };
 
-inline NativeInstruction* nativeInstruction_at(address address) {
-  return (NativeInstruction*)address;
-}
-
-// The natural type of an AArch64 instruction is uint32_t
-inline NativeInstruction* nativeInstruction_at(uint32_t *address) {
-  return (NativeInstruction*)address;
-}
-
-inline NativeCall* nativeCall_at(address address);
-// The NativeCall is an abstraction for accessing/manipulating native call imm32/rel32off
-// instructions (used to manipulate inline caches, primitive & dll calls, etc.).
-
-class NativeCall: public NativeInstruction {
+class NativeMovConstReg: public NativeInstruction {
+ protected:
+  static bool is_movw_movt_at(address instr);
+  static bool is_ldr_literal_at(address instr);
  public:
-  enum Aarch64_specific_constants {
-    instruction_size            =    4,
-    instruction_offset          =    0,
-    displacement_offset         =    0,
-    return_address_offset       =    4
+  enum {
+    movw_movt_pair_sz = 2 * arm_insn_sz,
+    ldr_sz = arm_insn_sz,
+    max_instruction_size = movw_movt_pair_sz,
+    min_instruction_size = ldr_sz,
   };
 
-  enum { cache_line_size = BytesPerWord };  // conservative estimate!
-  address instruction_address() const       { return addr_at(instruction_offset); }
-  address next_instruction_address() const  { return addr_at(return_address_offset); }
-  int   displacement() const                { return (int_at(displacement_offset) << 6) >> 4; }
-  address displacement_address() const      { return addr_at(displacement_offset); }
-  address return_address() const            { return addr_at(return_address_offset); }
-  address destination() const;
+  address next_instruction_address() const  {
+    if (is_movw_movt_at(addr())) {
+      return addr() + movw_movt_pair_sz;
+    } else if (is_ldr_literal_at(addr())) {
+      return addr() + ldr_sz;
+    }
 
-  void  set_destination(address dest)       {
-    int offset = dest - instruction_address();
-    unsigned int insn = 0b100101 << 26;
-    assert((offset & 3) == 0, "should be");
-    offset >>= 2;
-    offset &= (1 << 26) - 1; // mask off insn part
-    insn |= offset;
-    set_int_at(displacement_offset, insn);
+    // Unknown instruction in NativeMovConstReg
+    ShouldNotReachHere();
+    return NULL;
   }
+
+  intptr_t data() const;
+  void set_data(intptr_t x);
+  void set_data_mt_safe(intptr_t x);
+
+  Register destination() const;
+  void set_destination(Register r);
+  void set_destination_mt_safe(Register r, bool assert_lock = true);
+
+  void flush() {
+    ICache::invalidate_range(addr(), max_instruction_size);
+  }
+
+  void  verify();
+  void  print();
+
+  // unit test stuff
+  static void test() {}
+
+  // Creation
+  inline friend NativeMovConstReg* nativeMovConstReg_at(address address);
+  inline friend NativeMovConstReg* nativeMovConstReg_before(address address);
+
+  static bool is_at(address instr);
+
+  static NativeMovConstReg* from(address addr);
+};
+
+inline NativeMovConstReg* nativeMovConstReg_at(address address) {
+  return NativeMovConstReg::from(address);
+}
+
+inline NativeMovConstReg* nativeMovConstReg_before(address addr) {
+  address mov_addr = NULL;
+  if (NativeMovConstReg::is_movw_movt_at(addr - NativeMovConstReg::movw_movt_pair_sz)) {
+    mov_addr = addr - NativeMovConstReg::movw_movt_pair_sz;
+  } else if (NativeMovConstReg::is_ldr_literal_at(addr - NativeMovConstReg::ldr_sz)) {
+    mov_addr = addr - NativeMovConstReg::ldr_sz;
+  } else {
+    ShouldNotReachHere();
+  }
+
+  NativeMovConstReg* test = (NativeMovConstReg*) mov_addr;
+#ifdef ASSERT
+  test->verify();
+#endif
+  return test;
+}
+
+class NativeCall: public NativeInstruction {
+  friend class Relocation;
+ protected:
+  NativeInstruction* is_long_jump_or_call_at(address addr);
+
+ public:
+  enum {
+    instruction_size = NativeMovConstReg::movw_movt_pair_sz + NativeBranchType::instruction_size,
+  };
+
+  address destination() const;
+  void set_destination(address dest);
 
   void  verify_alignment()                       { ; }
   void  verify();
   void  print();
 
-  // Creation
-  inline friend NativeCall* nativeCall_at(address address);
-  inline friend NativeCall* nativeCall_before(address return_address);
-
-  static bool is_call_at(address instr) {
-    const uint32_t insn = (*(uint32_t*)instr);
-    return (insn >> 26) == 0b100101;
-  }
-
-  static bool is_call_before(address return_address) {
-    return is_call_at(return_address - NativeCall::return_address_offset);
-  }
+  address instruction_address() const       { return addr_at(0); }
+  address next_instruction_address() const;
+  address return_address() const;
 
   // MT-safe patching of a call instruction.
   static void insert(address code_pos, address entry);
@@ -179,91 +261,29 @@ class NativeCall: public NativeInstruction {
   // The parameter assert_lock disables the assertion during code generation.
   void set_destination_mt_safe(address dest, bool assert_lock = true);
 
-  address get_trampoline();
+  static bool is_at(address instr);
+  static NativeCall* from(address instr);
+
+  static bool is_call_before(address return_address);
 };
 
 inline NativeCall* nativeCall_at(address address) {
-  NativeCall* call = (NativeCall*)(address - NativeCall::instruction_offset);
-#ifdef ASSERT
-  call->verify();
-#endif
-  return call;
+  return NativeCall::from(address);
 }
 
 inline NativeCall* nativeCall_before(address return_address) {
-  NativeCall* call = (NativeCall*)(return_address - NativeCall::return_address_offset);
-#ifdef ASSERT
-  call->verify();
-#endif
-  return call;
-}
-
-// An interface for accessing/manipulating native mov reg, imm instructions.
-// (used to manipulate inlined 64-bit data calls, etc.)
-class NativeMovConstReg: public NativeInstruction {
- public:
-  enum Aarch64_specific_constants {
-    instruction_size            =    2 * 4, // mov & movt
-    instruction_offset          =    0,
-    displacement_offset         =    0,
-  };
-
-  address instruction_address() const       { return addr_at(instruction_offset); }
-  address next_instruction_address() const  {
-    if (is_movw_movt_at(instruction_address()))
-      return addr_at(2*4);
-    else if (is_ldr_literal_at(instruction_address()))
-      return(addr_at(4));
-    assert(false, "Unknown instruction in NativeMovConstReg");
-    return NULL;
+  address call_addr = NULL;
+  if (NativeCall::is_at(return_address - NativeBranchType::instruction_size)) {
+    call_addr = return_address - NativeBranchType::instruction_size;
+  } else if (NativeCall::is_at(return_address - NativeCall::instruction_size)) {
+    call_addr = return_address - NativeCall::instruction_size;
+  } else {
+    ShouldNotReachHere();
   }
 
-  intptr_t data() const;
-  void  set_data(intptr_t x);
-
-  void flush() {
-    if (! maybe_cpool_ref(instruction_address())) {
-      ICache::invalidate_range(instruction_address(), instruction_size);
-    }
-  }
-
-  void  verify();
-  void  print();
-
-  // unit test stuff
-  static void test() {}
-
-  // Creation
-  inline friend NativeMovConstReg* nativeMovConstReg_at(address address);
-  inline friend NativeMovConstReg* nativeMovConstReg_before(address address);
-};
-
-inline NativeMovConstReg* nativeMovConstReg_at(address address) {
-  NativeMovConstReg* test = (NativeMovConstReg*)(address - NativeMovConstReg::instruction_offset);
-#ifdef ASSERT
-  test->verify();
-#endif
-  return test;
+  return NativeCall::from(call_addr);
 }
 
-inline NativeMovConstReg* nativeMovConstReg_before(address address) {
-  NativeMovConstReg* test = (NativeMovConstReg*)(address - NativeMovConstReg::instruction_size - NativeMovConstReg::instruction_offset);
-#ifdef ASSERT
-  test->verify();
-#endif
-  return test;
-}
-
-class NativeMovConstRegPatching: public NativeMovConstReg {
- private:
-    friend NativeMovConstRegPatching* nativeMovConstRegPatching_at(address address) {
-    NativeMovConstRegPatching* test = (NativeMovConstRegPatching*)(address - instruction_offset);
-    #ifdef ASSERT
-      test->verify();
-    #endif
-    return test;
-    }
-};
 
 // An interface for accessing/manipulating native moves of the form:
 //      mov[b/w/l/q] [reg + offset], reg   (instruction_code_reg2mem)
@@ -281,15 +301,13 @@ class NativeMovConstRegPatching: public NativeMovConstReg {
 // an xor reg,reg inst prior to generating the movb instruction.  This
 // class must skip the xor instruction.
 
-class NativeMovRegMem: public NativeInstruction {
-  enum AArch64_specific_constants {
-    instruction_size            =    4,
-    instruction_offset          =    0,
-    data_offset                 =    0,
-    next_instruction_offset     =    4
-  };
 
+// TODO Review
+class NativeMovRegMem: public NativeInstruction {
  public:
+  enum {
+    instruction_size = 2 * arm_insn_sz, // TODO check this
+  };
   // helper
   int instruction_start() const;
 
@@ -314,7 +332,7 @@ class NativeMovRegMem: public NativeInstruction {
 };
 
 inline NativeMovRegMem* nativeMovRegMem_at (address address) {
-  NativeMovRegMem* test = (NativeMovRegMem*)(address - NativeMovRegMem::instruction_offset);
+  NativeMovRegMem* test = (NativeMovRegMem*) address;
 #ifdef ASSERT
   test->verify();
 #endif
@@ -326,32 +344,17 @@ class NativeMovRegMemPatching: public NativeMovRegMem {
   friend NativeMovRegMemPatching* nativeMovRegMemPatching_at (address address) {Unimplemented(); return 0;  }
 };
 
-// An interface for accessing/manipulating native leal instruction of form:
-//        leal reg, [reg + offset]
-
-class NativeLoadAddress: public NativeMovRegMem {
-  static const bool has_rex = true;
-  static const int rex_size = 1;
- public:
-
-  void verify();
-  void print ();
-
-  // unit test stuff
-  static void test() {}
-};
-
 class NativeJump: public NativeInstruction {
  public:
-  enum AArch64_specific_constants {
-    instruction_size            =    4,
-    instruction_offset          =    0,
-    data_offset                 =    0,
-    next_instruction_offset     =    4
+  enum {
+    instruction_size = NativeMovConstReg::movw_movt_pair_sz + NativeBranchType::instruction_size,
   };
+  address instruction_address() const {
+    return addr();
+  }
 
-  address instruction_address() const       { return addr_at(instruction_offset); }
-  address next_instruction_address() const  { return addr_at(instruction_size); }
+  address next_instruction_address() const;
+
   address jump_destination() const;
   void set_jump_destination(address dest);
 
@@ -368,24 +371,24 @@ class NativeJump: public NativeInstruction {
   // MT-safe insertion of native jump at verified method entry
   static void check_verified_entry_alignment(address entry, address verified_entry);
   static void patch_verified_entry(address entry, address verified_entry, address dest);
+
+  static bool is_at(address instr);
+  static NativeJump* from(address instr);
 };
 
-inline NativeJump* nativeJump_at(address address) {
-  NativeJump* jump = (NativeJump*)(address - NativeJump::instruction_offset);
-#ifdef ASSERT
-  jump->verify();
-#endif
-  return jump;
+inline NativeJump* nativeJump_at(address addr) {
+  return NativeJump::from(addr);
 }
 
+// TODO We don't really need NativeGeneralJump, NativeJump should be able to do
+// everything that General Jump would.  Make this only interface to NativeJump
+// from share code (c1_Runtime)
 class NativeGeneralJump: public NativeJump {
 public:
-  enum AArch64_specific_constants {
-    instruction_size            =    4 * 4,
-    instruction_offset          =    0,
-    data_offset                 =    0,
-    next_instruction_offset     =    4 * 4
+  enum {
+    instruction_size = NativeJump::instruction_size,
   };
+
   static void insert_unconditional(address code_pos, address entry);
   static void replace_mt_safe(address instr_addr, address code_buffer);
   static void verify();
@@ -426,61 +429,59 @@ class NativeTstRegMem: public NativeInstruction {
 };
 
 inline bool NativeInstruction::is_nop()         {
-  uint32_t insn = *(uint32_t*)addr_at(0);
-  return insn == 0xd503201f;
-}
-
-inline bool NativeInstruction::is_jump() {
-  uint32_t insn = *(uint32_t*)addr_at(0);
-
-  if (Instruction_aarch32::extract(insn, 30, 26) == 0b00101) {
-    // Unconditional branch (immediate)
-    return true;
-  } else if (Instruction_aarch32::extract(insn, 31, 25) == 0b0101010) {
-    // Conditional branch (immediate)
-    return true;
-  } else if (Instruction_aarch32::extract(insn, 30, 25) == 0b011010) {
-    // Compare & branch (immediate)
-    return true;
-  } else if (Instruction_aarch32::extract(insn, 30, 25) == 0b011011) {
-    // Test & branch (immediate)
-    return true;
-  } else
-    return false;
+  return (as_uint() & 0x0fffffff) == 0x0320f000;
 }
 
 inline bool NativeInstruction::is_jump_or_nop() {
   return is_nop() || is_jump();
 }
 
-// Call trampoline stubs.
-class NativeCallTrampolineStub : public NativeInstruction {
+class NativeImmCall: public NativeBranchType {
  public:
+  address destination() const;
+  void set_destination(address dest);
+  void set_destination_mt_safe(address dest, bool assert_lock = true);
 
-  enum AArch64_specific_constants {
-    instruction_size            =    4 * 4,
-    instruction_offset          =    0,
-    data_offset                 =    2 * 4,
-    next_instruction_offset     =    4 * 4
-  };
-
-  address destination(nmethod *nm = NULL) const;
-  void set_destination(address new_destination);
-  ptrdiff_t destination_offset() const;
+  static bool is_at(address address);
+  static NativeImmCall* from(address address);
 };
 
-inline bool is_NativeCallTrampolineStub_at(address addr) {
-  // Ensure that the stub is exactly
-  //      ldr   xscratch1, L
-  //      br    xscratch1
-  // L:
-  uint32_t *i = (uint32_t *)addr;
-  return i[0] == 0x58000048 && i[1] == 0xd61f0100;
-}
+class NativeRegCall: public NativeBranchType {
+ public:
 
-inline NativeCallTrampolineStub* nativeCallTrampolineStub_at(address addr) {
-  assert(is_NativeCallTrampolineStub_at(addr), "no call trampoline found");
-  return (NativeCallTrampolineStub*)addr;
-}
+  Register destination() const;
+  void set_destination(Register r);
+
+  static bool is_at(address address);
+  static NativeRegCall* from(address address);
+};
+
+class NativeImmJump: public NativeBranchType {
+ public:
+
+  address destination() const;
+  void set_destination(address r);
+
+  static bool is_at(address address);
+  static NativeImmJump* from(address address);
+};
+
+class NativeRegJump: public NativeBranchType {
+ public:
+
+  Register destination() const;
+  void set_destination(Register r);
+
+  static bool is_at(address address);
+  static NativeRegJump* from(address address);
+};
+
+inline bool NativeInstruction::is_call() const          { return NativeCall::is_at(addr()); }
+inline bool NativeInstruction::is_jump() const          { return NativeJump::is_at(addr()); }
+inline bool NativeInstruction::is_mov_const_reg() const { return NativeMovConstReg::is_at(addr()); }
+inline bool NativeInstruction::is_imm_call() const      { return NativeImmCall::is_at(addr()); }
+inline bool NativeInstruction::is_reg_call() const      { return NativeRegCall::is_at(addr()); }
+inline bool NativeInstruction::is_imm_jump() const      { return NativeImmJump::is_at(addr()); }
+inline bool NativeInstruction::is_reg_jump() const      { return NativeRegJump::is_at(addr()); }
 
 #endif // CPU_AARCH32_VM_NATIVEINST_AARCH32_HPP

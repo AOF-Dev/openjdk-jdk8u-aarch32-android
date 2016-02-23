@@ -40,7 +40,7 @@ void MacroAssembler::get_thread(Register dst) {
   // call pthread_getspecific
   // void * pthread_getspecific(pthread_key_t key);
 
-  // Save all call-clobbered regs except dst, plus r19 and r20.
+  // Save all call-clobbered regs except dst, plus rscratch1 and rscratch2.
   RegSet saved_regs = RegSet::range(r0, r3) + rscratch1 + rscratch2 + lr - dst;
   push(saved_regs, sp);
 

@@ -32,7 +32,8 @@
 class VMRegImpl;
 typedef VMRegImpl* VMReg;
 
-// Use Register as shortcut
+// Implementation of integer registers for AArch32 architecture
+
 class RegisterImpl;
 typedef RegisterImpl* Register;
 
@@ -40,130 +41,196 @@ inline Register as_Register(int encoding) {
   return (Register)(intptr_t) encoding;
 }
 
-class RegisterImpl: public AbstractRegisterImpl {
- public:
-  enum {
-    number_of_registers      = 32,
-    number_of_byte_registers = 32
-  };
-
-  // derived registers, offsets, and addresses
-  Register successor() const                          { return as_Register(encoding() + 1); }
-
-  // construction
-  inline friend Register as_Register(int encoding);
-
-  VMReg as_VMReg();
-
-  // accessors
-  int   encoding() const                         { assert(is_valid(), "invalid register"); return (intptr_t)this; }
-  bool  is_valid() const                         { return 0 <= (intptr_t)this && (intptr_t)this < number_of_registers; }
-  bool  has_byte_register() const                { return 0 <= (intptr_t)this && (intptr_t)this < number_of_byte_registers; }
-  const char* name() const;
-  int   encoding_nocheck() const                 { return (intptr_t)this; }
-
-  // Return the bit which represents this register.  This is intended
-  // to be ORed into a bitmask: for usage see class RegSet below.
-  unsigned long bit(bool should_set = true) const { return should_set ? 1 << encoding() : 0; }
-};
-
-// The integer registers of the aarch32 architecture
-
-CONSTANT_REGISTER_DECLARATION(Register, noreg, (-1));
-
-CONSTANT_REGISTER_DECLARATION(Register, r0,  (0));
-CONSTANT_REGISTER_DECLARATION(Register, r1,  (1));
-CONSTANT_REGISTER_DECLARATION(Register, r2,  (2));
-CONSTANT_REGISTER_DECLARATION(Register, r3,  (3));
-CONSTANT_REGISTER_DECLARATION(Register, r4,  (4));
-CONSTANT_REGISTER_DECLARATION(Register, r5,  (5));
-CONSTANT_REGISTER_DECLARATION(Register, r6,  (6));
-CONSTANT_REGISTER_DECLARATION(Register, r7,  (7));
-CONSTANT_REGISTER_DECLARATION(Register, r8,  (8));
-CONSTANT_REGISTER_DECLARATION(Register, r9,  (9));
-CONSTANT_REGISTER_DECLARATION(Register, r10, (10));
-CONSTANT_REGISTER_DECLARATION(Register, r11, (11));
-CONSTANT_REGISTER_DECLARATION(Register, r12, (12));
-CONSTANT_REGISTER_DECLARATION(Register, r13, (13));
-CONSTANT_REGISTER_DECLARATION(Register, r14, (14));
-CONSTANT_REGISTER_DECLARATION(Register, r15, (15));
-
-// Use FloatRegister as shortcut
-class FloatRegisterImpl;
-typedef FloatRegisterImpl* FloatRegister;
-
-inline FloatRegister as_FloatRegister(int encoding) {
-  return (FloatRegister)(intptr_t) encoding;
-}
-
-// The implementation of floating point registers for the architecture
-class FloatRegisterImpl: public AbstractRegisterImpl {
+class RegisterImpl : public AbstractRegisterImpl {
  public:
   enum {
     number_of_registers = 16
   };
 
-  // construction
-  inline friend FloatRegister as_FloatRegister(int encoding);
+  // Construction
+  inline friend Register as_Register(int encoding);
 
+  // Accessors
+  int encoding() const {
+    assert(is_valid(), "invalid register");
+    return (intptr_t) this;
+  }
+  int encoding_nocheck() const {
+    return (intptr_t) this;
+  }
   VMReg as_VMReg();
+  Register successor() const {
+    return as_Register(encoding() + 1);
+  }
 
-  // derived registers, offsets, and addresses
-  FloatRegister successor() const                          { return as_FloatRegister(encoding() + 1); }
+  // Testers
+  bool is_valid() const {
+    return 0 <= (intptr_t) this && (intptr_t) this < number_of_registers;
+  }
 
-  // accessors
-  int   encoding() const                          { assert(is_valid(), "invalid register"); return (intptr_t)this; }
-  int   encoding_nocheck() const                         { return (intptr_t)this; }
-  bool  is_valid() const                          { return 0 <= (intptr_t)this && (intptr_t)this < number_of_registers; }
+  // Return the bit which represents this register. This is intended to be
+  // used in bitmasks. See RegSet class below.
+  unsigned long bit(bool should_set = true) const {
+    return should_set ? 1 << encoding() : 0;
+  }
+
+  // Return the name of this register
   const char* name() const;
-
-  // Return the bit which represents this register.  This is intended
-  // to be ORed into a bitmask: for usage see class RegSet below.
-  unsigned long bit(bool should_set = true) const { return should_set ? 1 << encoding() : 0; }
 };
 
-// The float registers of the AARCH32 (VFPv3-16) architecture
+// Integer registers of AArch32 architecture
 
-CONSTANT_REGISTER_DECLARATION(FloatRegister, fnoreg , (-1));
+CONSTANT_REGISTER_DECLARATION(Register, noreg, -1);
 
-CONSTANT_REGISTER_DECLARATION(FloatRegister, d0     , ( 0));
-CONSTANT_REGISTER_DECLARATION(FloatRegister, d1     , ( 1));
-CONSTANT_REGISTER_DECLARATION(FloatRegister, d2     , ( 2));
-CONSTANT_REGISTER_DECLARATION(FloatRegister, d3     , ( 3));
-CONSTANT_REGISTER_DECLARATION(FloatRegister, d4     , ( 4));
-CONSTANT_REGISTER_DECLARATION(FloatRegister, d5     , ( 5));
-CONSTANT_REGISTER_DECLARATION(FloatRegister, d6     , ( 6));
-CONSTANT_REGISTER_DECLARATION(FloatRegister, d7     , ( 7));
+CONSTANT_REGISTER_DECLARATION(Register, r0,     0);
+CONSTANT_REGISTER_DECLARATION(Register, r1,     1);
+CONSTANT_REGISTER_DECLARATION(Register, r2,     2);
+CONSTANT_REGISTER_DECLARATION(Register, r3,     3);
+CONSTANT_REGISTER_DECLARATION(Register, r4,     4);
+CONSTANT_REGISTER_DECLARATION(Register, r5,     5);
+CONSTANT_REGISTER_DECLARATION(Register, r6,     6);
+CONSTANT_REGISTER_DECLARATION(Register, r7,     7);
+CONSTANT_REGISTER_DECLARATION(Register, r8,     8);
+CONSTANT_REGISTER_DECLARATION(Register, r9,     9);
+CONSTANT_REGISTER_DECLARATION(Register, r10,   10);
+CONSTANT_REGISTER_DECLARATION(Register, r11,   11);
+CONSTANT_REGISTER_DECLARATION(Register, r12,   12);
+CONSTANT_REGISTER_DECLARATION(Register, r13,   13);
+CONSTANT_REGISTER_DECLARATION(Register, r14,   14);
+CONSTANT_REGISTER_DECLARATION(Register, r15,   15);
 
+// Implementation of floating point registers for AArch32 (VFPv3-D16)
+// architecture
 
-// Need to know the total number of registers of all sorts for SharedInfo.
-// Define a class that exports it.
+class FloatRegisterImpl;
+typedef FloatRegisterImpl* FloatRegister;
+
+// Return FloatRegister corresponding to the given s-type (aka f-type in this
+// port) register number
+inline FloatRegister as_FloatRegister(int encoding) {
+  return (FloatRegister)(intptr_t) encoding;
+}
+
+// Return FloatRegister corresponding to the given d-type register number
+inline FloatRegister as_DoubleFloatRegister(int encoding) {
+  return as_FloatRegister(2 * encoding);
+}
+
+class FloatRegisterImpl : public AbstractRegisterImpl {
+ public:
+  enum {
+    // VFPv3-D16 architecture includes 16 doubleword registers, which can be
+    // also observed as 32 singleword registers. We count the singleword
+    // registers here.
+    number_of_registers = 32
+  };
+
+  // Construction
+  inline friend FloatRegister as_FloatRegister(int encoding);
+  inline friend FloatRegister as_DoubleFloatRegister(int encoding);
+
+  // Accessors
+  int encoding() const {
+    assert(is_valid(), "invalid register");
+    return (intptr_t) this;
+  }
+  int encoding_nocheck() const {
+    return (intptr_t) this;
+  }
+  VMReg as_VMReg();
+  FloatRegister successor() const {
+    return as_FloatRegister(encoding() + 1);
+  }
+
+  // Testers
+  bool is_valid() const {
+    return 0 <= (intptr_t) this && (intptr_t) this < number_of_registers;
+  }
+
+  // Return the bit which represents this register. This is intended to be
+  // used in bitmasks. See FloatRegSet class below.
+  unsigned long bit(bool should_set = true) const {
+    return should_set ? 1 << encoding() : 0;
+  }
+
+  // Return the name of this register
+  const char* name() const;
+};
+
+// Floating point registers of AArch32 (VFPv3-D16) architecture
+
+// Only the first 8 doubleword registers can be used for parameter passing
+// and thus are caller-saved. The rest 8 registers are callee-saved.
+// In VFPv3-D32 there are additional 16 doubleword registers that are
+// caller-saved again, but we don't use them in this implementation.
+
+// Here we introduce the symbolic names for 16 doubleword registers and the
+// corresponding singleword views for the first 8 of them. The instruction
+// set allows us to encode the doubleword register numbers directly using
+// the constants below.
+
+CONSTANT_REGISTER_DECLARATION(FloatRegister, fnoreg, -1);
+
+CONSTANT_REGISTER_DECLARATION(FloatRegister, d0,      0);
+CONSTANT_REGISTER_DECLARATION(FloatRegister, d1,      2);
+CONSTANT_REGISTER_DECLARATION(FloatRegister, d2,      4);
+CONSTANT_REGISTER_DECLARATION(FloatRegister, d3,      6);
+CONSTANT_REGISTER_DECLARATION(FloatRegister, d4,      8);
+CONSTANT_REGISTER_DECLARATION(FloatRegister, d5,     10);
+CONSTANT_REGISTER_DECLARATION(FloatRegister, d6,     12);
+CONSTANT_REGISTER_DECLARATION(FloatRegister, d7,     14);
+CONSTANT_REGISTER_DECLARATION(FloatRegister, d8,     16);
+CONSTANT_REGISTER_DECLARATION(FloatRegister, d9,     18);
+CONSTANT_REGISTER_DECLARATION(FloatRegister, d10,    20);
+CONSTANT_REGISTER_DECLARATION(FloatRegister, d11,    22);
+CONSTANT_REGISTER_DECLARATION(FloatRegister, d12,    24);
+CONSTANT_REGISTER_DECLARATION(FloatRegister, d13,    26);
+CONSTANT_REGISTER_DECLARATION(FloatRegister, d14,    28);
+CONSTANT_REGISTER_DECLARATION(FloatRegister, d15,    30);
+
+CONSTANT_REGISTER_DECLARATION(FloatRegister, f0,      0);
+CONSTANT_REGISTER_DECLARATION(FloatRegister, f1,      1);
+CONSTANT_REGISTER_DECLARATION(FloatRegister, f2,      2);
+CONSTANT_REGISTER_DECLARATION(FloatRegister, f3,      3);
+CONSTANT_REGISTER_DECLARATION(FloatRegister, f4,      4);
+CONSTANT_REGISTER_DECLARATION(FloatRegister, f5,      5);
+CONSTANT_REGISTER_DECLARATION(FloatRegister, f6,      6);
+CONSTANT_REGISTER_DECLARATION(FloatRegister, f7,      7);
+CONSTANT_REGISTER_DECLARATION(FloatRegister, f8,      8);
+CONSTANT_REGISTER_DECLARATION(FloatRegister, f9,      9);
+CONSTANT_REGISTER_DECLARATION(FloatRegister, f10,    10);
+CONSTANT_REGISTER_DECLARATION(FloatRegister, f11,    11);
+CONSTANT_REGISTER_DECLARATION(FloatRegister, f12,    12);
+CONSTANT_REGISTER_DECLARATION(FloatRegister, f13,    13);
+CONSTANT_REGISTER_DECLARATION(FloatRegister, f14,    14);
+CONSTANT_REGISTER_DECLARATION(FloatRegister, f15,    15);
+
+// Total number of registers of all sorts
+
 class ConcreteRegisterImpl : public AbstractRegisterImpl {
  public:
   enum {
-  // A big enough number for C2: all the registers plus flags
-  // This number must be large enough to cover REG_COUNT (defined by c2) registers.
-  // There is no requirement that any ordering here matches any ordering c2 gives
-  // it's optoregs.
-
-    number_of_registers = (2 * RegisterImpl::number_of_registers +
-                           4 * FloatRegisterImpl::number_of_registers +
-                           1) // flags
+    // Here we count the total number of 32-bit slots available in registers.
+    // This number must be large enough to cover REG_COUNT (defined by C2)
+    // registers. There is no requirement that any ordering here matches
+    // any ordering C2 gives its OptoReg's.
+    number_of_registers = RegisterImpl::number_of_registers +
+                          FloatRegisterImpl::number_of_registers
   };
 
-  // added to make it compile
   static const int max_gpr;
   static const int max_fpr;
 };
 
-// A set of registers
+// Set of integer registers
+
 class RegSet {
+ private:
   uint32_t _bitset;
 
   RegSet(uint32_t bitset) : _bitset(bitset) { }
 
-public:
-
+ public:
   RegSet() : _bitset(0) { }
 
   RegSet(Register r1) : _bitset(r1->bit()) { }
@@ -178,7 +245,7 @@ public:
     return result;
   }
 
-  RegSet &operator+=(const RegSet aSet) {
+  RegSet& operator+=(const RegSet aSet) {
     *this = *this + aSet;
     return *this;
   }
@@ -199,26 +266,32 @@ public:
     return of(r1, r2, r3) + r4;
   }
 
+  static RegSet of(Register r1, Register r2, Register r3, Register r4, Register r5) {
+    return of(r1, r2, r3, r4) + r5;
+  }
+
   static RegSet range(Register start, Register end) {
     uint32_t bits = ~0;
     bits <<= start->encoding();
     bits <<= 31 - end->encoding();
     bits >>= 31 - end->encoding();
-
     return RegSet(bits);
   }
 
-  uint32_t bits() const { return _bitset; }
+  uint32_t bits() const {
+    return _bitset;
+  }
 };
 
-// A set of FloatRegisters
+// Set of singleword floating point registers
+
 class FloatRegSet {
+ private:
   uint32_t _bitset;
 
   FloatRegSet(uint32_t bitset) : _bitset(bitset) { }
 
-public:
-
+ public:
   FloatRegSet() : _bitset(0) { }
 
   FloatRegSet(FloatRegister r1) : _bitset(r1->bit()) { }
@@ -233,7 +306,7 @@ public:
     return result;
   }
 
-  FloatRegSet &operator+=(const FloatRegSet aSet) {
+  FloatRegSet& operator+=(const FloatRegSet aSet) {
     *this = *this + aSet;
     return *this;
   }
@@ -250,7 +323,8 @@ public:
     return of(r1, r2) + r3;
   }
 
-  static FloatRegSet of(FloatRegister r1, FloatRegister r2, FloatRegister r3, FloatRegister r4) {
+  static FloatRegSet of(FloatRegister r1, FloatRegister r2, FloatRegister r3,
+                        FloatRegister r4) {
     return of(r1, r2, r3) + r4;
   }
 
@@ -259,11 +333,71 @@ public:
     bits <<= start->encoding();
     bits <<= 31 - end->encoding();
     bits >>= 31 - end->encoding();
-
     return FloatRegSet(bits);
   }
 
-  uint32_t bits() const { return _bitset; }
+  uint32_t bits() const {
+    return _bitset;
+  }
+};
+
+// Set of doubleword floating point registers
+
+class DoubleFloatRegSet {
+ private:
+  uint32_t _bitset;
+
+  DoubleFloatRegSet(uint32_t bitset) : _bitset(bitset) { }
+
+ public:
+  DoubleFloatRegSet() : _bitset(0) { }
+
+  DoubleFloatRegSet(FloatRegister r1) : _bitset(1 << (r1->encoding() >> 1)) { }
+
+  DoubleFloatRegSet operator+(const DoubleFloatRegSet aSet) const {
+    DoubleFloatRegSet result(_bitset | aSet._bitset);
+    return result;
+  }
+
+  DoubleFloatRegSet operator-(const DoubleFloatRegSet aSet) const {
+    DoubleFloatRegSet result(_bitset & ~aSet._bitset);
+    return result;
+  }
+
+  DoubleFloatRegSet& operator+=(const DoubleFloatRegSet aSet) {
+    *this = *this + aSet;
+    return *this;
+  }
+
+  static DoubleFloatRegSet of(FloatRegister r1) {
+    return DoubleFloatRegSet(r1);
+  }
+
+  static DoubleFloatRegSet of(FloatRegister r1, FloatRegister r2) {
+    return of(r1) + r2;
+  }
+
+  static DoubleFloatRegSet of(FloatRegister r1, FloatRegister r2,
+                              FloatRegister r3) {
+    return of(r1, r2) + r3;
+  }
+
+  static DoubleFloatRegSet of(FloatRegister r1, FloatRegister r2,
+                              FloatRegister r3, FloatRegister r4) {
+    return of(r1, r2, r3) + r4;
+  }
+
+  static DoubleFloatRegSet range(FloatRegister start, FloatRegister end) {
+    uint32_t bits = ~0;
+    bits <<= start->encoding() >> 1;
+    bits <<= 31 - (end->encoding() >> 1);
+    bits >>= 31 - (end->encoding() >> 1);
+    return DoubleFloatRegSet(bits);
+  }
+
+  uint32_t bits() const {
+    return _bitset;
+  }
 };
 
 #endif // CPU_AARCH32_VM_REGISTER_AARCH32_HPP

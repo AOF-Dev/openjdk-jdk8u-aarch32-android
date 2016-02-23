@@ -55,15 +55,11 @@ VtableStub* VtableStubs::create_vtable_stub(int vtable_index) {
   ResourceMark rm;
   CodeBuffer cb(s->entry_point(), aarch32_code_length);
   MacroAssembler* masm = new MacroAssembler(&cb);
-  __ stop("werg");
 
-/*
 #ifndef PRODUCT
   if (CountCompiledCalls) {
-    __ lea(r19, ExternalAddress((address) SharedRuntime::nof_megamorphic_calls_addr()));
-    __ ldr(rscratch1, Address(r19));
-    __ add(rscratch1, rscratch1, 1);
-    __ str(rscratch1, Address(r19));
+    // FIXME SharedRuntime::nof_megamorphic_calls_addr() returns un-encodable address
+    __ increment(ExternalAddress((address) SharedRuntime::nof_megamorphic_calls_addr()), 1);
   }
 #endif
 
@@ -72,14 +68,14 @@ VtableStub* VtableStubs::create_vtable_stub(int vtable_index) {
 
   // get receiver klass
   address npe_addr = __ pc();
-  __ load_klass(r19, j_rarg0);
+  __ load_klass(rscratch2, j_rarg0);
 
 #ifndef PRODUCT
   if (DebugVtables) {
     Label L;
     // check offset vs vtable length
-    __ ldrw(rscratch1, Address(r19, InstanceKlass::vtable_length_offset() * wordSize));
-    __ cmpw(rscratch1, vtable_index * vtableEntry::size());
+    __ ldr(rscratch1, Address(rscratch2, InstanceKlass::vtable_length_offset() * wordSize));
+    __ cmp(rscratch1, vtable_index * vtableEntry::size());
     __ b(L, Assembler::GT);
     __ enter();
     __ mov(r2, vtable_index);
@@ -90,7 +86,7 @@ VtableStub* VtableStubs::create_vtable_stub(int vtable_index) {
   }
 #endif // PRODUCT
 
-  __ lookup_virtual_method(r19, vtable_index, rmethod);
+  __ lookup_virtual_method(rscratch2, vtable_index, rmethod);
 
   if (DebugVtables) {
     Label L;
@@ -118,8 +114,7 @@ VtableStub* VtableStubs::create_vtable_stub(int vtable_index) {
   guarantee(__ pc() <= s->code_end(), "overflowed buffer");
 
   s->set_exception_points(npe_addr, ame_addr);
-  return s;*/
-  return NULL;
+  return s;
 }
 
 
@@ -132,14 +127,11 @@ VtableStub* VtableStubs::create_itable_stub(int itable_index) {
   ResourceMark rm;
   CodeBuffer cb(s->entry_point(), code_length);
   MacroAssembler* masm = new MacroAssembler(&cb);
-  __ stop("werg");
-/*
+
 #ifndef PRODUCT
   if (CountCompiledCalls) {
-    __ lea(r10, ExternalAddress((address) SharedRuntime::nof_megamorphic_calls_addr()));
-    __ ldr(rscratch1, Address(r10));
-    __ add(rscratch1, rscratch1, 1);
-    __ str(rscratch1, Address(r10));
+    // FIXME SharedRuntime::nof_megamorphic_calls_addr() returns un-encodable address
+    __ increment(ExternalAddress((address) SharedRuntime::nof_megamorphic_calls_addr()), 1);
   }
 #endif
 
@@ -155,16 +147,19 @@ VtableStub* VtableStubs::create_itable_stub(int itable_index) {
   // get receiver klass (also an implicit null-check)
   address npe_addr = __ pc();
 
-  // Most registers are in use; we'll use r0, rmethod, r10, r11
-  __ load_klass(r10, j_rarg0);
+  // Most registers are in use; we'll use r0, rmethod, rscratch1, r4
+  // IMPORTANT: r4 is used as a temp register, if it's changed callee-save
+  // the code should be fixed
+  // TODO: put an assert here to ensure r4 is caller-save
+  __ load_klass(rscratch1, j_rarg0);
 
   Label throw_icce;
 
   // Get Method* and entrypoint for compiler
   __ lookup_interface_method(// inputs: rec. class, interface, itable index
-                             r10, rscratch2, itable_index,
+                             rscratch1, rscratch2, itable_index,
                              // outputs: method, scan temp. reg
-                             rmethod, r11,
+                             rmethod, r4,
                              throw_icce);
 
   // method (rmethod): Method*
@@ -201,20 +196,18 @@ VtableStub* VtableStubs::create_itable_stub(int itable_index) {
   guarantee(__ pc() <= s->code_end(), "overflowed buffer");
 
   s->set_exception_points(npe_addr, ame_addr);
-  return s;*/
-  return NULL;
+  return s;
 }
 
 
 int VtableStub::pd_code_size_limit(bool is_vtable_stub) {
-  int size = DebugVtables ? 216 : 0;
+  int size = DebugVtables ? 216 : 0; // FIXME
   if (CountCompiledCalls)
-    size += 6 * 4;
-  // FIXME
+    size += 6 * 4; // FIXME. cannot measure, CountCalls does not work
   if (is_vtable_stub)
-    size += 52;
+    size += 26;
   else
-    size += 104;
+    size += 92;
   return size;
 
   // In order to tune these parameters, run the JVM with VM options
@@ -226,30 +219,6 @@ int VtableStub::pd_code_size_limit(bool is_vtable_stub) {
   // -XX:+UseCompressedOops.
   //
   // The JVM98 app. _202_jess has a megamorphic interface call.
-  // The itable code looks like this:
-  // Decoding VtableStub itbl[1]@12
-  //     ldr     w10, [x1,#8]
-  //     lsl     x10, x10, #3
-  //     ldr     w11, [x10,#280]
-  //     add     x11, x10, x11, uxtx #3
-  //     add     x11, x11, #0x1b8
-  //     ldr     x12, [x11]
-  //     cmp     x9, x12
-  //     b.eq    success
-  // loop:
-  //     cbz     x12, throw_icce
-  //     add     x11, x11, #0x10
-  //     ldr     x12, [x11]
-  //     cmp     x9, x12
-  //     b.ne    loop
-  // success:
-  //     ldr     x11, [x11,#8]
-  //     ldr     x12, [x10,x11]
-  //     ldr     x8, [x12,#72]
-  //     br      x8
-  // throw_icce:
-  //     b      throw_ICCE_entry
-
 }
 
 int VtableStub::pd_code_alignment() { return 4; }

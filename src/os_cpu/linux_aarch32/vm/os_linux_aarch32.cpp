@@ -82,8 +82,9 @@
 #define SPELL_REG_FP "fp"
 
 address os::current_stack_pointer() {
-  register void *esp __asm__ (SPELL_REG_SP);
-  return (address) esp;
+  register void* sp __asm__ (SPELL_REG_SP);
+  // This is a leaf method. Only rfp has been pushed.
+  return (address) sp + BytesPerWord;
 }
 
 char* os::non_memory_address_word() {

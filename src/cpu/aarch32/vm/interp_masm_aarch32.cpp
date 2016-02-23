@@ -278,9 +278,9 @@ void InterpreterMacroAssembler::pop_i(Register r) {
   ldr(r, post(sp, wordSize));
 }
 
-void InterpreterMacroAssembler::pop_l(Register r) {
-  //Now implicitly loads two consecutive registers
-  ldrd(r, post(sp, 2 * Interpreter::stackElementSize));
+void InterpreterMacroAssembler::pop_l(Register rLo, Register rHi) {
+    assert(rHi->encoding() == rLo->encoding() + 1, "must use two consecutive registers");
+    ldrd(rLo, post(sp, 2 * Interpreter::stackElementSize));
 }
 
 void InterpreterMacroAssembler::push_ptr(Register r) {
@@ -291,36 +291,27 @@ void InterpreterMacroAssembler::push_i(Register r) {
   str(r, pre(sp, -wordSize));
 }
 
-void InterpreterMacroAssembler::push_l(Register r) {
-  strd(r, pre(sp, -2 * wordSize));
+void InterpreterMacroAssembler::push_l(Register rLo, Register rHi) {
+    assert(r2->encoding() == r1->encoding() + 1, "must use two consecutive registers");
+    strd(rLo, pre(sp, -2 * wordSize));
 }
 
 void InterpreterMacroAssembler::pop_f(FloatRegister r) {
-  //vldr_f32(r, post(esp, wordSize));
   vldmia_f32(sp, FloatRegSet(r).bits());
-  str(rscratch1, Address(pre(sp, -wordSize)));
-  vmov_f32(rscratch1, r);
-  reg_printf(" pop_f 0x%08x\n", rscratch1);
-  ldr(rscratch1, Address(post(sp, wordSize)));
 }
 
 void InterpreterMacroAssembler::pop_d(FloatRegister r) {
-  //vldr_f64(r, post(esp, 2 * Interpreter::stackElementSize));
-  vldmia_f64(sp, FloatRegSet(r).bits());
+  assert(is_even(r->encoding()), "not double!");
+  vldmia_f64(sp, DoubleFloatRegSet(r).bits());
 }
 
 void InterpreterMacroAssembler::push_f(FloatRegister r) {
-  //vstr_f32(r, pre(esp, -wordSize));
   vstmdb_f32(sp, FloatRegSet(r).bits());
-  str(rscratch1, Address(pre(sp, -wordSize)));
-  vmov_f32(rscratch1, r);
-  reg_printf("push_f 0x%08x\n", rscratch1);
-  ldr(rscratch1, Address(post(sp, wordSize)));
 }
 
 void InterpreterMacroAssembler::push_d(FloatRegister r) {
-  //vstr_f64(r, pre(esp, 2* -wordSize));
-  vstmdb_f64(sp, FloatRegSet(r).bits());
+  assert(is_even(r->encoding()), "not double!");
+  vstmdb_f64(sp, DoubleFloatRegSet(r).bits());
 }
 
 void InterpreterMacroAssembler::pop(TosState state) {
@@ -357,15 +348,17 @@ void InterpreterMacroAssembler::push(TosState state) {
 
 // Helpers for swap and dup
 void InterpreterMacroAssembler::load_ptr(int n, Register val) {
-  ldr(val, Address(esp, Interpreter::expr_offset_in_bytes(n)));
+  ldr(val, Address(sp, Interpreter::expr_offset_in_bytes(n)));
 }
 
 void InterpreterMacroAssembler::store_ptr(int n, Register val) {
-  str(val, Address(esp, Interpreter::expr_offset_in_bytes(n)));
+  str(val, Address(sp, Interpreter::expr_offset_in_bytes(n)));
 }
 
 
 void InterpreterMacroAssembler::prepare_to_jump_from_interpreted() {
+  // set sender sp
+  mov(r4, sp);
   // record last_sp
   str(sp, Address(rfp, frame::interpreter_frame_last_sp_offset * wordSize));
 }
@@ -648,7 +641,7 @@ void InterpreterMacroAssembler::remove_activation(
   }
 
   // remove activation
-  // get sender esp
+  // get sender sp
   ldr(rscratch1,
       Address(rfp, frame::interpreter_frame_sender_sp_offset * wordSize));
   // remove frame anchor
@@ -657,7 +650,7 @@ void InterpreterMacroAssembler::remove_activation(
   // adjusting SP to allow some space for ESP.  If we're returning to
   // compiled code the saved sender SP was saved in sender_sp, so this
   // restores it.
-  //bic(sp, rscratch1, 0xf); changed to not drop it as this is the esp
+  //bic(sp, rscratch1, 0xf); changed to not drop it as this is the sp
   mov(sp, rscratch1);
 }
 

@@ -110,33 +110,33 @@ static inline Address aaddress(Register r) {
 }
 
 static inline Address at_rsp() {
-  return Address(esp, 0);
+  return Address(sp, 0);
 }
 
-// At top of Java expression stack which may be different than esp().  It
+// At top of Java expression stack which may be different than sp().  It
 // isn't for category 1 objects.
 static inline Address at_tos   () {
-  return Address(esp,  Interpreter::expr_offset_in_bytes(0));
+  return Address(sp,  Interpreter::expr_offset_in_bytes(0));
 }
 
 static inline Address at_tos_p1() {
-  return Address(esp,  Interpreter::expr_offset_in_bytes(1));
+  return Address(sp,  Interpreter::expr_offset_in_bytes(1));
 }
 
 static inline Address at_tos_p2() {
-  return Address(esp,  Interpreter::expr_offset_in_bytes(2));
+  return Address(sp,  Interpreter::expr_offset_in_bytes(2));
 }
 
 static inline Address at_tos_p3() {
-  return Address(esp,  Interpreter::expr_offset_in_bytes(3));
+  return Address(sp,  Interpreter::expr_offset_in_bytes(3));
 }
 
 static inline Address at_tos_p4() {
-  return Address(esp,  Interpreter::expr_offset_in_bytes(4));
+  return Address(sp,  Interpreter::expr_offset_in_bytes(4));
 }
 
 static inline Address at_tos_p5() {
-  return Address(esp,  Interpreter::expr_offset_in_bytes(5));
+  return Address(sp,  Interpreter::expr_offset_in_bytes(5));
 }
 
 // Condition conversion
@@ -186,10 +186,6 @@ static void do_oop_store(InterpreterMacroAssembler* _masm,
         } else {
           // G1 barrier needs uncompressed oop for region cross check.
           Register new_val = val;
-          if (UseCompressedOops) {
-            new_val = rscratch1;
-            __ mov(new_val, val);
-          }
           __ store_heap_oop(Address(r3, 0), val);
           __ g1_write_barrier_post(r3 /* store_adr */,
                                    new_val /* new_val */,
@@ -1142,13 +1138,13 @@ void TemplateTable::astore(int n)
 void TemplateTable::pop()
 {
   transition(vtos, vtos);
-  __ add(esp, esp, Interpreter::stackElementSize);
+  __ add(sp, sp, Interpreter::stackElementSize);
 }
 
 void TemplateTable::pop2()
 {
   transition(vtos, vtos);
-  __ add(esp, esp, 2 * Interpreter::stackElementSize);
+  __ add(sp, sp, 2 * Interpreter::stackElementSize);
 }
 
 void TemplateTable::dup()
@@ -1260,9 +1256,18 @@ void TemplateTable::iop2(Operation op)
   case _and : __ andr(r0, r1, r0); break;
   case _or  : __ orr(r0, r1, r0);  break;
   case _xor : __ eor(r0, r1, r0);  break;
-  case shl  : __ andr(r0, r0, 31); __ lsl(r0, r1, r0);  break;
-  case shr  : __ andr(r0, r0, 31); __ asr(r0, r1, r0);  break;
-  case ushr : __ andr(r0, r0, 31); __ lsr(r0, r1, r0);  break;
+  case shl  :
+      __ andr(r0, r0, 0x1f);
+      __ lsl(r0, r1, r0);
+      break;
+  case shr  :
+      __ andr(r0, r0, 0x1f);
+      __ asr(r0, r1, r0);
+      break;
+  case ushr :
+      __ andr(r0, r0, 0x1f);
+      __ lsr(r0, r1, r0);
+      break;
   default   : ShouldNotReachHere();
   }
 }
@@ -1271,7 +1276,7 @@ void TemplateTable::lop2(Operation op)
 {
   transition(ltos, ltos);
   // <r1:r0> <== <r3:r2> op <r1:r0>
-  __ pop_l(r2);
+  __ pop_l(r2, r3);
   switch (op) {
   case add  : __ adds(r0, r2, r0); __ adc(r1, r3, r1);  break;
   case sub  : __ subs(r0, r2, r0); __ sbc(r1, r3, r1);  break;
@@ -1316,7 +1321,7 @@ void TemplateTable::irem()
 void TemplateTable::lmul()
 {
   transition(ltos, ltos);
-  __ pop_l(r2);
+  __ pop_l(r2, r3);
   __ mult_long(r0, r0, r2);
 }
 
@@ -1329,7 +1334,7 @@ void TemplateTable::ldiv()
   __ mov(rscratch1, Interpreter::_throw_ArithmeticException_entry, Assembler::EQ);
   __ b(rscratch1, Assembler::EQ);
 
-  __ pop_l(r2);
+  __ pop_l(r2, r3);
   // r0 <== r1 ldiv r0
   __ divide(r0, r2, r0, 64, false);
 }
@@ -1343,57 +1348,54 @@ void TemplateTable::lrem()
   __ mov(rscratch1, Interpreter::_throw_ArithmeticException_entry, Assembler::EQ);
   __ b(rscratch1, Assembler::EQ);
 
-  __ pop_l(r2);
+  __ pop_l(r2, r3);
   // r0 <== r1 lrem r0
   __ divide(r0, r2, r0, 64, true);
 }
 
-void TemplateTable::lshl()
-{
-  transition(itos, ltos);
-  // shift count is in r0 - take shift from bottom six bits only
-  __ andr(r0, r0, 63);
-  __ pop_l(r2); //LSB in lowest reg
-  int word_bytes = 8 * wordSize;
+void TemplateTable::lshl() {
+    transition(itos, ltos);
+    // shift count is in r0 - take shift from bottom six bits only
+    __ andr(r0, r0, 0x3f);
+    __ pop_l(r2, r3);
+    const int word_bits = 8 * wordSize;
 
-  __ sub(r1, r0, word_bytes);
-  __ lsl(r3, r3, r0);
-  __ orr(r3, r3, r2, lsl(r1));
-  __ rsb(r1, r0, word_bytes);
-  __ orr(r1, r3, r2, lsr(r1));
-  __ lsl(r0, r2, r0);
+    __ sub(r1, r0, word_bits);
+    __ lsl(r3, r3, r0);
+    __ orr(r3, r3, r2, lsl(r1));
+    __ rsb(r1, r0, word_bits);
+    __ orr(r1, r3, r2, lsr(r1));
+    __ lsl(r0, r2, r0);
 }
 
-void TemplateTable::lshr()
-{
-  transition(itos, ltos);
-  // shift count is in r0 - take shift from bottom six bits only
-  __ andr(r0, r0, 63);
-  __ pop_l(r2); // LSB in lowest reg
-  int word_bytes = 8 * wordSize;
+void TemplateTable::lshr() {
+    transition(itos, ltos);
+    // shift count is in r0 - take shift from bottom six bits only
+    __ andr(rscratch1, r0, 0x3f);
+    __ pop_l(r2, r3);
+    const int word_bits = 8 * wordSize;
 
-  __ lsr(r2, r2, r0);
-  __ rsb(r1, r0, word_bytes);
-  __ orr(r2, r2, r3, lsl(r1));
-  __ subs(rscratch1, r0, word_bytes);
-  __ asr(r1, r3, r0);
-  __ orr(r0, r2, r3, asr(rscratch1));
+    __ lsr(r2, r2, rscratch1);
+    __ rsb(r1, rscratch1, word_bits);
+    __ orr(r0, r2, r3, lsl(r1));
+    __ asr(r1, r3, rscratch1);
+    __ subs(rscratch1, rscratch1, word_bits);
+    __ orr(r0, r2, r3, asr(rscratch1), Assembler::GT);
 }
 
-void TemplateTable::lushr()
-{
-  transition(itos, ltos);
-  // shift count is in r0 - take shift from bottom six bits only
-  __ andr(r0, r0, 63);
-  __ pop_l(r2);
-  int word_bytes = 8 * wordSize;
+void TemplateTable::lushr() {
+    transition(itos, ltos);
+    // shift count is in r0 - take shift from bottom six bits only
+    __ andr(r0, r0, 0x3f);
+    __ pop_l(r2, r3);
+    const int word_bits = 8 * wordSize;
 
-  __ lsr(r2, r2, r0);
-  __ rsb(r1, r0, word_bytes);
-  __ orr(r2, r2, r3, lsl(r1));
-  __ sub(rscratch1, r0, word_bytes);
-  __ lsr(r1, r3, r0);
-  __ orr(r0, r2, r3, lsr(rscratch1));
+    __ lsr(r2, r2, r0);
+    __ rsb(r1, r0, word_bits);
+    __ orr(r2, r2, r3, lsl(r1));
+    __ lsr(r1, r3, r0);
+    __ sub(r0, r0, word_bits);
+    __ orr(r0, r2, r3, lsr(r0));
 }
 
 void TemplateTable::fop2(Operation op)
@@ -1509,7 +1511,6 @@ void TemplateTable::iinc()
 void TemplateTable::wide_iinc()
 {
   transition(vtos, vtos);
-  // __ mov(r1, zr);
   __ ldr(r1, at_bcp(2)); // get constant and index
   __ rev16(r1, r1);
   __ uxth(r2, r1);
@@ -1683,7 +1684,7 @@ void TemplateTable::convert()
 void TemplateTable::lcmp()
 {
   transition(ltos, itos);
-  __ pop_l(r2);
+  __ pop_l(r2, r3);
   // <r1:r0> == <r3:r2> : 0
   // <r1:r0> < <r3:r2> : 1
   // <r1:r0> > <r3:r2> : -1
@@ -1702,11 +1703,6 @@ void TemplateTable::lcmp()
   __ mov(r0, 1, Assembler::NE);
   __ sub(r0, r0, 2, Assembler::LO); // Place -1
   __ bind(end);
-
-  /*__ subs(r0, r2, r0);
-  __ sbcs(r0, r3, r1);
-  __ mov(r0, 1, Assembler::GT);
-  __ sub(r0, r0, 1, Assembler::LT);*/
 
   __ reg_printf("Result of comparison is %d\n", r0);
 }
@@ -1857,7 +1853,9 @@ void TemplateTable::branch(bool is_jsr, bool is_wide)
       __ str(rscratch1, Address(rscratch2, be_offset));        // store counter
 
       __ ldr(r0, Address(rscratch2, inv_offset));    // load invocation counter
-      __ andr(r0, r0, (unsigned)InvocationCounter::count_mask_value); // and the status bits
+      __ mov(rscratch1, (unsigned)InvocationCounter::count_mask_value);
+      __ andr(r0, r0, rscratch1); // and the status bits
+      __ ldr(rscratch1, Address(rscratch2, be_offset));        // load backedge counter
       __ add(r0, r0, rscratch1);        // add both counters
 
       if (ProfileInterpreter) {
@@ -1960,13 +1958,13 @@ void TemplateTable::branch(bool is_jsr, bool is_wide)
       __ mov(j_rarg0, r0);
 
       // remove activation
-      // get sender esp
-      __ ldr(esp,
+      // get sender sp
+      __ ldr(sp,
           Address(rfp, frame::interpreter_frame_sender_sp_offset * wordSize));
       // remove frame anchor
       __ leave();
       // Ensure compiled code always sees stack at proper alignment
-      //__ bic(sp, esp, 0xf);
+      __ align_stack();
       // FIXME All of this looks like it needs fixing
 
       // and begin the OSR nmethod
@@ -2698,7 +2696,7 @@ void TemplateTable::jvmti_post_field_mod(Register cache, Register index, bool is
     // cache entry pointer
     __ add(c_rarg2, c_rarg2, in_bytes(cp_base_offset));
     // object (tos)
-    __ mov(c_rarg3, esp);
+    __ mov(c_rarg3, sp);
     // c_rarg1: object pointer set up above (NULL if static)
     // c_rarg2: cache entry pointer
     // c_rarg3: jvalue object on the stack
@@ -2941,7 +2939,7 @@ void TemplateTable::jvmti_post_fast_field_mod()
     default:
       ShouldNotReachHere();
     }
-    __ mov(c_rarg3, esp);             // points to jvalue on the stack
+    __ mov(c_rarg3, sp);             // points to jvalue on the stack
     // access constant pool cache entry
     __ get_cache_entry_pointer_at_bcp(c_rarg2, r0, 1);
     __ verify_oop(r14);
@@ -3375,7 +3373,6 @@ void TemplateTable::invokeinterface(int byte_no) {
   __ load_klass(r3, r2);
 
   // profile this call
-  // XXX aarch32 change - swapped in r1 for r19 - is this a problem?
   __ profile_virtual_call(r3, temp, r1);
 
   Label no_such_interface, no_such_method;
@@ -3781,7 +3778,7 @@ void TemplateTable::athrow() {
 //
 // Stack layout:
 //
-// [expressions  ] <--- esp               = expression stack top
+// [expressions  ] <--- sp                = expression stack top
 // ..
 // [expressions  ]
 // [monitor entry] <--- monitor block top = expression stack bot
@@ -3845,14 +3842,14 @@ void TemplateTable::monitorenter()
     Label entry, loop; //, no_adjust;
     // 1. compute new pointers            // rsp: old expression stack top
     __ ldr(c_rarg1, monitor_block_bot);   // c_rarg1: old expression stack bottom
-    __ sub(esp, esp, entry_size);           // move expression stack top
+    __ sub(sp, sp, entry_size);           // move expression stack top
     __ sub(c_rarg1, c_rarg1, entry_size); // move expression stack bottom
-    __ mov(c_rarg3, esp);                 // set start value for copy loop
+    __ mov(c_rarg3, sp);                  // set start value for copy loop
     __ str(c_rarg1, monitor_block_bot);   // set new monitor block bottom
 
     //__ cmp(sp, c_rarg3);                  // Check if we need to move sp
     //__ b(no_adjust, Assembler::LO);      // to allow more stack space
-                                          // for our new esp
+                                          // for our new sp
     //__ sub(sp, sp, 2 * wordSize);
     //__ bind(no_adjust);
 
@@ -3963,12 +3960,12 @@ void TemplateTable::multianewarray() {
   __ load_unsigned_byte(r0, at_bcp(3)); // get number of dimensions
   // last dim is on top of stack; we want address of first one:
   // first_addr = last_addr + (ndims - 1) * wordSize
-  __ lea(c_rarg1, Address(esp, r0, lsl(2)));
+  __ lea(c_rarg1, Address(sp, r0, lsl(2)));
   __ sub(c_rarg1, c_rarg1, wordSize);
   call_VM(r0,
           CAST_FROM_FN_PTR(address, InterpreterRuntime::multianewarray),
           c_rarg1);
   __ load_unsigned_byte(r1, at_bcp(3));
-  __ lea(esp, Address(esp, r1, lsl(2)));
+  __ lea(sp, Address(sp, r1, lsl(2)));
 }
 #endif // !CC_INTERP

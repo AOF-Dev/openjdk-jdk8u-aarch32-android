@@ -103,31 +103,31 @@ void InterpreterRuntime::SignatureHandlerGenerator::pass_float() {
   print_copy(__FUNCTION__, Interpreter::local_offset_in_bytes(offset()));
   const Address src(from(), Interpreter::local_offset_in_bytes(offset()));
 
-  if (_fp_arg_mask) {
-    unsigned index = __builtin_ctz(_fp_arg_mask);
-    __ vldr_f32_real(index, src);
-    _fp_arg_mask ^= 1 << index;
-    _next_double_dex += index & 1;
-  } else {
-    __ ldr(r0, src);
-    __ str(r0, Address(to(), _stack_offset));
-    _stack_offset += wordSize;
-  }
+    if (_fp_arg_mask & ((1 << Argument::n_float_register_parameters_c*2)-1)) {
+        unsigned index = __builtin_ctz(_fp_arg_mask);
+        __ vldr_f32(as_FloatRegister(index), src);
+        _fp_arg_mask &= ~(1 << index);
+        _next_double_dex += (~index) & 1;
+    } else {
+        __ ldr(r0, src);
+        __ str(r0, Address(to(), _stack_offset));
+        _stack_offset += wordSize;
+    }
 }
 
 void InterpreterRuntime::SignatureHandlerGenerator::pass_double() {
   print_copy(__FUNCTION__, Interpreter::local_offset_in_bytes(offset() + 1));
   const Address src(from(), Interpreter::local_offset_in_bytes(offset() + 1));
 
-  if (_next_double_dex < Argument::n_float_register_parameters_c) {
-    _fp_arg_mask ^= 3 << _next_double_dex * 2;
-    __ vldr_f64(as_FloatRegister(_next_double_dex++), src);
-  } else {
-    __ ldrd(r0, temp(), src);
-    _stack_offset = (_stack_offset + 7) & ~7;
-    __ strd(r0, temp(), Address(to(), _stack_offset));
-    _stack_offset += 2 * wordSize;
-  }
+    if (_next_double_dex < Argument::n_float_register_parameters_c) {
+        _fp_arg_mask &= ~((3 << _next_double_dex*2) | ((1 << _next_double_dex+16)));
+        __ vldr_f64(as_DoubleFloatRegister(_next_double_dex++), src);
+    } else {
+        __ ldrd(r0, temp(), src);
+        _stack_offset = (_stack_offset + 7) & ~7;
+        __ strd(r0, temp(), Address(to(), _stack_offset));
+        _stack_offset += 2 * wordSize;
+    }
 }
 #else
 // Just pass them in integer registers and on the stack as we would
@@ -216,7 +216,6 @@ class SlowSignatureHandler : public NativeSignatureIterator {
   intptr_t* _fp_identifiers;
 
   int _num_int_reg_args;
-  unsigned _fp_arg_mask;
   int _next_double_dex;
 
   virtual void pass_int()
@@ -273,11 +272,11 @@ class SlowSignatureHandler : public NativeSignatureIterator {
     jint from_obj = *(jint*)(_from+Interpreter::local_offset_in_bytes(0));
     _from -= Interpreter::stackElementSize;
 
-    if (_fp_arg_mask) {
-      unsigned index = __builtin_ctz(_fp_arg_mask);
+    if ((*_fp_identifiers) & 0xffff) {
+      unsigned index = __builtin_ctz(*_fp_identifiers);
       _fp_args[index] = from_obj;
-      _fp_arg_mask ^= 1 << index;
-      _next_double_dex += index & 1;
+      *_fp_identifiers ^= 1 << index;
+      _next_double_dex += (~index) & 1;
     } else {
       *_to++ = from_obj;
     }
@@ -291,10 +290,10 @@ class SlowSignatureHandler : public NativeSignatureIterator {
 
     if (_next_double_dex < Argument::n_float_register_parameters_c) {
       //We can allocate to a register.
-      int index = 2 * (_next_double_dex++);
-      _fp_arg_mask ^= 3 << index;
-      _fp_args[index] = low_obj;
-      _fp_args[index + 1] = high_obj;
+      int index = _next_double_dex++;
+      *_fp_identifiers &= ~((3 << index*2) | (1 << index+16));
+      _fp_args[index*2] = low_obj;
+      _fp_args[index*2 + 1] = high_obj;
     } else {
       _to = (intptr_t*)(((intptr_t)_to + 7) & ~7); // Align to eight bytes
       *_to++ = low_obj;
@@ -316,10 +315,9 @@ class SlowSignatureHandler : public NativeSignatureIterator {
     _int_args = to - (method->is_static() ? 19 : 20);
     _fp_args =  to - 16; //each slot is for a double
     _fp_identifiers = to - 21;
-    *(int*) _fp_identifiers = 0;
+    *_fp_identifiers = (1 <<(Argument::n_float_register_parameters_c * 3)) - 1;
 
     _num_int_reg_args = (method->is_static() ? 1 : 0);
-    _fp_arg_mask =  (1 << (Argument::n_float_register_parameters_c * 2)) - 1;
     _next_double_dex = 0;
   }
 };
