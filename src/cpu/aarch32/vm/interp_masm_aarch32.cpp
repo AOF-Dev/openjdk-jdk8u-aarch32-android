@@ -1423,8 +1423,7 @@ void InterpreterMacroAssembler::notify_method_entry() {
   if (JvmtiExport::can_post_interpreter_events()) {
     Label L;
     ldr(r3, Address(rthread, JavaThread::interp_only_mode_offset()));
-    tst(r3, ~0);
-    b(L, Assembler::EQ);
+    cbz(r3, L);
     call_VM(noreg, CAST_FROM_FN_PTR(address,
                                     InterpreterRuntime::post_method_entry));
     bind(L);
