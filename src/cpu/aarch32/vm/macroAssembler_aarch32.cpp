@@ -305,11 +305,7 @@ void MacroAssembler::far_call(Address entry, CodeBuffer *cbuf, Register tmp) {
          "destination of far call not found in code cache");
   // TODO performance issue: if intented to patch later,
   // generate mov rX, imm; bl rX far call (to reserve space)
-#if 0
-  if (far_branches()) {
-#else
   if (entry.rspec().type() != relocInfo::none || far_branches()) {
-#endif
     lea(tmp, entry);
     if (cbuf) cbuf->set_insts_mark();
     bl(tmp);
@@ -325,11 +321,7 @@ void MacroAssembler::far_jump(Address entry, CodeBuffer *cbuf, Register tmp) {
   assert(!external_word_Relocation::is_reloc_index((intptr_t)entry.target()), "can't far jump to reloc index)");
   // TODO performance issue: if intented to patch later,
   // generate mov rX, imm; bl rX far call (to reserve space)
-#if 0
-  if (far_branches()) {
-#else
   if (entry.rspec().type() != relocInfo::none || far_branches()) {
-#endif
     lea(tmp, entry);
     if (cbuf) cbuf->set_insts_mark();
     b(tmp);
@@ -630,29 +622,9 @@ void MacroAssembler::trampoline_call(Address entry, CodeBuffer *cbuf) {
   compile_in_scratch_emit_size = Compile::current()->in_scratch_emit_size();
   #endif
 
-  // TODO review and fix this block
-#if 0
-  if (far_branches() && !compile_in_scratch_emit_size) {
-  // Replaces this
-  //if (far_branches() && !Compile::current()->in_scratch_emit_size()) {
-  //FIXME End
-    emit_trampoline_stub(offset(), entry.target());
-  }
-#endif
-
   if (cbuf) cbuf->set_insts_mark();
   relocate(entry.rspec());
 
-  // TODO perfomance issue: uncomment below, bl could be encoded in 1 instruction.
-  // However, need to add nops to allow future patching when target will not fit
-  // as immediate
-#if 0
-  if (Assembler::reachable_from_branch_at(pc(), entry.target())) {
-    bl(entry.target());
-  } else {
-    bl(pc());
-  }
-#endif
   mov(rscratch1, entry.target());
   bl(rscratch1);
 }
@@ -3003,11 +2975,6 @@ void MacroAssembler::double_ldst_failed_dispatch(Register Rt, Register Rt2, cons
       } else if (adr.get_wb_mode() == Address::post) {
         // current implementation does not use Address:post for indexed access
         // enable the code below and implement proper post() method if it is required
-#if 0
-        (this->*sgl)(Rt, Address(post(adr.base(), wordSize)), cond);
-        (this->*sgl)(Rt2, Address(post(adr.base(), adr.index(), adr.shift())), cond);
-        sub(adr.base(), wordSize, cond);
-#endif
         ShouldNotReachHere();
       } else if (adr.get_wb_mode() == Address::off) {
         (this->*sgl)(Rt, Address(pre(adr.base(), adr.index(), adr.shift(), adr.op())), cond);

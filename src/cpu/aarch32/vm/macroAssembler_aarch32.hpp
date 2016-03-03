@@ -654,15 +654,7 @@ public:
 
   static int far_branch_size() {
     // TODO performance issue: always generate real far jumps
-#if 0
-    if (far_branches()) {
-      return 3 * 4;  // movw, movt, br
-    } else {
-      return 4;
-    }
-#else
-      return 3 * 4;  // movw, movt, br
-#endif
+    return 3 * 4;  // movw, movt, br
   }
 
   // Emit the CompiledIC call idiom

@@ -1797,41 +1797,10 @@ nmethod* SharedRuntime::generate_native_wrapper(MacroAssembler* masm,
   if (method->is_synchronized()) {
     assert(!is_critical_native, "unhandled");
     // TODO Fast path disabled as requires at least 4 registers, which already contain arguments prepared for call
-#if 0
-    const Register swap_reg = r0;
-    const Register obj_reg  = r1;  // Will contain the oop
-    const Register lock_reg = r2;  // Address of compiler lock object (BasicLock)
 
-    const int mark_word_offset = BasicLock::displaced_header_offset_in_bytes();
-#endif
     // Get the handle (the 2nd argument)
     __ mov(oop_handle_reg, c_rarg1);
-#if 0
-    // Get address of the box
-
-    __ lea(lock_reg, Address(sp, lock_slot_offset * VMRegImpl::stack_slot_size));
-
-    // Load the oop from the handle
-    __ ldr(obj_reg, Address(oop_handle_reg, 0));
-
-    if (UseBiasedLocking) {
-      __ biased_locking_enter(lock_reg, obj_reg, swap_reg, rscratch2, false, lock_done, &slow_path_lock);
-    }
-
-    // Load (object->mark() | 1) into swap_reg %r0
-    __ ldr(swap_reg, Address(obj_reg, 0));
-    __ orr(swap_reg, swap_reg, 1);
-
-    // Save (object->mark() | 1) into BasicLock's displaced header
-    __ str(swap_reg, Address(lock_reg, mark_word_offset));
-
-    // src -> dest iff dest == r0 else r0 <- dest
-    { Label here;
-      __ cmpxchgptr(swap_reg, lock_reg, obj_reg, rscratch1, lock_done, &slow_path_lock);
-    }
-#else
     __ b(slow_path_lock);
-#endif
 
     // Slow path will re-enter here
     __ bind(lock_done);
@@ -1963,33 +1932,7 @@ nmethod* SharedRuntime::generate_native_wrapper(MacroAssembler* masm,
   Label slow_path_unlock;
   if (method->is_synchronized()) {
     // TODO fast path disabled as requires at least 4 registers, but r0,r1 contains result
-#if 0
-    const Register obj_reg  = r2;  // Will contain the oop
-    const Register lock_reg = rscratch1; // Address of compiler lock object (BasicLock)
-    const Register old_hdr  = r3;  // value of old header at unlock time
-
-    // Get locked oop from the handle we passed to jni
-    __ ldr(obj_reg, Address(oop_handle_reg, 0));
-
-    if (UseBiasedLocking) {
-      __ biased_locking_exit(obj_reg, old_hdr, unlock_done);
-    }
-
-    // Simple recursive lock?
-    // get address of the stack lock
-    __ lea(lock_reg, Address(sp, lock_slot_offset * VMRegImpl::stack_slot_size));
-
-    //  get old displaced header
-    __ ldr(old_hdr, Address(lock_reg, 0));
-    __ cbz(old_hdr, unlock_done);
-
-    // Atomic swap old header if oop still contains the stack lock
-    Label succeed;
-    __ cmpxchgptr(lock_reg, old_hdr, obj_reg, rscratch1, succeed, &slow_path_unlock);
-    __ bind(succeed);
-#else
     __ b(slow_path_unlock);
-#endif
 
     // slow path re-enters here
     __ bind(unlock_done);

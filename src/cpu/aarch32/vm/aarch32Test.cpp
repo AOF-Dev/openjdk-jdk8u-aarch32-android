@@ -29,7 +29,7 @@
 #include "code/codeBlob.hpp"
 #include "asm/macroAssembler.hpp"
 
-// hook routine called during JVM bootstrap to test AArch64 assembler
+// hook routine called during JVM bootstrap to test AArch32 assembler
 
 extern "C" void entry(CodeBuffer*);
 

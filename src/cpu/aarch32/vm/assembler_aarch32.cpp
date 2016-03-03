@@ -1403,6 +1403,7 @@ bool Address::is_safe_for(InsnDataType type) {
     case no_mode:
     default:
       ShouldNotReachHere();
+      return false;
   }
 }
 

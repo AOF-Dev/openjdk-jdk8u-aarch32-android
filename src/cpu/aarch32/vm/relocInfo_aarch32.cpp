@@ -35,7 +35,7 @@ void Relocation::pd_set_data_value(address x, intptr_t o, bool verify_only) {
   if (verify_only)
     return;
 
-  int bytes;
+  int bytes = 0;
 
   NativeInstruction *ni = NativeInstruction::from(addr());
   if (ni->is_mov_const_reg()) {
@@ -66,6 +66,8 @@ address Relocation::pd_call_destination(address orig_addr) {
   }
 
   ShouldNotReachHere();
+
+  return NULL;
 }
 
 void Relocation::pd_set_call_destination(address x) {
@@ -85,10 +87,12 @@ void Relocation::pd_set_call_destination(address x) {
 
 address* Relocation::pd_address_in_code() {
   ShouldNotCallThis();
+  return NULL;
 }
 
 address Relocation::pd_get_address_from_code() {
   ShouldNotCallThis();
+  return NULL;
 }
 
 void poll_Relocation::fix_relocation_after_move(const CodeBuffer* src, CodeBuffer* dest) {
@@ -97,9 +101,6 @@ void poll_Relocation::fix_relocation_after_move(const CodeBuffer* src, CodeBuffe
     address old_addr = old_addr_for(addr(), src, dest);
     NativeMovConstReg *nm2 = NativeMovConstReg::from(old_addr);
     NativeMovConstReg::from(addr())->set_data(nm2->data());
-  } else {
-#if 0
-#endif
   }
 }
 
@@ -109,9 +110,6 @@ void poll_return_Relocation::fix_relocation_after_move(const CodeBuffer* src, Co
     address old_addr = old_addr_for(addr(), src, dest);
     NativeMovConstReg *nm2 = NativeMovConstReg::from(old_addr);
     NativeMovConstReg::from(addr())->set_data(nm2->data());
-  } else {
-#if 0
-#endif
   }
 }
 

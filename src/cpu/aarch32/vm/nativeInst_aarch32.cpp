@@ -58,6 +58,7 @@ address NativeCall::destination() const {
     return address(NativeMovConstReg::from(addr())->data());
   }
   ShouldNotReachHere();
+  return NULL;
 }
 
 void NativeCall::set_destination(address dest) {
@@ -102,6 +103,7 @@ address NativeCall::next_instruction_address() const {
     return NativeRegCall::from(next_instr)->next_instruction_address();
   } else {
     ShouldNotReachHere();
+    return NULL;
   }
 }
 
@@ -306,6 +308,7 @@ address NativeJump::jump_destination() const {
     return address(NativeMovConstReg::from(addr())->data());
   }
   ShouldNotReachHere();
+  return NULL;
 }
 
 void NativeJump::set_jump_destination(address dest) {
@@ -329,6 +332,7 @@ address NativeJump::next_instruction_address() const {
     return NativeRegJump::from(after_move)->next_instruction_address();
   }
   ShouldNotReachHere();
+  return NULL;
 }
 
 bool NativeJump::is_at(address addr) {
