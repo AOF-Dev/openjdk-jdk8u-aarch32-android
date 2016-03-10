@@ -743,9 +743,9 @@ class StubGenerator: public StubCodeGenerator {
 
   }
 
-  // Small copy: less than 16 bytes.
+  // Small copy: less than 8 bytes.
   //
-  // NB: Ignores all of the bits of count which represent more than 15
+  // NB: Ignores all of the bits of count which represent more than 7
   // bytes, so a caller doesn't have to mask them.
 
   void copy_memory_small(Register s, Register d, Register count, Register tmp, int step) {
@@ -759,17 +759,10 @@ class StubGenerator: public StubCodeGenerator {
     assert(granularity
            && granularity <= sizeof (jlong), "Impossible granularity in copy_memory_small");
 
-    const Register t0 = r3, t1 = r4, t2 = r5, t3 = r6;
-
     // ??? I don't know if this bit-test-and-branch is the right thing
     // to do.  It does a lot of jumping, resulting in several
     // mispredicted branches.  It might make more sense to do this
     // with something like Duff's device with a single computed branch.
-
-    __ tbz(count, 3 - exact_log2(granularity), Lword);
-    __ ldr(tmp, Address(__ adjust(s, unit, is_backwards)));
-    __ str(tmp, Address(__ adjust(d, unit, is_backwards)));
-    __ bind(Lword);
 
     if (granularity <= sizeof (jint)) {
       __ tbz(count, 2 - exact_log2(granularity), Lint);
@@ -816,7 +809,7 @@ class StubGenerator: public StubCodeGenerator {
 
     Label done, tail;
 
-    __ cmp(count, 16/granularity);
+    __ cmp(count, 8/granularity);
     __ b(tail, Assembler::LO);
 
     // Now we've got the small case out of the way we can align the
@@ -863,7 +856,7 @@ class StubGenerator: public StubCodeGenerator {
 #endif
     }
 
-    __ cmp(count, 16/granularity);
+    __ cmp(count, 8/granularity);
     __ b(tail, Assembler::LT);
     __ bind(aligned);
 
@@ -872,8 +865,9 @@ class StubGenerator: public StubCodeGenerator {
     // We have a count of units and some trailing bytes.  Adjust the
     // count and do a bulk copy of words.
     // hacky fix
-    if(0 == wordSize/granularity) {
-      __ lsr(rscratch2, count, 0U);
+    if (granularity > wordSize) {
+      assert(granularity == 8, "should only be copy of longs");
+      __ lsl(rscratch2, count, 1);
     } else {
       __ lsr(rscratch2, count, exact_log2(wordSize/granularity));
     }
