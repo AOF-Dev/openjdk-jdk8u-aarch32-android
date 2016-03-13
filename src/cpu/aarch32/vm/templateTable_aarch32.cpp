@@ -1936,7 +1936,7 @@ void TemplateTable::branch(bool is_jsr, bool is_wide)
       __ load_unsigned_byte(r1, Address(rbcp, 0));  // restore target bytecode
 
       // r0: osr nmethod (osr ok) or NULL (osr not possible)
-      // w1: target bytecode
+      // r1: target bytecode
       // r2: scratch
       __ cbz(r0, dispatch);     // test result -- no osr if null
       // nmethod may have been invalidated (VM may block upon call_VM return)
@@ -1950,7 +1950,7 @@ void TemplateTable::branch(bool is_jsr, bool is_wide)
       // We need to prepare to execute the OSR method. First we must
       // migrate the locals and monitors off of the stack.
 
-      __ str(r0, Address( __ pre(sp, -wordSize)));               // save the nmethod
+      __ mov(r4, r0);               // save the nmethod
 
       call_VM(noreg, CAST_FROM_FN_PTR(address, SharedRuntime::OSR_migration_begin));
 
@@ -1959,17 +1959,16 @@ void TemplateTable::branch(bool is_jsr, bool is_wide)
 
       // remove activation
       // get sender sp
-      __ ldr(sp,
+      __ ldr(rscratch1,
           Address(rfp, frame::interpreter_frame_sender_sp_offset * wordSize));
       // remove frame anchor
       __ leave();
+      __ mov(sp, rscratch1);
       // Ensure compiled code always sees stack at proper alignment
       __ align_stack();
-      // FIXME All of this looks like it needs fixing
 
       // and begin the OSR nmethod
-      __ ldr(r14, Address( __ post(sp, wordSize)));
-      __ ldr(rscratch1, Address(r14, nmethod::osr_entry_point_offset()));
+      __ ldr(rscratch1, Address(r4, nmethod::osr_entry_point_offset()));
       __ b(rscratch1);
     }
   }
