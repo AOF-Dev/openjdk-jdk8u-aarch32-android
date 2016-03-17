@@ -273,7 +273,7 @@ int SharedRuntime::java_calling_convention(const BasicType *sig_bt,
     case T_LONG:
       assert(sig_bt[i + 1] == T_VOID, "expecting half");
       if (int_args + 1 < Argument::n_int_register_parameters_j) {
-        regs[i].set2(INT_ArgReg[int_args]->as_VMReg());
+        regs[i].set_pair(INT_ArgReg[int_args + 1]->as_VMReg(), INT_ArgReg[int_args]->as_VMReg());
         int_args += 2;
       } else {
         regs[i].set2(VMRegImpl::stack2reg(stk_args));
