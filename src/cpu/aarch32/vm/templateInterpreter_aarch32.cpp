@@ -508,6 +508,10 @@ void InterpreterGenerator::generate_stack_overflow_check(void) {
   __ cmp(sp, r0);
   __ b(after_frame_check, Assembler::HI);
 
+  // Remove the incoming args, peeling the machine SP back to where it
+  // was in the caller.
+  __ mov(sp, r4);
+
   // Note: the restored frame is not necessarily interpreted.
   // Use the shared runtime version of the StackOverflowError.
   assert(StubRoutines::throw_StackOverflowError_entry() != NULL, "stub not yet generated");

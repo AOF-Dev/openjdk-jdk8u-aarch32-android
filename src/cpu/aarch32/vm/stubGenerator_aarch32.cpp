@@ -1287,6 +1287,7 @@ class StubGenerator: public StubCodeGenerator {
     }
     __ mov(c_rarg0, rthread);
     BLOCK_COMMENT("call runtime_entry");
+    __ align_stack();
     __ mov(rscratch1, runtime_entry);
     __ bl(rscratch1);
 
