@@ -1763,9 +1763,8 @@ void TemplateInterpreterGenerator::generate_throw_exception() {
 #if INCLUDE_JVMTI
   {
     Label L_done;
-    __ stop("why is rscratch1 set and not seemingly used?");
     __ ldrb(rscratch1, Address(rbcp, 0));
-    __ cmp(r1, Bytecodes::_invokestatic);
+    __ cmp(rscratch1, Bytecodes::_invokestatic);
     __ b(L_done, Assembler::EQ);
 
     // The member name argument must be restored if _invokestatic is re-executed after a PopFrame call.
