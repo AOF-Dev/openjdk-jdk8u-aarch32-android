@@ -2884,19 +2884,20 @@ void MacroAssembler::print_cpool(InstanceKlass *klass) {
     klass->constants()->print_on(tty);
 }
 
-void MacroAssembler::ldrd(Register Rt, Register Rt2, const Address& adr, Register Rtmp, Condition cond) {
+int MacroAssembler::ldrd(Register Rt, Register Rt2, const Address& adr, Register Rtmp, Condition cond) {
     if((0 == Rt->encoding_nocheck() % 2 &&
          (Rt->encoding_nocheck() + 1 == Rt2->encoding_nocheck())) &&
       (uabs(adr.offset()) < (1 << 8))) {
       /* Good to go with a ldrd */
       ldrd(Rt, adr, cond);
+      return 0x0;
     } else {
-      double_ld_failed_dispatch(Rt, Rt2, adr, &Assembler::ldm,
+      return double_ld_failed_dispatch(Rt, Rt2, adr, &Assembler::ldm,
                                 &Assembler::ldr, Rtmp, cond);
     }
 }
 
-void MacroAssembler::strd(Register Rt, Register Rt2, const Address& adr, Condition cond) {
+int MacroAssembler::strd(Register Rt, Register Rt2, const Address& adr, Condition cond) {
     if((0 == Rt->encoding_nocheck() % 2 &&
          (Rt->encoding_nocheck() + 1 == Rt2->encoding_nocheck())) &&
       (uabs(adr.offset()) < (1 << 8))) {
@@ -2905,9 +2906,10 @@ void MacroAssembler::strd(Register Rt, Register Rt2, const Address& adr, Conditi
     } else {
       double_ldst_failed_dispatch(Rt, Rt2, adr, &Assembler::stm, &Assembler::str, cond);
     }
+    return 0x0;
 }
 
-void MacroAssembler::double_ld_failed_dispatch(Register Rt, Register Rt2, const Address& adr,
+int MacroAssembler::double_ld_failed_dispatch(Register Rt, Register Rt2, const Address& adr,
         void (Assembler::* mul)(unsigned, const Address&, Condition),
         void (Assembler::* sgl)(Register, const Address&, Condition),
         Register Rtmp, Condition cond) {
@@ -2938,8 +2940,13 @@ void MacroAssembler::double_ld_failed_dispatch(Register Rt, Register Rt2, const 
       // hence temp register is necessary
       adr.lea(this, Rtmp);
       double_ldst_failed_dispatch(Rt, Rt2, Address(Rtmp), mul, sgl, cond);
+      // adr.lea have only address manipulation and cannot cause trap.
+      // first instruction when NPE can occur is in double_ldst_failed_dispatch
+      // so shift offset appropriately
+      return 0x4;
     }
   }
+  return 0x0;
 }
 
 void MacroAssembler::double_ldst_failed_dispatch(Register Rt, Register Rt2, const Address& adr,

@@ -764,7 +764,11 @@ public:
  private:
   // generic fallback ldrd generator. may need to use temporary register
   // when register collisions are found
-  void double_ld_failed_dispatch(Register Rt, Register Rt2, const Address& adr,
+  //
+  // since double_ld_failed_dispatch can introduce address manipulation instructions
+  // it should return offset of first load/store instruction that will be used
+  // while constructing implicit null check table
+  int double_ld_failed_dispatch(Register Rt, Register Rt2, const Address& adr,
                             void (Assembler::* mul)(unsigned, const Address&, Condition),
                             void (Assembler::* sgl)(Register, const Address&, Condition),
                             Register Rtmp, Condition cond);
@@ -778,10 +782,14 @@ public:
   // override ldrd/strd to perform a magic for when Rt + 1 != Rt2 or any other
   // conditions which prevent to use single ldrd/strd insn. a pair of ldr/str
   // is used instead then
+  //
+  // Since ldrd/strd macro can introduce address manipulation instructions
+  // it should return offset of first load/store instruction that will be used
+  // while constructing implicit null check table
   using Assembler::ldrd;
-  void ldrd(Register Rt, Register Rt2, const Address& adr, Register Rmp = rscratch1, Condition cond = C_DFLT);
+  int ldrd(Register Rt, Register Rt2, const Address& adr, Register Rmp = rscratch1, Condition cond = C_DFLT);
   using Assembler::strd;
-  void strd(Register Rt, Register Rt2, const Address& adr, Condition cond = C_DFLT);
+  int strd(Register Rt, Register Rt2, const Address& adr, Condition cond = C_DFLT);
 
   void align_stack() {
     // sp &= ~StackAlignmentInBytes, assuming it's the power of 2
