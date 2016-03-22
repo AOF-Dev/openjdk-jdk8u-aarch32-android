@@ -2429,8 +2429,6 @@ void MacroAssembler::divide(Register Rd, Register Rn, Register Rm, int width, bo
 
   if(is64b) {
     assert_different_registers(Rn, Rnh, Rm, Rmh, rscratch1, rscratch2);
-  } else {
-    assert_different_registers(Rn, Rm, rscratch1, rscratch2, r14); // r14 used by divide32
   }
 
   if(!is64b && VM_Version::features() & FT_HW_DIVIDE) {
