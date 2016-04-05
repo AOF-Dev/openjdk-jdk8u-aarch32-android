@@ -736,21 +736,21 @@ Disassembly of section .text:
   a8:   e226e87d        eor     lr, r6, #8192000        ; 0x7d0000
   ac:   e2332f49        eors    r2, r3, #292    ; 0x124
   b0:   e24d46d9        sub     r4, sp, #227540992      ; 0xd900000
-  b4:   b25e1780        subslt  r1, lr, #33554432       ; 0x2000000
-  b8:   e2650494        rsb     r0, r5, #-1811939328    ; 0x94000000
-  bc:   327489bc        rsbscc  r8, r4, #3080192        ; 0x2f0000
-  c0:   b2849480        addlt   r9, r4, #-2147483648    ; 0x80000000
-  c4:   e2948c80        adds    r8, r4, #32768  ; 0x8000
-  c8:   22aeada8        adccs   sl, lr, #10752  ; 0x2a00
+  b4:   b25e1402        subslt  r1, lr, #33554432       ; 0x2000000
+  b8:   e2650325        rsb     r0, r5, #-1811939328    ; 0x94000000
+  bc:   3274882f        rsbscc  r8, r4, #3080192        ; 0x2f0000
+  c0:   b2849102        addlt   r9, r4, #-2147483648    ; 0x80000000
+  c4:   e2948902        adds    r8, r4, #32768  ; 0x8000
+  c8:   22aeac2a        adccs   sl, lr, #10752  ; 0x2a00
   cc:   e2b6aabd        adcs    sl, r6, #774144 ; 0xbd000
-  d0:   e2cc2598        sbc     r2, ip, #637534208      ; 0x26000000
+  d0:   e2cc2426        sbc     r2, ip, #637534208      ; 0x26000000
   d4:   e2da85a5        sbcs    r8, sl, #692060160      ; 0x29400000
   d8:   e2e6d871        rsc     sp, r6, #7405568        ; 0x710000
   dc:   12fba6e9        rscsne  sl, fp, #244318208      ; 0xe900000
   e0:   638737ff        orrvs   r3, r7, #66846720       ; 0x3fc0000
   e4:   03952951        orrseq  r2, r5, #1327104        ; 0x144000
   e8:   63c18eea        bicvs   r8, r1, #3744   ; 0xea0
-  ec:   33d204a0        bicscc  r0, r2, #-1610612736    ; 0xa0000000
+  ec:   33d2020a        bicscc  r0, r2, #-1610612736    ; 0xa0000000
   f0:   e118028d        tst     r8, sp, lsl #5
   f4:   e13601a7        teq     r6, r7, lsr #3
   f8:   e15c0164        cmp     ip, r4, ror #2
@@ -760,9 +760,9 @@ Disassembly of section .text:
  108:   915e0b37        cmpls   lr, r7, lsr fp
  10c:   617a0b17        cmnvs   sl, r7, lsl fp
  110:   e3120585        tst     r2, #557842432  ; 0x21400000
- 114:   433e086c        teqmi   lr, #7077888    ; 0x6c0000
- 118:   e35505e0        cmp     r5, #939524096  ; 0x38000000
- 11c:   337703a0        cmncc   r7, #-2147483646        ; 0x80000002
+ 114:   433e071b        teqmi   lr, #7077888    ; 0x6c0000
+ 118:   e355030e        cmp     r5, #939524096  ; 0x38000000
+ 11c:   3377010a        cmncc   r7, #-2147483646        ; 0x80000002
  120:   e1a00b84        lsl     r0, r4, #23
  124:   e1b01484        lsls    r1, r4, #9
  128:   e1a001aa        lsr     r0, sl, #3
@@ -781,7 +781,7 @@ Disassembly of section .text:
  15c:   b1b0165a        asrslt  r1, sl, r6
  160:   e1a0a003        mov     sl, r3
  164:   e1b00009        movs    r0, r9
- 168:   73a03fa4        movvc   r3, #656        ; 0x290
+ 168:   73a03e29        movvc   r3, #656        ; 0x290
  16c:   e3b0497e        movs    r4, #2064384    ; 0x1f8000
  170:   e1a0c1a6        lsr     ip, r6, #3
  174:   71b0554d        asrsvc  r5, sp, #10
@@ -1111,18 +1111,18 @@ Disassembly of section .text:
     0x80ca835e,     0xe0dc1615,     0x60e54a7e,     0xe0fc181d,
     0x61818076,     0xe19db577,     0xe1ce4216,     0xe1dba31d,
     0x828d8261,     0xe29ed69b,     0xe226e87d,     0xe2332f49,
-    0xe24d46d9,     0xb25e1780,     0xe2650494,     0x327489bc,
-    0xb2849480,     0xe2948c80,     0x22aeada8,     0xe2b6aabd,
-    0xe2cc2598,     0xe2da85a5,     0xe2e6d871,     0x12fba6e9,
-    0x638737ff,     0x03952951,     0x63c18eea,     0x33d204a0,
+    0xe24d46d9,     0xb25e1402,     0xe2650325,     0x3274882f,
+    0xb2849102,     0xe2948902,     0x22aeac2a,     0xe2b6aabd,
+    0xe2cc2426,     0xe2da85a5,     0xe2e6d871,     0x12fba6e9,
+    0x638737ff,     0x03952951,     0x63c18eea,     0x33d2020a,
     0xe118028d,     0xe13601a7,     0xe15c0164,     0xb1750807,
     0xe112073e,     0x31300572,     0x915e0b37,     0x617a0b17,
-    0xe3120585,     0x433e086c,     0xe35505e0,     0x337703a0,
+    0xe3120585,     0x433e071b,     0xe355030e,     0x3377010a,
     0xe1a00b84,     0xe1b01484,     0xe1a001aa,     0xe1b00a2a,
     0xe1a015c9,     0x61b0254b,     0x31a08fe2,     0xe1b0946c,
     0xe1a0877e,     0xe1b0c473,     0xc1a0ce1d,     0xe1b0c61d,
     0xc1a00931,     0xc1b0bc33,     0xd1a0265c,     0xb1b0165a,
-    0xe1a0a003,     0xe1b00009,     0x73a03fa4,     0xe3b0497e,
+    0xe1a0a003,     0xe1b00009,     0x73a03e29,     0xe3b0497e,
     0xe1a0c1a6,     0x71b0554d,     0xe1a0137e,     0x01b0897c,
     0x330cbf31,     0x33429bf7,     0xd001059d,     0xe0100b9a,
     0xe0207c93,     0x0038639b,     0xe084e695,     0xe0940796,
@@ -1592,22 +1592,19 @@ void Assembler::wrap_label(FloatRegister r, Label &L, Condition cond,
 }
 
 uint32_t Assembler::encode_imm12(int imm) {
-  // Note that this algorithm encodes 0 as 0x400. If for some reason it is not
-  // desired, a special case for 0 needs to be added here.
-  uint32_t n = (uint32_t) imm;
-  uint32_t shift = __builtin_clz(n) & 0xFFFFFFFE;
-  uint32_t value = n << shift;
-  if ((value & 0x00FFFFFF) == 0) {
-    return (((shift + 8) & 0x0000001F) << 7) | (value >> 24);
+  assert(is_valid_for_imm12(imm),
+         "only valid immediates allowed, call is_valid_for_imm12 first");
+  uint32_t n = imm;
+  if ((n & 0xFFFFFF00) == 0) {
+    return n;
+  }
+  if ((n & 0xFC000000) == 0) {
+    const int lshift = __builtin_ctz(n) & 0xFFFFFFFE;
+    return ((32 - lshift) << 7) | (n >> lshift);
   }
   n = (n << 16) | (n >> 16);
-  shift = __builtin_clz(n) & 0xFFFFFFFE;
-  value = n << shift;
-  if ((value & 0x00FFFFFF) == 0) {
-    return (((shift - 8) & 0x0000001F) << 7) | (value >> 24);
-  }
-  ShouldNotReachHere();
-  return 0xFFFFFFFF;
+  const int lshift = __builtin_ctz(n) & 0xFFFFFFFE;
+  return ((16 - lshift) << 7) | (n >> lshift);
 }
 
 int Assembler::decode_imm12(uint32_t imm12) {
