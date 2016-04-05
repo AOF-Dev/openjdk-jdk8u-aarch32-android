@@ -255,12 +255,12 @@ void MethodHandles::generate_method_handle_dispatch(MacroAssembler* _masm,
                                                     bool for_compiler_entry) {
   assert(is_signature_polymorphic(iid), "expected invoke iid");
   // temps used in this code are not used in *either* compiled or interpreted calling sequences
-  //assert(false, "We don't have the registers!");
+  // use interpreter caching registers (caller-save in compiler).
+  // Starting from r5 as r4 used by gen_special_dispatch.
   Register temp1 = r5;
-  Register temp2 = r7;
-  Register temp3 = r8; //r14;  // r13 is live by this point: it contains the sender SP
+  Register temp2 = r6;
+  Register temp3 = r7;
   assert_different_registers(temp1, temp2, temp3, receiver_reg, member_reg);
-  // FIXME These registers were somewhat plucked randomly from thin air
   if (for_compiler_entry) {
     assert(receiver_reg == (iid == vmIntrinsics::_linkToStatic ? noreg : j_rarg0), "only valid assignment");
     assert_different_registers(temp1,        j_rarg0, j_rarg1, j_rarg2, j_rarg3);
