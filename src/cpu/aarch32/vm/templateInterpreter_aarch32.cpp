@@ -1834,7 +1834,6 @@ void TemplateInterpreterGenerator::generate_throw_exception() {
 //
 address TemplateInterpreterGenerator::generate_earlyret_entry_for(TosState state) {
   address entry = __ pc();
-  __ stop("Not tested this");
   __ restore_bcp();
   __ restore_locals();
   __ empty_expression_stack();
