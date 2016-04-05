@@ -137,6 +137,8 @@ void VM_Version::get_processor_features() {
           } else if(!strcmp("vfp", i)) {
             // Assuming that VFPv2 is identified by plain vfp
             f = (ProcessorFeatures)(f | FT_VFPV2);
+          } else if(!strcmp("neon", i)) {
+            f = (ProcessorFeatures)(f | FT_AdvSIMD);
           }
           i = strtok(NULL, " \n");
         }

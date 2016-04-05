@@ -1725,16 +1725,20 @@ enum fpscr_cond { FP_EQ = 0b0110 << 28,
   void vmov_imm(FloatRegister Rd, unsigned imm, bool is64bit, Condition cond);
   void vmov_imm_zero(FloatRegister Rd, bool is64bit, Condition cond);
 
-#define INSN(NAME, is64bit, ntype)                                                   \
-  unsigned encode_##ntype##_fp_imm(ntype imm_f);                                     \
-  void NAME(FloatRegister Rd, ntype imm, Condition cond = C_DFLT) {                  \
-    bool positive_zero = (imm == 0.0) && !signbit(imm);                              \
-    if(positive_zero) vmov_imm_zero(Rd, is64bit, cond);                              \
-    else              vmov_imm(Rd, encode_##ntype##_fp_imm(imm), is64bit, cond);     \
+  unsigned encode_float_fp_imm(float imm_f);
+
+  void vmov_f32(FloatRegister Rd, float imm, Condition cond = C_DFLT) {
+    vmov_imm(Rd, encode_float_fp_imm(imm), false, cond);
   }
-  INSN(vmov_f32, false, float);
-  INSN(vmov_f64, true, double);
-#undef INSN
+
+  unsigned encode_double_fp_imm(double imm_f);
+
+  void vmov_f64(FloatRegister Rd, double imm, Condition cond = C_DFLT) {
+    bool positive_zero = (imm == 0.0) && !signbit(imm);
+    if(positive_zero) vmov_imm_zero(Rd, true, cond);
+    else              vmov_imm(Rd, encode_double_fp_imm(imm), true, cond);
+  }
+
 
 #define INSN(NAME, decode, op, is64bit)                                              \
   void NAME(FloatRegister Rd, FloatRegister Rm, Condition cond = C_DFLT) {           \

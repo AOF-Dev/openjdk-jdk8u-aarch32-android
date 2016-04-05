@@ -1753,8 +1753,11 @@ void Assembler::vmov_imm_zero(FloatRegister Rd, bool is64bit,
   // Note that this is not a floating point vmov but instead
   // an integer vmov from the SIMD instructions.
   // cannot be conditional.
+  assert(operand_valid_for_double_immediate(0), "operand should be valid for immediate");
+  assert(is64bit, "SIMD loading available only for double registers");
   assert(cond == C_DFLT, "Unable to vmov #0 conditionally");
-  int cmod = is64bit? 0b1110 : 0b0000; // ? I64 : I32
+  //int cmod = is64bit? 0b1110 : 0b0000; // ? I64 : I32
+  int cmod = 0b1110;
   {
     starti;
     f(0b1111001, 31, 25);
@@ -1772,6 +1775,9 @@ void Assembler::vmov_imm_zero(FloatRegister Rd, bool is64bit,
 }
 
 bool Assembler::operand_valid_for_float_immediate(float v) {
+    if (!(VM_Version::features() & FT_VFPV3)) {
+        return false;
+    }
     union ufloat {
         float f;
         uint32_t u;
@@ -1787,6 +1793,9 @@ bool Assembler::operand_valid_for_float_immediate(float v) {
 }
 
 bool Assembler::operand_valid_for_double_immediate(double v) {
+    if (!(VM_Version::features() & FT_VFPV3)) {
+        return false;
+    }
     union ufloat {
         double f;
         uint64_t u;
@@ -1794,7 +1803,7 @@ bool Assembler::operand_valid_for_double_immediate(double v) {
     unsigned tmp;
     imm.f = v;
 
-    if (imm.u == 0)
+    if ((VM_Version::features() & FT_AdvSIMD) && imm.u == 0)
         return true;
 
     if (imm.u & (uint64_t) 0xffffffffffffLL)
@@ -1807,6 +1816,7 @@ bool Assembler::operand_valid_for_double_immediate(double v) {
 }
 
 unsigned Assembler::encode_float_fp_imm(float imm_f) {
+  assert(operand_valid_for_float_immediate(imm_f), "operand should be valid for immediate");
   union ufloat {
     float f;
     uint32_t u;
@@ -1824,6 +1834,7 @@ unsigned Assembler::encode_float_fp_imm(float imm_f) {
 }
 
 unsigned Assembler::encode_double_fp_imm(double imm_f) {
+  assert(operand_valid_for_double_immediate(imm_f), "operand should be valid for immediate");
   union ufloat {
     double f;
     uint64_t u;

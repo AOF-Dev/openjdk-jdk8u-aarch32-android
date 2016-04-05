@@ -55,8 +55,10 @@ void print_constantpool(ConstantPool *cp) {
 
 // Platform-dependent initialization
 
+extern void aarch32TestHook();
+
 void TemplateTable::pd_initialize() {
-  // No aarch32 specific initialization
+  aarch32TestHook();
 }
 
 // Address computation: local variables
@@ -336,7 +338,7 @@ void TemplateTable::fconst(int value)
   transition(vtos, ftos);
   float fval = value;
   assert(value == 0 || value == 1 || value == 2, "invalid float const");
-  if(VM_Version::features() & FT_VFPV3) {
+  if(__ operand_valid_for_float_immediate(fval)) {
     __ vmov_f32(d0, fval);
   } else {
     __ mov(r0, *((uint32_t*)&fval));
@@ -349,7 +351,7 @@ void TemplateTable::dconst(int value)
   transition(vtos, dtos);
   double dval = value;
   assert(value == 0 || value == 1 || value == 2, "invalid double const");
-  if(VM_Version::features() & FT_VFPV3) {
+  if(__ operand_valid_for_double_immediate(dval)) {
     __ vmov_f64(d0, dval);
   } else {
     uint32_t* ptr = (uint32_t*)&dval;

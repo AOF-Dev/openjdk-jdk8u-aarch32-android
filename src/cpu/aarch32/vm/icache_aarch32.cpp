@@ -28,8 +28,6 @@
 #include "asm/macroAssembler.hpp"
 #include "runtime/icache.hpp"
 
-extern void aarch32TestHook();
-
 void ICacheStubGenerator::generate_icache_flush(
                 ICache::flush_icache_stub_t* flush_icache_stub) {
   // Give anyone who calls this a surprise
@@ -37,5 +35,4 @@ void ICacheStubGenerator::generate_icache_flush(
 }
 
 void ICache::initialize() {
-  aarch32TestHook();
 }
