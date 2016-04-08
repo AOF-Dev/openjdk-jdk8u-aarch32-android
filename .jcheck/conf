@@ -1,2 +1,4 @@
 project=jdk8
 bugids=dup
+comments=lax
+tags=lax
