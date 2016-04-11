@@ -71,6 +71,10 @@ void MetaspaceShared::generate_vtable_methods(void** vtbl_list,
   CodeBuffer cb((unsigned char*)*mc_top, mc_end - *mc_top);
   MacroAssembler* masm = new MacroAssembler(&cb);
 
+  // r12, lr, r9 registers are used as temporary registers
+  // callee-saved registers (lr, r9) should be restored
+  RegSet rset = RegSet::of(r9, lr);
+
   Label common_code;
   for (int i = 0; i < vtbl_list_size; ++i) {
     for (int j = 0; j < num_virtuals; ++j) {
@@ -78,30 +82,26 @@ void MetaspaceShared::generate_vtable_methods(void** vtbl_list,
 
       // We're called directly from C code.
 
-      // Load rscratch1 with a value indicating vtable/offset pair.
+      // Load r12 with a value indicating vtable/offset pair.
       // -- bits[ 7..0]  (8 bits) which virtual method in table?
       // -- bits[12..8]  (5 bits) which virtual method table?
-      __ mov(rscratch1, (i << 8) + j);
+      __ mov(r12, (i << 8) + j);
       __ b(common_code);
     }
   }
 
   __ bind(common_code);
 
-  Register tmp0 = r14, tmp1 = rscratch2;       // AAPCS64 temporary registers
-  __ enter();
-  __ lsr(tmp0, rscratch1, 8);            // isolate vtable identifier.
-  __ mov(tmp1, (address)vtbl_list);      // address of list of vtable pointers.
-  __ ldr(tmp1, Address(tmp1, tmp0, lsl(LogBytesPerWord))); // get correct vtable pointer.
-  __ str(tmp1, Address(c_rarg0));        // update vtable pointer in obj.
-  //__ add(rscratch1, tmp1, rscratch1, ext::uxtb, LogBytesPerWord); // address of real method pointer.
-  //added mask
-  __ andr(rscratch1, rscratch1, 0xFF);
-  __ add(rscratch1, tmp1, rscratch1, lsl(LogBytesPerWord)); // address of real method pointer.
-  __ ldr(rscratch1, Address(rscratch1)); // get real method pointer.
-  __ bl(rscratch1);           // jump to the real method.
-  __ leave();
-  __ b(lr);
+  __ push(rset, sp);
+  __ lsr(lr, r12, 8);            // isolate vtable identifier.
+  __ mov(r9, (address)vtbl_list);      // address of list of vtable pointers.
+  __ ldr(r9, Address(r9, lr, lsl(LogBytesPerWord))); // get correct vtable pointer.
+  __ str(r9, Address(c_rarg0));        // update vtable pointer in obj.
+  __ andr(r12, r12, 0xFF);
+  __ add(r12, r9, r12, lsl(LogBytesPerWord)); // address of real method pointer.
+  __ ldr(r12, Address(r12)); // get real method pointer.
+  __ pop(rset, sp);
+  __ b(r12);           // jump to the real method.
 
   *mc_top = (char*)__ pc();
 }
