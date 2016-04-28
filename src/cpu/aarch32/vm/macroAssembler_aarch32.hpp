@@ -456,7 +456,6 @@ public:
   void load_heap_oop_not_null(Register dst, Address src);
   void store_heap_oop(Address dst, Register src);
 
-  // currently unimplemented
   // Used for storing NULL. All other oop constants should be
   // stored using routines that take a jobject.
   void store_heap_oop_null(Address dst);

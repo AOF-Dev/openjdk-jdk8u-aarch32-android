@@ -220,4 +220,7 @@ void VM_Version::initialize() {
                                    g.generate_getPsrInfo());
 
   get_processor_features();
+
+  //FIXME: turning off CriticalJNINatives flag while it is not implemented
+  FLAG_SET_DEFAULT(CriticalJNINatives, false);
 }

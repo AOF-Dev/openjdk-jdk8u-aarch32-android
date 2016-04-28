@@ -76,9 +76,6 @@ define_pd_global(uintx, CMSYoungGenPerWorker, 64*M);  // default max size of CMS
 
 define_pd_global(uintx, TypeProfileLevel, 111);
 
-// avoid biased locking while we are bootstrapping the aarch32 build
-define_pd_global(bool, UseBiasedLocking, false);
-
 // FIXME this turned out to be needed for the core build too?
 //#if defined(COMPILER1) || defined(COMPILER2)
 define_pd_global(intx, InlineSmallCode,          1000);

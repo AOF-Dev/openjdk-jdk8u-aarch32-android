@@ -3172,9 +3172,9 @@ void TemplateTable::fast_xaccess(TosState state)
 //-----------------------------------------------------------------------------
 // Calls
 
-void TemplateTable::count_calls(Register method, Register temp)
-{
-  __ call_Unimplemented();
+void TemplateTable::count_calls(Register method, Register temp) {
+  // implemented elsewhere
+  ShouldNotReachHere();
 }
 
 void TemplateTable::prepare_invoke(int byte_no,
@@ -3338,10 +3338,10 @@ void TemplateTable::invokestatic(int byte_no)
   __ jump_from_interpreted(rmethod, r0);
 }
 
-void TemplateTable::fast_invokevfinal(int byte_no)
-{
-  __ call_Unimplemented();
-}
+void TemplateTable::fast_invokevfinal(int byte_no) {
+  transition(vtos, vtos);
+  assert(byte_no == f2_byte, "use this argument");
+  __ stop("fast_invokevfinal not used on aarch32");}
 
 void TemplateTable::invokeinterface(int byte_no) {
   transition(vtos, vtos);
