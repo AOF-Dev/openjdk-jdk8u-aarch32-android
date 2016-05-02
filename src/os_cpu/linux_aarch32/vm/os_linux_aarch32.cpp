@@ -208,7 +208,7 @@ static address handle_unsafe_access(JavaThread* thread, address pc) {
   // pc is the instruction which we must emulate
   // doing a no-op is fine:  return garbage from the load
   // therefore, compute npc
-  address npc = pc + NativeCall::instruction_size;
+  address npc = pc + NativeInstruction::arm_insn_sz;
 
   // request an async exception
   thread->set_pending_unsafe_access_error();
