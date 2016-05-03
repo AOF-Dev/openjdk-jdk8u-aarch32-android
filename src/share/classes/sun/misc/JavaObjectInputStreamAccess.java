@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 1997, Oracle and/or its affiliates. All rights reserved.
+ * Copyright (c) 2016, Oracle and/or its affiliates. All rights reserved.
  * DO NOT ALTER OR REMOVE COPYRIGHT NOTICES OR THIS FILE HEADER.
  *
  * This code is free software; you can redistribute it and/or modify it
@@ -23,49 +23,19 @@
  * questions.
  */
 
-package sun.security.x509;
+package sun.misc;
+
+import java.io.ObjectInputStream;
 
 /**
- * This class is used to parse attribute names like "x509.info.extensions".
- *
- * @author Amit Kapoor
- * @author Hemma Prafullchandra
+ * The interface to specify methods for accessing {@code ObjectInputStream}
+ * @author sjiang
  */
-public class X509AttributeName {
-    // Public members
-    private static final char SEPARATOR = '.';
-
-    // Private data members
-    private String prefix = null;
-    private String suffix = null;
-
+public interface JavaObjectInputStreamAccess {
     /**
-     * Default constructor for the class. Name is of the form
-     * "x509.info.extensions".
-     *
-     * @param name the attribute name.
+     * Sets a descriptor validating.
+     * @param ois stream to have the descriptors validated
+     * @param validator validator used to validate a descriptor.
      */
-    public X509AttributeName(String name) {
-        int i = name.indexOf(SEPARATOR);
-        if (i < 0) {
-            prefix = name;
-        } else {
-            prefix = name.substring(0, i);
-            suffix = name.substring(i + 1);
-        }
-    }
-
-    /**
-     * Return the prefix of the name.
-     */
-    public String getPrefix() {
-      return (prefix);
-    }
-
-    /**
-     * Return the suffix of the name.
-     */
-    public String getSuffix() {
-      return (suffix);
-    }
+    public void setValidator(ObjectInputStream ois, ObjectStreamClassValidator validator);
 }

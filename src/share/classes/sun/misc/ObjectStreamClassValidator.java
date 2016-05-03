@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 1997, Oracle and/or its affiliates. All rights reserved.
+ * Copyright (c) 2016, Oracle and/or its affiliates. All rights reserved.
  * DO NOT ALTER OR REMOVE COPYRIGHT NOTICES OR THIS FILE HEADER.
  *
  * This code is free software; you can redistribute it and/or modify it
@@ -23,49 +23,21 @@
  * questions.
  */
 
-package sun.security.x509;
+package sun.misc;
+
+import java.io.ObjectStreamClass;
 
 /**
- * This class is used to parse attribute names like "x509.info.extensions".
+ * A callback used by {@code ObjectInputStream} to do descriptor validation.
  *
- * @author Amit Kapoor
- * @author Hemma Prafullchandra
+ * @author sjiang
  */
-public class X509AttributeName {
-    // Public members
-    private static final char SEPARATOR = '.';
-
-    // Private data members
-    private String prefix = null;
-    private String suffix = null;
-
+public interface ObjectStreamClassValidator {
     /**
-     * Default constructor for the class. Name is of the form
-     * "x509.info.extensions".
-     *
-     * @param name the attribute name.
+     * This method will be called by ObjectInputStream to
+     * check a descriptor just before creating an object described by this descriptor.
+     * The object will not be created if this method throws a {@code RuntimeException}.
+     * @param descriptor descriptor to be checked.
      */
-    public X509AttributeName(String name) {
-        int i = name.indexOf(SEPARATOR);
-        if (i < 0) {
-            prefix = name;
-        } else {
-            prefix = name.substring(0, i);
-            suffix = name.substring(i + 1);
-        }
-    }
-
-    /**
-     * Return the prefix of the name.
-     */
-    public String getPrefix() {
-      return (prefix);
-    }
-
-    /**
-     * Return the suffix of the name.
-     */
-    public String getSuffix() {
-      return (suffix);
-    }
+    public void validateDescriptor(ObjectStreamClass descriptor);
 }
