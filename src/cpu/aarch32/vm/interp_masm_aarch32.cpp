@@ -43,6 +43,35 @@
 
 // Implementation of InterpreterMacroAssembler
 
+void InterpreterMacroAssembler::narrow(Register result) {
+  // Get method->_constMethod->_result_type
+  ldr(rscratch1, Address(rfp, frame::interpreter_frame_method_offset * wordSize));
+  ldr(rscratch1, Address(rscratch1, Method::const_offset()));
+  ldrb(rscratch1, Address(rscratch1, ConstMethod::result_type_offset()));
+
+  Label done;
+
+  // common case first
+
+  cmp(rscratch1, T_INT);
+  b(done, Assembler::EQ);
+
+  // mask integer result to narrower return type.
+  cmp(rscratch1, T_BOOLEAN);
+  andr(result, result, 0x1, Assembler::EQ);
+
+  cmp(rscratch1, T_BYTE);
+  sbfx(result, result, 0, 8, Assembler::EQ);
+
+  cmp(rscratch1, T_CHAR);
+  ubfx(result, result, 0, 16, Assembler::EQ);  // truncate upper 16 bits
+
+  sbfx(result, result, 0, 16, Assembler::NE);  // sign-extend short
+
+  // Nothing to do for T_INT
+  bind(done);
+}
+
 #ifndef CC_INTERP
 
 void InterpreterMacroAssembler::check_and_handle_popframe(Register java_thread) {
@@ -80,6 +109,7 @@ void InterpreterMacroAssembler::load_earlyret_value(TosState state) {
                verify_oop(r0, state);               break;
     case ltos: ldrd(r0, val_addr);                  break;
     case btos:                                   // fall through
+    case ztos:                                   // fall through
     case ctos:                                   // fall through
     case stos:                                   // fall through
     case itos: ldr(r0, val_addr);                   break;
@@ -318,6 +348,7 @@ void InterpreterMacroAssembler::pop(TosState state) {
   switch (state) {
   case atos: pop_ptr();                 break;
   case btos:
+  case ztos:
   case ctos:
   case stos:
   case itos: pop_i();                   break;
@@ -335,6 +366,7 @@ void InterpreterMacroAssembler::push(TosState state) {
   switch (state) {
   case atos: push_ptr();                break;
   case btos:
+  case ztos:
   case ctos:
   case stos:
   case itos: push_i();                  break;

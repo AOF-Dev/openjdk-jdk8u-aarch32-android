@@ -245,6 +245,7 @@ void TemplateTable::patch_bytecode(Bytecodes::Code bc, Register bc_reg,
   switch (bc) {
   case Bytecodes::_fast_aputfield:
   case Bytecodes::_fast_bputfield:
+  case Bytecodes::_fast_zputfield:
   case Bytecodes::_fast_cputfield:
   case Bytecodes::_fast_dputfield:
   case Bytecodes::_fast_fputfield:
@@ -1082,6 +1083,15 @@ void TemplateTable::bastore()
   // r2: index
   // r3: array
   index_check(r3, r2); // prefer index in r2
+
+  // Need to check whether array is boolean or byte
+  // since both types share the bastore bytecode.
+  __ load_klass(r1, r3);
+  __ ldr(r1, Address(r1, Klass::layout_helper_offset()));
+  int diffbit = Klass::layout_helper_boolean_diffbit();
+  __ tst(r1, diffbit);
+  __ andr(r0, r0, 1, Assembler::NE);  // if it is a T_BOOLEAN array, mask the stored value to 0/1
+
   __ lea(rscratch1, Address(r3, r2));
   __ strb(r0, Address(rscratch1,
                       arrayOopDesc::base_offset_in_bytes(T_BYTE)));
@@ -2298,6 +2308,13 @@ void TemplateTable::_return(TosState state)
   if (_desc->bytecode() == Bytecodes::_return)
     __ membar(MacroAssembler::StoreStore);
 
+  // Narrow result if state is itos but result type is smaller.
+  // Need to narrow in the return bytecode rather than in generate_return_entry
+  // since compiled code callers expect the result to already be narrowed.
+  if (state == itos) {
+    __ narrow(r0);
+  }
+
   __ reg_printf("About to attmpt to remove activation with rfp = %p\n", rfp);
   __ remove_activation(state);
   __ reg_printf("Finshed _return, about to jump to lr = %p\n", lr);
@@ -2522,7 +2539,7 @@ void TemplateTable::getfield_or_static(int byte_no, bool is_static) {
   const Address field(obj, off);
 
 
-  Label Done, notByte, notInt, notShort, notChar,
+  Label Done, notByte, notBool, notInt, notShort, notChar,
               notLong, notFloat, notObj, notDouble;
 
   //__ bkpt(324);
@@ -2543,6 +2560,20 @@ void TemplateTable::getfield_or_static(int byte_no, bool is_static) {
   __ b(Done);
 
   __ bind(notByte);
+  __ cmp(flags, ztos);
+  __ b(notBool, Assembler::NE);
+
+  // ztos (same code as btos)
+  __ ldrsb(r0, field);
+  __ push(ztos);
+  // Rewrite bytecode to be faster
+  if (!is_static) {
+    // use btos rewriting, no truncating to t/f bit is needed for getfield.
+    patch_bytecode(Bytecodes::_fast_bgetfield, bc, r1);
+  }
+  __ b(Done);
+
+  __ bind(notBool);
   __ cmp(flags, atos);
   __ b(notObj, Assembler::NE);
   // atos
@@ -2736,7 +2767,7 @@ void TemplateTable::putfield_or_static(int byte_no, bool is_static) {
   // field address
   const Address field(obj, off);
 
-  Label notByte, notInt, notShort, notChar,
+  Label notByte, notBool, notInt, notShort, notChar,
         notLong, notFloat, notObj, notDouble;
 
   // x86 uses a shift and mask or wings it with a shift plus assert
@@ -2762,6 +2793,22 @@ void TemplateTable::putfield_or_static(int byte_no, bool is_static) {
   }
 
   __ bind(notByte);
+  __ cmp(rscratch1, ztos);
+  __ b(notBool, Assembler::NE);
+
+  // ztos
+  {
+    __ pop(ztos);
+    if (!is_static) pop_and_check_object(obj);
+    __ andr(r0, r0, 0x1);
+    __ strb(r0, field);
+    if (!is_static) {
+      patch_bytecode(Bytecodes::_fast_zputfield, bc, r1, true, byte_no);
+    }
+    __ b(Done);
+  }
+
+  __ bind(notBool);
   __ cmp(rscratch1, atos);
   __ b(notObj, Assembler::NE);
 
@@ -2930,6 +2977,7 @@ void TemplateTable::jvmti_post_fast_field_mod()
     switch (bytecode()) {          // load values into the jvalue object
     case Bytecodes::_fast_aputfield: __ push_ptr(r0); break;
     case Bytecodes::_fast_bputfield: // fall through
+    case Bytecodes::_fast_zputfield: // fall through
     case Bytecodes::_fast_sputfield: // fall through
     case Bytecodes::_fast_cputfield: // fall through
     case Bytecodes::_fast_iputfield: __ push_i(r0); break;
@@ -2955,6 +3003,7 @@ void TemplateTable::jvmti_post_fast_field_mod()
     switch (bytecode()) {             // restore tos values
     case Bytecodes::_fast_aputfield: __ pop_ptr(r0); break;
     case Bytecodes::_fast_bputfield: // fall through
+    case Bytecodes::_fast_zputfield: // fall through
     case Bytecodes::_fast_sputfield: // fall through
     case Bytecodes::_fast_cputfield: // fall through
     case Bytecodes::_fast_iputfield: __ pop_i(r0); break;
@@ -3011,6 +3060,9 @@ void TemplateTable::fast_storefield(TosState state)
   case Bytecodes::_fast_iputfield:
     __ str(r0, field);
     break;
+  case Bytecodes::_fast_zputfield:
+    __ andr(r0, r0, 0x1);  // boolean is true if LSB is 1
+    // fall through to bputfield
   case Bytecodes::_fast_bputfield:
     __ strb(r0, field);
     break;
