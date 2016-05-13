@@ -103,8 +103,7 @@ address TemplateInterpreterGenerator::generate_ArrayIndexOutOfBounds_handler(
   // exception happened
   __ empty_expression_stack();
   // setup parameters
-  // ??? convention: expect aberrant index in register r1
-  __ mov(c_rarg2, r1);
+  // ??? convention: expect aberrant index in register r2
   __ mov(c_rarg1, (address)name);
   __ call_VM(noreg,
              CAST_FROM_FN_PTR(address,

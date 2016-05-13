@@ -656,7 +656,7 @@ void TemplateTable::index_check(Register array, Register index)
   __ reg_printf("Checking index in array, array = %p, alen = %d, index = %d\n", array, length, index);
   __ cmp(index, length);
   if (index != r2) {
-    // ??? convention: move aberrant index into r1 for exception message
+    // ??? convention: move aberrant index into r2 for exception message
     assert(r2 != array, "different registers");
     __ mov(r2, index);
   }
