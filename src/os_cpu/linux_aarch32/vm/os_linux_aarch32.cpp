@@ -558,10 +558,6 @@ size_t os::current_stack_size() {
 /////////////////////////////////////////////////////////////////////////////
 // helper functions for fatal error handler
 
-static void print_all_registers(outputStream *st, ucontext_t *context) {
-  for (int r = 0; r < 16; r++)
-    st->print_cr(  "R%d=" INTPTR_FORMAT, r,  *((unsigned int*)&context->uc_mcontext.arm_r0 + r) );
-}
 
 void os::print_context(outputStream *st, void *context) {
   if (context == NULL) return;
@@ -569,7 +565,8 @@ void os::print_context(outputStream *st, void *context) {
   ucontext_t *uc = (ucontext_t*)context;
   st->print_cr("Registers:");
 
-  print_all_registers(st, uc);
+  for (int r = 0; r < 16; r++)
+    st->print_cr(  "R%d=" INTPTR_FORMAT, r,  *((unsigned int*)&uc->uc_mcontext.arm_r0 + r) );
 
   st->cr();
 
@@ -594,8 +591,9 @@ void os::print_register_info(outputStream *st, void *context) {
   st->print_cr("Register to memory mapping:");
   st->cr();
 
-  print_all_registers(st, uc);
-
+  for (int r = 0; r < 16; r++) {
+    st->print(  "R%d=", r); print_location(st, *((unsigned int*)&uc->uc_mcontext.arm_r0 + r));
+  }
   st->cr();
 }
 
