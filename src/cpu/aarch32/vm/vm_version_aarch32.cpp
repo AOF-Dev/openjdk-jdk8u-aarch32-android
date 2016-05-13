@@ -204,6 +204,33 @@ void VM_Version::get_processor_features() {
   fprintf(stderr, "Unable to use memory barriers as not on ARMv7, disabling.\n");
   UseMembar = false;
   }*/
+
+  if (UseCRC32Intrinsics) {
+    if (!FLAG_IS_DEFAULT(UseCRC32Intrinsics))
+      warning("CRC32 Intrinsics are not implemented on this CPU");
+    FLAG_SET_DEFAULT(UseCRC32Intrinsics, false);
+  }
+
+  if (UseAES) {
+    warning("AES instructions are not implemented on this CPU");
+    FLAG_SET_DEFAULT(UseAES, false);
+  }
+  if (UseAESIntrinsics) {
+    warning("AES intrinsics are not implemented on this CPU");
+    FLAG_SET_DEFAULT(UseAESIntrinsics, false);
+  }
+
+  if (UseSHA) {
+    warning("SHA instructions are not available on this CPU");
+    FLAG_SET_DEFAULT(UseSHA, false);
+  }
+  if (UseSHA1Intrinsics || UseSHA256Intrinsics || UseSHA512Intrinsics) {
+    warning("SHA intrinsics are not available on this CPU");
+    FLAG_SET_DEFAULT(UseSHA1Intrinsics, false);
+    FLAG_SET_DEFAULT(UseSHA256Intrinsics, false);
+    FLAG_SET_DEFAULT(UseSHA512Intrinsics, false);
+  }
+
 }
 
 void VM_Version::initialize() {
