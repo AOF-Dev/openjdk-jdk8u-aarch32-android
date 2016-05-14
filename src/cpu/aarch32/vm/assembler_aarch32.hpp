@@ -1924,6 +1924,181 @@ void vmsr(Register Rt, Condition cond = C_DFLT) {
 #undef ZERO_ADDR_REG
 #undef ONES_ADDR_REG
 
+/* SIMD extensions
+ *
+ * We just use FloatRegister in the following. They are exactly the same
+ * as SIMD registers.
+ */
+ public:
+  enum SIMD_Align {
+    ALIGN_STD = 0b00, ALIGN_64 = 0b01, ALIGN_128 = 0b10, ALIGN_256 = 0b11
+  };
+ private:
+  void simd_ld(FloatRegister, unsigned type, unsigned size, unsigned xfer_size,
+          const Address &addr, enum SIMD_Align align);
+public:
+#define INSN(NAME, size)                                                             \
+  inline void NAME(FloatRegister Dd, const Address &addr, enum SIMD_Align align) {   \
+    simd_ld(Dd, 0b0111, size, 1, addr, align);                                       \
+  }                                                                                  \
+  inline void NAME(FloatRegister Dd, FloatRegister Dd1, const Address &addr,         \
+    enum SIMD_Align align) {                                                         \
+    assert(Dd->successor(FloatRegisterImpl::DOUBLE) == Dd1, "Must be consecutive");      \
+    simd_ld(Dd, 0b1010, size, 2, addr, align);                                       \
+  }                                                                                  \
+  inline void NAME(FloatRegister Dd, FloatRegister Dd1, FloatRegister Dd2,           \
+    const Address &addr, enum SIMD_Align align) {                                    \
+    assert(Dd->successor(FloatRegisterImpl::DOUBLE) == Dd1, "Must be consecutive");      \
+    assert(Dd1->successor(FloatRegisterImpl::DOUBLE) == Dd2, "Must be consecutive");     \
+    simd_ld(Dd, 0b0110, size, 3, addr, align);                                       \
+  }                                                                                  \
+  inline void NAME(FloatRegister Dd, FloatRegister Dd1, FloatRegister Dd2,           \
+    FloatRegister Dd3, const Address &addr, enum SIMD_Align align) {                 \
+    assert(Dd->successor(FloatRegisterImpl::DOUBLE) == Dd1, "Must be consecutive");      \
+    assert(Dd1->successor(FloatRegisterImpl::DOUBLE) == Dd2, "Must be consecutive");     \
+    assert(Dd2->successor(FloatRegisterImpl::DOUBLE) == Dd3, "Must be consecutive");     \
+    simd_ld(Dd, 0b0010, size, 4, addr, align);                                       \
+  }
+  INSN(vld1_8,  0b00);
+  INSN(vld1_16, 0b01);
+  INSN(vld1_32, 0b10);
+  INSN(vld1_64, 0b11);
+#undef INSN
+
+ private:
+  void simd_vmov(FloatRegister Dd, unsigned index, Register Rt, bool advsimd,
+          unsigned index_bits, unsigned bit20, unsigned opc, Condition cond);
+ public:
+#define INSN(NAME, advsimd, opc, index_bits)                                         \
+  inline void NAME(FloatRegister Rd, unsigned index, Register Rt,                    \
+                                  Condition cond = Assembler::AL) {                  \
+    simd_vmov(Rd, index, Rt, advsimd, index_bits, 0, opc, cond);                     \
+  }
+  INSN(vmov_8,  true, 0b1000, 2);
+  INSN(vmov_16, true, 0b0001, 1);
+  INSN(vmov_32, false, 0b0000, 0);
+#undef INSN
+#define INSN(NAME, advsimd, opc, index_bits)                                         \
+  inline void NAME(Register Rt, FloatRegister Rd, unsigned index,                    \
+                                  Condition cond = Assembler::AL) {                  \
+    simd_vmov(Rd, index, Rt, advsimd, index_bits, 1, opc, cond);                     \
+  }
+  INSN(vmov_8s,  true, 0b01000, 3);
+  INSN(vmov_16s, true, 0b00001, 2);
+  INSN(vmov_8u,  true, 0b11000, 3);
+  INSN(vmov_16u, true, 0b10001, 2);
+  INSN(vmov_32,  false, 0b00000, 1);
+#undef INSN
+
+ private:
+  void simd_eor(FloatRegister Dd, FloatRegister Dn, FloatRegister Dm, unsigned q);
+ public:
+#define INSN(NAME, q)                                                                \
+  inline void NAME(FloatRegister Dd, FloatRegister Dn, FloatRegister Dm) {           \
+    simd_eor(Dd, Dn, Dm, q);                                                         \
+  }
+  INSN(veor_64, 0);
+  INSN(veor_128, 1);
+#undef INSN
+
+ private:
+  void simd_vmul(FloatRegister Dd, FloatRegister Dn, FloatRegister Dm,
+          unsigned bit24, unsigned bit9, unsigned size, unsigned mul, unsigned bit6);
+ public:
+#define INSN(NAME, bit24, bit9, size, mul, bit6)                                     \
+  inline void NAME(FloatRegister Dd, FloatRegister Dn, FloatRegister Dm) {           \
+    simd_vmul(Dd, Dn, Dm, bit24, bit9, size, mul, bit6);                             \
+  }
+  INSN(vmul_64_8,   0, 0, 0b00, 1, 0);
+  INSN(vmul_64_16,  0, 0, 0b01, 1, 0);
+  INSN(vmul_64_32,  0, 0, 0b10, 1, 0);
+  INSN(vmulp_64_8,  1, 0, 0b00, 1, 0);
+  INSN(vmul_128_8,  0, 0, 0b00, 1, 1);
+  INSN(vmul_128_16, 0, 0, 0b01, 1, 1);
+  INSN(vmul_128_32, 0, 0, 0b10, 1, 1);
+  INSN(vmulp_128_8, 1, 0, 0b00, 1, 1);
+  INSN(vmull_8s,    0, 0, 0b00, 0, 0);
+  INSN(vmull_16s,   0, 0, 0b01, 0, 0);
+  INSN(vmull_32s,   0, 0, 0b10, 0, 0);
+  INSN(vmull_8u,    1, 0, 0b00, 0, 0);
+  INSN(vmull_16u,   1, 0, 0b01, 0, 0);
+  INSN(vmull_32u,   1, 0, 0b10, 0, 0);
+  INSN(vmullp_8,    0, 1, 0b00, 0, 0);
+#undef INSN
+
+ private:
+  void simd_vuzp(FloatRegister Dd, FloatRegister Dm, unsigned size, unsigned q);
+ public:
+#define INSN(NAME, size, q)                                                          \
+  inline void NAME(FloatRegister Dd, FloatRegister Dm) {                             \
+    simd_vuzp(Dd, Dm, size, q);                                                      \
+  }
+  INSN(vuzp_64_8,   0b00, 0);
+  INSN(vuzp_64_16,  0b01, 0);
+  INSN(vuzp_64_32,  0b10, 0);
+  INSN(vuzp_128_8,  0b00, 1);
+  INSN(vuzp_128_16, 0b01, 1);
+  INSN(vuzp_128_32, 0b10, 1);
+#undef INSN
+
+ private:
+  void simd_vshl(FloatRegister Dd, FloatRegister Dm, unsigned imm, unsigned size,
+          unsigned q, unsigned bit24, unsigned encode);
+ public:
+#define INSN(NAME, size, q, bit24, encode, checkDd)                                  \
+  inline void NAME(FloatRegister Dd, FloatRegister Dm, unsigned imm) {               \
+    assert(!checkDd || (Dd->encoding() & 2) == 0, "Odd register");                   \
+    simd_vshl(Dd, Dm, imm, size, q, bit24, encode);                                  \
+  }
+  INSN(vshl_64_8,   3, 0, 0, 0b0101, false);
+  INSN(vshl_64_16,  4, 0, 0, 0b0101, false);
+  INSN(vshl_64_32,  5, 0, 0, 0b0101, false);
+  INSN(vshl_64_64,  6, 0, 0, 0b0101, false);
+  INSN(vshl_128_8,  3, 1, 0, 0b0101, false);
+  INSN(vshl_128_16, 4, 1, 0, 0b0101, false);
+  INSN(vshl_128_32, 5, 1, 0, 0b0101, false);
+  INSN(vshl_128_64, 6, 1, 0, 0b0101, false);
+  INSN(vshll_8s,    3, 1, 0, 0b1010, true);
+  INSN(vshll_8u,    3, 0, 1, 0b1010, true);
+  INSN(vshll_16s,   4, 0, 0, 0b1010, true);
+  INSN(vshll_16u,   4, 0, 1, 0b1010, true);
+  INSN(vshll_32s,   5, 0, 0, 0b1010, true);
+  INSN(vshll_32u,   5, 0, 1, 0b1010, true);
+#undef INSN
+
+ private:
+  void simd_rev(FloatRegister Dd, FloatRegister Dm, unsigned q, unsigned size,
+          unsigned op);
+ public:
+#define INSN(NAME, q, size, op)                                                      \
+  inline void NAME(FloatRegister Dd, FloatRegister Dm) {                             \
+    simd_rev(Dd, Dm, q, size, op);                                                   \
+  }
+  INSN(vrev16_64_8,    0, 0, 2);
+  INSN(vrev16_128_8,   1, 0, 2);
+  INSN(vrev32_64_8,    0, 0, 1);
+  INSN(vrev32_128_8,   1, 0, 1);
+  INSN(vrev32_64_16,   0, 1, 1);
+  INSN(vrev32_128_16,  1, 1, 1);
+  INSN(vrev64_64_8,    0, 0, 0);
+  INSN(vrev64_128_8,   1, 0, 0);
+  INSN(vrev64_64_16,   0, 1, 0);
+  INSN(vrev64_128_16,  1, 1, 0);
+  INSN(vrev64_64_32,   0, 2, 0);
+  INSN(vrev64_128_32,  1, 2, 0);
+#undef INSN
+
+ private:
+  void v8_crc32(Register Rd, Register Rn, Register Rm, unsigned size, Condition cond);
+ public:
+#define INSN(NAME, size)                                                             \
+  inline void NAME(Register Rd, Register Rn, Register Rm, Condition cond = C_DFLT) { \
+    v8_crc32(Rd, Rn, Rm, size, cond);                                                \
+  }
+  INSN(crc32b, 0);
+  INSN(crc32h, 1);
+  INSN(crc32w, 2);
+#undef INSN
 
   Assembler(CodeBuffer* code) : AbstractAssembler(code) {}
 

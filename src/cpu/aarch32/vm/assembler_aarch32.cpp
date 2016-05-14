@@ -37,6 +37,7 @@
 #include "runtime/interfaceSupport.hpp"
 #include "runtime/sharedRuntime.hpp"
 #include "register_aarch32.hpp"
+#include "vm_version_aarch32.hpp"
 
 extern "C" void entry(CodeBuffer *cb);
 
@@ -1903,5 +1904,80 @@ void Assembler::fp_ldst_mul(Register Rn, int regset, bool load, bool is64bit,
   f(is64bit ? nregs * 2 : nregs, 7, 0);
 }
 
-#undef starti
+void Assembler::simd_ld(FloatRegister Rd, unsigned type, unsigned size, unsigned num_regs,
+        const Address &addr, enum SIMD_Align align) {
+  starti;
+  assert(addr.get_mode() == Address::imm &&
+          (addr.get_wb_mode() == Address::off && addr.offset() == 0) ||
+          (addr.get_wb_mode() == Address::post && addr.offset() == long(8*num_regs)), "Unsupported");
+  assert(VM_Version::features() & FT_AdvSIMD, "SIMD coprocessor required");
+  if (addr.get_wb_mode() == Address::post)
+  f(0b1111, 31, 28), f(0b0100, 27, 24), f(0, 23), f(0b10, 21, 20);
+  rf(addr.base(), 16), fp_rencode(Rd, false, 12, 22), f(type, 11, 8), f(size, 7, 6);
+  f((unsigned)align, 5, 4), f(addr.get_wb_mode() == Address::post ? 0b1101 : 0b1111, 3, 0);
+}
 
+void Assembler::simd_vmov(FloatRegister Dd, unsigned index, Register Rt, bool advsimd,
+          unsigned index_bits, unsigned bit20, unsigned opc, Condition cond) {
+  starti;
+  assert(index < (1u<<index_bits), "Illegal element index");
+  assert(!advsimd || (VM_Version::features() & FT_AdvSIMD), "SIMD coprocessor required");
+  opc |= index << (3 - index_bits);
+  f(cond, 31, 28), f(0b1110, 27, 24), f((opc>>2)&3, 22, 21), f(bit20, 20);
+  fp_rencode(Dd, false, 16, 7), f(opc>>4, 23);
+  rf(Rt, 12), f(0b1011, 11, 8), f(opc & 3, 6, 5), f(0b10000, 4, 0);
+}
+
+void Assembler::simd_eor(FloatRegister Dd, FloatRegister Dn, FloatRegister Dm, unsigned q) {
+  starti;
+  assert(VM_Version::features() & FT_AdvSIMD, "SIMD coprocessor required");
+  assert(!q || ((Dd->encoding() & 2) == 0 && (Dm->encoding() & 2) == 0), "Odd registers");
+  f(0b111100110, 31, 23), f(0b00, 21, 20), fp_rencode(Dd, false, 12, 22);
+  fp_rencode(Dn, false, 16, 7), f(0b0001, 11, 8), fp_rencode(Dm, false, 0, 5), f(q, 6), f(1, 4);
+}
+
+void Assembler::simd_vmul(FloatRegister Dd, FloatRegister Dn, FloatRegister Dm,
+          unsigned bit24, unsigned bit9, unsigned size, unsigned mul, unsigned bit6) {
+  starti;
+  assert(VM_Version::features() & FT_AdvSIMD, "SIMD coprocessor required");
+  f(0b1111001, 31, 25), f(bit24, 24), f(size, 21, 20), fp_rencode(Dd, false, 12, 22);
+  f(mul^1, 23), fp_rencode(Dn, false, 16, 7), f(1, 11), f(mul^1, 10), f(bit9, 9);
+  f(mul, 8), f(bit6, 6), f(mul, 4), fp_rencode(Dm, false, 0, 5);
+}
+
+void Assembler::simd_vuzp(FloatRegister Dd, FloatRegister Dm, unsigned size, unsigned q) {
+  starti;
+  assert(VM_Version::features() & FT_AdvSIMD, "SIMD coprocessor required");
+  assert(!q || ((Dd->encoding() & 2) == 0 && (Dm->encoding() & 2) == 0), "Odd registers");
+  f(0b111100111, 31, 23), fp_rencode(Dd, false, 12, 22), f(0b11, 21, 20), f(size, 19, 18);
+  f(0b10, 17, 16), f(0b00010, 11, 7), f(q, 6), f(0, 4), fp_rencode(Dm, false, 0, 5);
+}
+
+void Assembler::simd_vshl(FloatRegister Dd, FloatRegister Dm, unsigned imm, unsigned size,
+        unsigned q, unsigned bit24, unsigned encode) {
+  starti;
+  assert(VM_Version::features() & FT_AdvSIMD, "SIMD coprocessor required");
+  assert(imm < (1u << size), "Shift is too big");
+  assert(!q || ((Dd->encoding() & 2) == 0 && (Dm->encoding() & 2) == 0), "Odd registers");
+  f(0b1111001, 31, 25), f(bit24, 24), f(1, 23), fp_rencode(Dd, false, 12, 22);
+  f(((1u << size) | imm) & 0b111111, 21, 16), f(size == 6 ? 1 : 0, 7), f(q, 6);
+  f(encode, 11, 8), fp_rencode(Dm, false, 0, 5), f(1, 4);
+}
+
+void Assembler::simd_rev(FloatRegister Dd, FloatRegister Dm, unsigned q, unsigned size,
+          unsigned op) {
+  starti;
+  assert(!q || ((Dd->encoding() & 2) == 0 && (Dm->encoding() & 2) == 0), "Odd registers");
+  f(0b111100111, 31, 23), fp_rencode(Dd, false, 12, 22), f(0b11, 21, 20);
+  f(size, 19, 18), f(0b00, 17, 16), f(0b000, 11, 9), f(op, 8, 7);
+  f(q, 6), fp_rencode(Dm, false, 0, 5), f(0, 4);
+}
+
+void Assembler::v8_crc32(Register Rd, Register Rn, Register Rm, unsigned size, Condition cond) {
+  starti;
+  assert(VM_Version::features() & FT_CRC32, "Instruction is not supported by CPU");
+  f(cond, 31, 28), f(0b00010, 27, 23), f(size, 22, 21), f(0, 20), rf(Rn, 16), rf(Rd, 12);
+  f(0b00000100, 11, 4), rf(Rm, 0);
+}
+
+#undef starti

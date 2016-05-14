@@ -35,20 +35,62 @@
 # include "os_linux.inline.hpp"
 #endif
 
-#ifndef HWCAP_AES
-#define HWCAP_AES   (1<<3)
+#ifndef AT_HWCAP
+#define AT_HWCAP        16              /* Machine-dependent hints about
+                                           processor capabilities.  */
 #endif
 
-#ifndef HWCAP_SHA1
-#define HWCAP_SHA1  (1<<5)
+#ifndef AT_HWCAP2
+#define AT_HWCAP2       26              /* More machine-dependent hints about
+                                           processor capabilities.  */
 #endif
 
-#ifndef HWCAP_SHA2
-#define HWCAP_SHA2  (1<<6)
+#ifndef HWCAP2_PMULL
+#define HWCAP2_PMULL    (1 << 1)
 #endif
 
-#ifndef HWCAP_CRC32
-#define HWCAP_CRC32 (1<<7)
+#ifndef HWCAP2_AES
+#define HWCAP2_AES      (1 << 0)
+#endif
+
+#ifndef HWCAP2_SHA1
+#define HWCAP2_SHA1     (1 << 2)
+#endif
+
+#ifndef HWCAP2_SHA2
+#define HWCAP2_SHA2     (1 << 3)
+#endif
+
+#ifndef HWCAP2_CRC32
+#define HWCAP2_CRC32    (1 << 4)
+#endif
+
+#ifndef HWCAP_NEON
+#define HWCAP_NEON      (1 << 12)
+#endif
+
+#ifndef HWCAP_VFPv3
+#define HWCAP_VFPv3     (1 << 13)
+#endif
+
+#ifndef HWCAP_VFPv3D16
+#define HWCAP_VFPv3D16  (1 << 14)       /* also set for VFPv4-D16 */
+#endif
+
+#ifndef HWCAP_TLS
+#define HWCAP_TLS       (1 << 15)
+#endif
+
+#ifndef HWCAP_VFPv4
+#define HWCAP_VFPv4     (1 << 16)
+#endif
+
+#ifndef HWCAP_IDIVA
+#define HWCAP_IDIVA     (1 << 17)
+#endif
+
+#ifndef HWCAP_VFPD32
+#define HWCAP_VFPD32    (1 << 19)       /* set if VFP has 32 regs (not 16) */
 #endif
 
 enum ProcessorFeatures VM_Version::_features = FT_NONE;
@@ -62,6 +104,7 @@ extern "C" {
 }
 static getPsrInfo_stub_t getPsrInfo_stub = NULL;
 
+typedef unsigned long (*pgetauxval)(unsigned long type);
 
 class VM_Version_StubGenerator: public StubCodeGenerator {
  public:
@@ -120,66 +163,110 @@ void VM_Version::get_processor_features() {
   FLAG_SET_DEFAULT(PrefetchFieldsAhead, 256);
   FLAG_SET_DEFAULT(PrefetchCopyIntervalInBytes, 256);
 
-  int ncores = 0, cpu, variant, model, revision;
   enum ProcessorFeatures f = FT_NONE;
+
+  // try the recommended way, by using glibc API.
+  // however since this API is only available in recent
+  // versions of glibc we got to invoke it indirectly for
+  // not to create compile and run-time dependency
+  pgetauxval getauxval_ptr = (pgetauxval) os::dll_lookup((void*) 0, "getauxval");
+  if (getauxval_ptr) {
+    unsigned long auxv2 = (*getauxval_ptr)(AT_HWCAP2);
+    unsigned long auxv = (*getauxval_ptr)(AT_HWCAP);
+    if (FLAG_IS_DEFAULT(UseCRC32)) {
+      UseCRC32 = (auxv2 & HWCAP2_CRC32) != 0;
+    }
+    if (auxv2 & HWCAP2_AES) {
+      UseAES = UseAES || FLAG_IS_DEFAULT(UseAES);
+      UseAESIntrinsics =
+              UseAESIntrinsics || (UseAES && FLAG_IS_DEFAULT(UseAESIntrinsics));
+      if (UseAESIntrinsics && !UseAES) {
+        warning("UseAESIntrinsics enabled, but UseAES not, enabling");
+        UseAES = true;
+      }
+    } else {
+      if (UseAES) {
+        warning("UseAES specified, but not supported on this CPU");
+      }
+      if (UseAESIntrinsics) {
+        warning("UseAESIntrinsics specified, but not supported on this CPU");
+      }
+    }
+    if (auxv & HWCAP_NEON)
+      f = (ProcessorFeatures) (f | FT_AdvSIMD);
+    if (auxv & HWCAP_IDIVA)
+      f = (ProcessorFeatures) (f | FT_HW_DIVIDE);
+    if (auxv & HWCAP_VFPv3)
+      f = (ProcessorFeatures) (f | FT_VFPV3 | FT_VFPV2);
+    if (auxv2 & HWCAP2_CRC32)
+      f = (ProcessorFeatures) (f | FT_CRC32);
+  }
+
+  int ncores = 0, cpu, variant, model, revision;
   char buf[2048], *i;
-  if(FILE *fp = fopen("/proc/cpuinfo", "r")) {
-    while((i = fgets(buf, 2048, fp))) {
-      if(identify_procline("Features", &i)) {
+  if (FILE * fp = fopen("/proc/cpuinfo", "r")) {
+    while ((i = fgets(buf, 2048, fp))) {
+      if (identify_procline("Features", &i)) {
         i = strtok(i, " \n");
-        while(i) {
-          if(!strcmp("idiva", i)) {
-            f = (ProcessorFeatures)(f | FT_HW_DIVIDE);
-          } else if(!strcmp("vfpv3", i) || !strcmp("vfpv4", i)) {
+        while (i) {
+          if (!strcmp("idiva", i)) {
+            f = (ProcessorFeatures) (f | FT_HW_DIVIDE);
+          } else if (!strcmp("vfpv3", i) || !strcmp("vfpv4", i)) {
             // Assuming that vfpv4 implements all of vfpv3
             // and that they both implement all of v2.
-            f = (ProcessorFeatures)(f | FT_VFPV3 | FT_VFPV2);
-          } else if(!strcmp("vfp", i)) {
+            f = (ProcessorFeatures) (f | FT_VFPV3 | FT_VFPV2);
+          } else if (!strcmp("vfp", i)) {
             // Assuming that VFPv2 is identified by plain vfp
-            f = (ProcessorFeatures)(f | FT_VFPV2);
-          } else if(!strcmp("neon", i)) {
-            f = (ProcessorFeatures)(f | FT_AdvSIMD);
+            f = (ProcessorFeatures) (f | FT_VFPV2);
+          } else if (!strcmp("neon", i)) {
+            f = (ProcessorFeatures) (f | FT_AdvSIMD);
           }
           i = strtok(NULL, " \n");
         }
-      } else if(identify_procline("Processor", &i)) {
+      } else if (identify_procline("Processor", &i)) {
         i = strtok(i, " \n");
-        while(i) {
+        while (i) {
           // if the info is read correctly do
-          if(!strcmp("ARMv7", i) || !strcmp("AArch64", i)) {
-            f = (ProcessorFeatures)(f | FT_ARMV7);
-          } else if(!strcmp("ARMv6-compatible", i)) {
+          if (!strcmp("ARMv7", i)) {
+            f = (ProcessorFeatures) (f | FT_ARMV7);
+          } else if (!strcmp("ARMv6-compatible", i)) {
             //TODO sort out the ARMv6 identification code
           }
           i = strtok(NULL, " \n");
         }
-      } else if(identify_procline("model name", &i)) {
+      } else if (identify_procline("model name", &i)) {
         i = strtok(i, " \n");
-        while(i) {
+        while (i) {
           // if the info is read correctly do
-          if(!strcmp("ARMv7", i)) {
-            f = (ProcessorFeatures)(f | FT_ARMV7);
-          } else if(!strcmp("ARMv6-compatible", i)) {
+          if (!strcmp("ARMv7", i) || !strcmp("AArch64", i)) {
+            f = (ProcessorFeatures) (f | FT_ARMV7);
+          } else if (!strcmp("ARMv6-compatible", i)) {
             //TODO sort out the ARMv6 identification code
           }
           i = strtok(NULL, " \n");
         }
-      } else if(identify_procline("processor", &i)) {
+      } else if (identify_procline("processor", &i)) {
         ncores++;
-      } else if(identify_procline("CPU implementer", &i)) {
+      } else if (identify_procline("CPU implementer", &i)) {
         cpu = strtol(i, NULL, 0);
-      } else if(identify_procline("CPU variant", &i)) {
+      } else if (identify_procline("CPU variant", &i)) {
         variant = strtol(i, NULL, 0);
-      } else if(identify_procline("CPU part", &i)) {
+      } else if (identify_procline("CPU part", &i)) {
         model = strtol(i, NULL, 0);
-      } else if(identify_procline("CPU revision", &i)) {
+      } else if (identify_procline("CPU revision", &i)) {
         revision = strtol(i, NULL, 0);
       }
     }
     fclose(fp);
   }
-  if(1 == ncores) {
-    f = (ProcessorFeatures)(f | FT_SINGLE_CORE);
+  if (1 == ncores) {
+    f = (ProcessorFeatures) (f | FT_SINGLE_CORE);
+  }
+  if (FLAG_IS_DEFAULT(UseCRC32Intrinsics)) {
+    UseCRC32Intrinsics = true;
+  }
+  if ((f & FT_AdvSIMD) && FLAG_IS_DEFAULT(UseNeon) && (model & ~0x0f0) >= 0xc08) {
+    UseNeon = true;
   }
   _features = f;
   sprintf(buf, "0x%02x:0x%x:0x%03x:%d", cpu, variant, model, revision);

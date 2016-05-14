@@ -1052,9 +1052,10 @@ address InterpreterGenerator::generate_native_entry(bool synchronized) {
   // check for safepoint operation in progress and/or pending suspend requests
   {
     Label Continue;
-    __ ldr(rscratch2, SafepointSynchronize::address_of_state());
+    __ lea(rscratch2, ExternalAddress(SafepointSynchronize::address_of_state()));
     assert(SafepointSynchronize::_not_synchronized == 0,
            "SafepointSynchronize::_not_synchronized");
+    __ ldr(rscratch2, rscratch2);
     Label L;
     __ cbnz(rscratch2, L);
     __ ldr(rscratch2, Address(rthread, JavaThread::suspend_flags_offset()));
@@ -1234,13 +1235,102 @@ address InterpreterGenerator::generate_native_entry(bool synchronized) {
 }
 
 address InterpreterGenerator::generate_CRC32_update_entry() {
-  assert(false, "not implemented - shouldn't be called");
-  return NULL;
+  if (UseCRC32Intrinsics) {
+    address entry = __ pc();
+
+    // rmethod: Method*
+    // sp: args
+
+    Label slow_path;
+    // If we need a safepoint check, generate full interpreter entry.
+    __ lea(rscratch2, ExternalAddress(SafepointSynchronize::address_of_state()));
+    assert(SafepointSynchronize::_not_synchronized == 0, "rewrite this code");
+    __ ldr(rscratch2, Address(rscratch2));
+    __ cbnz(rscratch2, slow_path);
+
+    // We don't generate local frame and don't align stack because
+    // we call stub code and there is no safepoint on this path.
+
+    // Load parameters
+    const Register crc = c_rarg0;  // crc
+    const Register val = c_rarg1;  // source java byte value
+    const Register tbl = c_rarg2;  // scratch
+
+    // Arguments are reversed on java expression stack
+    __ ldr(val, Address(sp, 0));              // byte value
+    __ ldr(crc, Address(sp, wordSize));       // Initial CRC
+
+    __ lea(tbl, ExternalAddress(StubRoutines::crc_table_addr()));
+    __ inv(crc, crc);
+    __ update_byte_crc32(crc, val, tbl);
+    __ inv(crc, crc); // result in c_rarg0
+
+    __ mov(sp, r4);
+    __ ret(lr);
+
+    // generate a vanilla native entry as the slow path
+    __ bind(slow_path);
+
+    (void) generate_native_entry(false);
+
+    return entry;
+  }
+  return generate_native_entry(false);
 }
 
 address InterpreterGenerator::generate_CRC32_updateBytes_entry(AbstractInterpreter::MethodKind kind) {
-  assert(false, "not implemented - shouldn't be called");
-  return NULL;
+  if (UseCRC32Intrinsics) {
+    address entry = __ pc();
+
+    // rmethod,: Method*
+    // sp: senderSP must preserved for slow path
+
+    Label slow_path;
+    // If we need a safepoint check, generate full interpreter entry.
+    __ lea(rscratch2, ExternalAddress(SafepointSynchronize::address_of_state()));
+    assert(SafepointSynchronize::_not_synchronized == 0, "rewrite this code");
+    __ ldr(rscratch2, Address(rscratch2));
+    __ cbnz(rscratch2, slow_path);
+
+    // We don't generate local frame and don't align stack because
+    // we call stub code and there is no safepoint on this path.
+
+    // Load parameters
+    const Register crc = c_rarg0;  // crc
+    const Register buf = c_rarg1;  // source java byte array address
+    const Register len = c_rarg2;  // length
+    const Register off = len;      // offset (never overlaps with 'len')
+
+    // Arguments are reversed on java expression stack
+    // Calculate address of start element
+    if (kind == Interpreter::java_util_zip_CRC32_updateByteBuffer) {
+      __ ldr(buf, Address(sp, 2*wordSize)); // long buf
+      __ ldr(off, Address(sp, wordSize)); // offset
+      __ add(buf, buf, off); // + offset
+      __ ldr(crc, Address(sp, 4*wordSize)); // Initial CRC
+    } else {
+      __ ldr(buf, Address(sp, 2*wordSize)); // byte[] array
+      __ add(buf, buf, arrayOopDesc::base_offset_in_bytes(T_BYTE)); // + header size
+      __ ldr(off, Address(sp, wordSize)); // offset
+      __ add(buf, buf, off); // + offset
+      __ ldr(crc, Address(sp, 3*wordSize)); // Initial CRC
+    }
+    // Can now load 'len' since we're finished with 'off'
+    __ ldr(len, Address(sp)); // Length
+
+    __ mov(sp, r4); // Restore the caller's SP
+
+    // We are frameless so we can just jump to the stub.
+    __ b(CAST_FROM_FN_PTR(address, StubRoutines::updateBytesCRC32()));
+
+    // generate a vanilla native entry as the slow path
+    __ bind(slow_path);
+
+    (void) generate_native_entry(false);
+
+    return entry;
+  }
+  return generate_native_entry(false);
 }
 
 //

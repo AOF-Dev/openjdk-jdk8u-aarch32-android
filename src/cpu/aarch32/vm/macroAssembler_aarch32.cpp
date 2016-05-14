@@ -3003,3 +3003,223 @@ void MacroAssembler::verify_stack_alignment() {
   }
 }
 #endif
+
+/**
+ * Emits code to update CRC-32 with a byte value according to constants in table
+ *
+ * @param [in,out]crc   Register containing the crc.
+ * @param [in]val       Register containing the byte to fold into the CRC.
+ * @param [in]table     Register containing the table of crc constants.
+ *
+ * uint32_t crc;
+ * val = crc_table[(val ^ crc) & 0xFF];
+ * crc = val ^ (crc >> 8);
+ *
+ */
+void MacroAssembler::update_byte_crc32(Register crc, Register val, Register table) {
+  eor(val, val, crc);
+  andr(val, val, 0xff);
+  ldr(val, Address(table, val, lsl(2)));
+  eor(crc, val, crc, Assembler::lsr(8));
+}
+
+/**
+ * Emits code to update CRC-32 with a 32-bit value according to tables 0 to 3
+ *
+ * @param [in,out]crc   Register containing the crc.
+ * @param [in]v         Register containing the 32-bit to fold into the CRC.
+ * @param [in]table0    Register containing table 0 of crc constants.
+ * @param [in]table1    Register containing table 1 of crc constants.
+ * @param [in]table2    Register containing table 2 of crc constants.
+ * @param [in]table3    Register containing table 3 of crc constants.
+ *
+ * uint32_t crc;
+ *   v = crc ^ v
+ *   crc = table3[v&0xff]^table2[(v>>8)&0xff]^table1[(v>>16)&0xff]^table0[v>>24]
+ *
+ */
+void MacroAssembler::update_word_crc32(Register crc, Register v, Register tmp,
+        Register tmp2, Register table0, Register table1, Register table2, Register table3) {
+  eor(v, crc, v);
+  uxtb(tmp, v);
+  uxtb(tmp2, v, ror(8));
+  ldr(crc, Address(table3, tmp, lsl(2)));
+  ldr(tmp2, Address(table2, tmp2, lsl(2)));
+  uxtb(tmp, v, ror(16));
+  eor(crc, crc, tmp2);
+  uxtb(tmp2, v, ror(24));
+  ldr(tmp, Address(table1, tmp, lsl(2)));
+  ldr(tmp2, Address(table0, tmp2, lsl(2)));
+  eor(crc, crc, tmp);
+  eor(crc, crc, tmp2);
+}
+
+/**
+ * @param crc   register containing existing CRC (32-bit)
+ * @param buf   register pointing to input byte buffer (byte*)
+ * @param len   register containing number of bytes
+ * @param table register that will contain address of CRC table
+ * @param tmp   scratch register
+ */
+void MacroAssembler::kernel_crc32(Register crc, Register buf, Register len,
+        Register table0, Register table1, Register table2, Register table3,
+        Register tmp, Register tmp2, Register tmp3) {
+  Label L_cpu, L_by8_loop, L_by1, L_by1_loop, L_align_by1_loop, L_align_exit, L_exit;
+
+  inv(crc, crc);
+  if (UseCRC32) {
+    Label CRC_by4_loop, CRC_by1_loop;
+
+      subs(len, len, 4);
+      b(CRC_by4_loop, Assembler::GE);
+      adds(len, len, 4);
+      b(CRC_by1_loop, Assembler::GT);
+      b(L_exit);
+
+    BIND(CRC_by4_loop);
+      ldr(tmp, Address(post(buf, 4)));
+      subs(len, len, 4);
+      crc32w(crc, crc, tmp);
+      b(CRC_by4_loop, Assembler::GE);
+      adds(len, len, 4);
+      b(L_exit, Assembler::LE);
+    BIND(CRC_by1_loop);
+      ldrb(tmp, Address(post(buf, 1)));
+      subs(len, len, 1);
+      crc32b(crc, crc, tmp);
+      b(CRC_by1_loop, Assembler::GT);
+    BIND(L_exit);
+      inv(crc, crc);
+      return;
+  }
+    lea(table0, ExternalAddress(StubRoutines::crc_table_addr()));
+    add(table1, table0, 1*256*sizeof(juint));
+    add(table2, table0, 2*256*sizeof(juint));
+    add(table3, table0, 3*256*sizeof(juint));
+
+  BIND(L_align_by1_loop);
+    tst(buf, 3);
+    b(L_align_exit, Assembler::EQ);
+    cmp(len, 0);
+    b(L_exit, Assembler::EQ);
+    sub(len, len, 1);
+    ldrb(tmp, Address(post(buf, 1)));
+    update_byte_crc32(crc, tmp, table0);
+    b(L_align_by1_loop);
+
+  BIND(L_align_exit);
+
+  if (UseNeon) {
+      cmp(len, 32+12); // account for possible need for alignment
+      b(L_cpu, Assembler::LT);
+
+    Label L_fold, L_align_by4_loop, L_align_by4_exit;
+
+    BIND(L_align_by4_loop);
+      tst(buf, 0xf);
+      b(L_align_by4_exit, Assembler::EQ);
+      ldr(tmp, Address(post(buf, 4)));
+      update_word_crc32(crc, tmp, tmp2, tmp3, table0, table1, table2, table3);
+      sub(len, len, 4);
+      b(L_align_by4_loop);
+
+    BIND(L_align_by4_exit);
+
+      add(tmp, table0, 4*256*sizeof(juint)); // Point at the Neon constants
+
+      vld1_64(d0, d1, post(buf, 16), Assembler::ALIGN_128);
+      vld1_64(d4, post(tmp, 8), Assembler::ALIGN_64);
+      vld1_64(d5, post(tmp, 8), Assembler::ALIGN_64);
+      vld1_64(d6, post(tmp, 8), Assembler::ALIGN_64);
+      vld1_64(d7, post(tmp, 8), Assembler::ALIGN_64);
+      veor_64(d16, d16, d16);
+      vmov_32(d16, 0, crc);
+
+      veor_64(d0, d0, d16);
+      sub(len, len, 32);
+
+    BIND(L_fold);
+      vmullp_8(q8, d0, d5);
+      vmullp_8(q9, d0, d7);
+      vmullp_8(q10, d0, d4);
+      vmullp_8(q11, d0, d6);
+
+      vmullp_8(q12, d1, d5);
+      vmullp_8(q13, d1, d7);
+      vmullp_8(q14, d1, d4);
+      vmullp_8(q15, d1, d6);
+
+      vuzp_128_16(q9, q8);
+      veor_128(q8, q8, q9);
+
+      vuzp_128_16(q13, q12);
+      veor_128(q12, q12, q13);
+
+      vshll_16u(q9, d16, 8);
+      vshll_16u(q8, d17, 8);
+
+      vshll_16u(q13, d24, 8);
+      vshll_16u(q12, d25, 8);
+
+      veor_128(q8, q8, q10);
+      veor_128(q12, q12, q14);
+      veor_128(q9, q9, q11);
+      veor_128(q13, q13, q15);
+
+      veor_64(d19, d19, d18);
+      veor_64(d18, d27, d26);
+
+      vshll_32u(q13, d18, 16);
+      vshll_32u(q9, d19, 16);
+
+      veor_128(q9, q8, q9);
+      veor_128(q13, q12, q13);
+
+      veor_64(d31, d26, d27);
+      veor_64(d30, d18, d19);
+
+      vshl_128_64(q15, q15, 1);
+      vld1_64(d0, d1, post(buf, 16), Assembler::ALIGN_128);
+      veor_128(q0, q0, q15);
+
+      subs(len, len, 16);
+      b(L_fold, Assembler::GE);
+
+      vmov_32(tmp, d0, 0);
+      mov(crc, 0);
+      update_word_crc32(crc, tmp, tmp2, tmp3, table0, table1, table2, table3);
+      vmov_32(tmp, d0, 1);
+      update_word_crc32(crc, tmp, tmp2, tmp3, table0, table1, table2, table3);
+      vmov_32(tmp, d1, 0);
+      update_word_crc32(crc, tmp, tmp2, tmp3, table0, table1, table2, table3);
+      vmov_32(tmp, d1, 1);
+      update_word_crc32(crc, tmp, tmp2, tmp3, table0, table1, table2, table3);
+
+      add(len, len, 16);
+  }
+
+  BIND(L_cpu);
+    subs(len, len, 8);
+    b(L_by8_loop, Assembler::GE);
+    adds(len, len, 8);
+    b(L_by1_loop, Assembler::GT);
+    b(L_exit);
+
+  BIND(L_by8_loop);
+    ldr(tmp, Address(post(buf, 4)));
+    update_word_crc32(crc, tmp, tmp2, tmp3, table0, table1, table2, table3);
+    ldr(tmp, Address(post(buf, 4)));
+    update_word_crc32(crc, tmp, tmp2, tmp3, table0, table1, table2, table3);
+    subs(len, len, 8);
+    b(L_by8_loop, Assembler::GE);
+    adds(len, len, 8);
+    b(L_exit, Assembler::LE);
+  BIND(L_by1_loop);
+    subs(len, len, 1);
+    ldrb(tmp, Address(post(buf, 1)));
+    update_byte_crc32(crc, tmp, table0);
+    b(L_by1_loop, Assembler::GT);
+
+  BIND(L_exit);
+    inv(crc, crc);
+}

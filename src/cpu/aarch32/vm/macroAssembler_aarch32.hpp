@@ -667,6 +667,11 @@ public:
 
   void movoop(Register dst, jobject obj, bool immediate = false);
 
+  // CRC32 code for java.util.zip.CRC32::updateBytes() instrinsic.
+  void kernel_crc32(Register crc, Register buf, Register len,
+        Register table0, Register table1, Register table2, Register table3,
+        Register tmp, Register tmp2, Register tmp3);
+
 #undef VIRTUAL
 
   // Stack push and pop individual 64 bit registers
@@ -701,34 +706,38 @@ public:
   address read_polling_page(Register r, address page, relocInfo::relocType rtype);
   address read_polling_page(Register r, relocInfo::relocType rtype);
 
+  // CRC32 code for java.util.zip.CRC32::updateBytes() instrinsic.
+  void update_byte_crc32(Register crc, Register val, Register table);
+  void update_word_crc32(Register crc, Register v, Register tmp, Register tmp2,
+        Register table0, Register table1, Register table2, Register table3);
 
-    // Auto dispatch for barriers isb, dmb & dsb.
-    void isb() {
-        if(VM_Version::features() & FT_ARMV7) {
-            Assembler::isb();
-        } else {
-            cp15isb();
-        }
+  // Auto dispatch for barriers isb, dmb & dsb.
+  void isb() {
+    if(VM_Version::features() & FT_ARMV7) {
+      Assembler::isb();
+    } else {
+      cp15isb();
     }
+  }
 
-    void dsb(enum barrier option) {
-        if(VM_Version::features() & FT_ARMV7) {
-            Assembler::dsb(option);
-        } else {
-            cp15dsb();
-        }
+  void dsb(enum barrier option) {
+    if(VM_Version::features() & FT_ARMV7) {
+      Assembler::dsb(option);
+    } else {
+      cp15dsb();
+    }
   }
 
   void dmb(enum barrier option) {
-        if(VM_Version::features() & FT_ARMV7) {
-            Assembler::dmb(option);
-        } else {
-            cp15dmb();
-        }
+    if(VM_Version::features() & FT_ARMV7) {
+      Assembler::dmb(option);
+    } else {
+      cp15dmb();
+    }
   }
 
   void membar(Membar_mask_bits order_constraint) {
-      dmb(Assembler::barrier(order_constraint));
+    dmb(Assembler::barrier(order_constraint));
   }
 
   // ISB may be needed because of a safepoint

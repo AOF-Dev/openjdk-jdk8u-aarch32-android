@@ -125,6 +125,12 @@ class FloatRegisterImpl : public AbstractRegisterImpl {
     number_of_registers = 32
   };
 
+  enum FloatRegisterSize {
+    SINGLE = 1,
+    DOUBLE = 2,
+    QUAD = 4
+  };
+
   // Construction
   inline friend FloatRegister as_FloatRegister(int encoding);
   inline friend FloatRegister as_DoubleFloatRegister(int encoding);
@@ -138,8 +144,9 @@ class FloatRegisterImpl : public AbstractRegisterImpl {
     return (intptr_t) this;
   }
   VMReg as_VMReg();
-  FloatRegister successor() const {
-    return as_FloatRegister(encoding() + 1);
+  FloatRegister successor(enum FloatRegisterSize size) const {
+    return (as_FloatRegister((encoding() + (int)size) % number_of_registers |
+            (encoding() + (int)size) / number_of_registers));
   }
 
   // Testers
@@ -157,17 +164,20 @@ class FloatRegisterImpl : public AbstractRegisterImpl {
   const char* name() const;
 };
 
-// Floating point registers of AArch32 (VFPv3-D16) architecture
+// Floating point registers of AArch32 (VFPv3-D16, D32 and SIMD) architecture
 
 // Only the first 8 doubleword registers can be used for parameter passing
 // and thus are caller-saved. The rest 8 registers are callee-saved.
 // In VFPv3-D32 there are additional 16 doubleword registers that are
-// caller-saved again, but we don't use them in this implementation.
+// caller-saved again.
 
-// Here we introduce the symbolic names for 16 doubleword registers and the
-// corresponding singleword views for the first 8 of them. The instruction
+// Here we introduce the symbolic names for doubleword registers and the
+// corresponding singleword views for the first 16 of them. The instruction
 // set allows us to encode the doubleword register numbers directly using
 // the constants below.
+
+// The respective names are as well defined for quad-word registers with
+// encoding set by the same principles.
 
 CONSTANT_REGISTER_DECLARATION(FloatRegister, fnoreg, -1);
 
@@ -187,6 +197,39 @@ CONSTANT_REGISTER_DECLARATION(FloatRegister, d12,    24);
 CONSTANT_REGISTER_DECLARATION(FloatRegister, d13,    26);
 CONSTANT_REGISTER_DECLARATION(FloatRegister, d14,    28);
 CONSTANT_REGISTER_DECLARATION(FloatRegister, d15,    30);
+CONSTANT_REGISTER_DECLARATION(FloatRegister, d16,     1);
+CONSTANT_REGISTER_DECLARATION(FloatRegister, d17,     3);
+CONSTANT_REGISTER_DECLARATION(FloatRegister, d18,     5);
+CONSTANT_REGISTER_DECLARATION(FloatRegister, d19,     7);
+CONSTANT_REGISTER_DECLARATION(FloatRegister, d20,     9);
+CONSTANT_REGISTER_DECLARATION(FloatRegister, d21,    11);
+CONSTANT_REGISTER_DECLARATION(FloatRegister, d22,    13);
+CONSTANT_REGISTER_DECLARATION(FloatRegister, d23,    15);
+CONSTANT_REGISTER_DECLARATION(FloatRegister, d24,    17);
+CONSTANT_REGISTER_DECLARATION(FloatRegister, d25,    19);
+CONSTANT_REGISTER_DECLARATION(FloatRegister, d26,    21);
+CONSTANT_REGISTER_DECLARATION(FloatRegister, d27,    23);
+CONSTANT_REGISTER_DECLARATION(FloatRegister, d28,    25);
+CONSTANT_REGISTER_DECLARATION(FloatRegister, d29,    27);
+CONSTANT_REGISTER_DECLARATION(FloatRegister, d30,    29);
+CONSTANT_REGISTER_DECLARATION(FloatRegister, d31,    31);
+
+CONSTANT_REGISTER_DECLARATION(FloatRegister, q0,      0);
+CONSTANT_REGISTER_DECLARATION(FloatRegister, q1,      4);
+CONSTANT_REGISTER_DECLARATION(FloatRegister, q2,      8);
+CONSTANT_REGISTER_DECLARATION(FloatRegister, q3,     12);
+CONSTANT_REGISTER_DECLARATION(FloatRegister, q4,     16);
+CONSTANT_REGISTER_DECLARATION(FloatRegister, q5,     20);
+CONSTANT_REGISTER_DECLARATION(FloatRegister, q6,     24);
+CONSTANT_REGISTER_DECLARATION(FloatRegister, q7,     28);
+CONSTANT_REGISTER_DECLARATION(FloatRegister, q8,      1);
+CONSTANT_REGISTER_DECLARATION(FloatRegister, q9,      5);
+CONSTANT_REGISTER_DECLARATION(FloatRegister, q10,     9);
+CONSTANT_REGISTER_DECLARATION(FloatRegister, q11,    13);
+CONSTANT_REGISTER_DECLARATION(FloatRegister, q12,    17);
+CONSTANT_REGISTER_DECLARATION(FloatRegister, q13,    21);
+CONSTANT_REGISTER_DECLARATION(FloatRegister, q14,    25);
+CONSTANT_REGISTER_DECLARATION(FloatRegister, q15,    29);
 
 CONSTANT_REGISTER_DECLARATION(FloatRegister, f0,      0);
 CONSTANT_REGISTER_DECLARATION(FloatRegister, f1,      1);

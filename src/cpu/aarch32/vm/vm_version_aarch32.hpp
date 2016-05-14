@@ -40,6 +40,7 @@ enum ProcessorFeatures {
   FT_ARMV6K = 32,
   FT_SINGLE_CORE = 64,
   FT_AdvSIMD = 128,
+  FT_CRC32 = 256,
 };
 
 class VM_Version : public Abstract_VM_Version {
