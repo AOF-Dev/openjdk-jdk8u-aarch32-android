@@ -2363,7 +2363,7 @@ void SharedRuntime::generate_deopt_blob() {
 
   // Restore frame locals after moving the frame
   __ vstr_f64(d0, Address(sp, RegisterSaver::offset_in_bytes(RegisterSaver::fpu_state_off)));
-  __ str(r0, Address(sp, RegisterSaver::offset_in_bytes(RegisterSaver::r0_off)));
+  __ strd(r0, Address(sp, RegisterSaver::offset_in_bytes(RegisterSaver::r0_off)));
 
   // Call C code.  Need thread but NOT official VM entry
   // crud.  We cannot block on this call, no GC can happen.  Call should
@@ -2391,7 +2391,7 @@ void SharedRuntime::generate_deopt_blob() {
 
   // Collect return values
   __ vldr_f64(d0, Address(sp, RegisterSaver::offset_in_bytes(RegisterSaver::fpu_state_off)));
-  __ ldr(r0, Address(sp, RegisterSaver::offset_in_bytes(RegisterSaver::r0_off)));
+  __ ldrd(r0, Address(sp, RegisterSaver::offset_in_bytes(RegisterSaver::r0_off)));
   // I think this is useless (throwing pc?)
   // __ ldr(r3, Address(sp, RegisterSaver::r3_offset_in_bytes()));
 
