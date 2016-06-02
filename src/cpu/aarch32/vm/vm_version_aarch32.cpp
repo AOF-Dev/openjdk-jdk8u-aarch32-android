@@ -292,12 +292,6 @@ void VM_Version::get_processor_features() {
   UseMembar = false;
   }*/
 
-  if (UseCRC32Intrinsics) {
-    if (!FLAG_IS_DEFAULT(UseCRC32Intrinsics))
-      warning("CRC32 Intrinsics are not implemented on this CPU");
-    FLAG_SET_DEFAULT(UseCRC32Intrinsics, false);
-  }
-
   if (UseAES) {
     warning("AES instructions are not implemented on this CPU");
     FLAG_SET_DEFAULT(UseAES, false);
