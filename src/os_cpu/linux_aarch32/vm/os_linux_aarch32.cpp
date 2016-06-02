@@ -81,10 +81,12 @@
 #define SPELL_REG_SP "sp"
 #define SPELL_REG_FP "fp"
 
+extern "C" {
+  void *linux_aarch32_current_frame_pointer();
+}
+
 address os::current_stack_pointer() {
-  register void* sp __asm__ (SPELL_REG_SP);
-  // This is a leaf method. Only rfp has been pushed.
-  return (address) sp + BytesPerWord;
+  return (address) linux_aarch32_current_frame_pointer();
 }
 
 char* os::non_memory_address_word() {
