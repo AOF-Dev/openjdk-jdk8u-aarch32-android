@@ -74,7 +74,8 @@ ifeq ($(OPENJDK_TARGET_OS), linux)
       LinuxNativeDispatcher.c \
       LinuxWatchService.c \
       UnixCopyFile.c \
-      UnixNativeDispatcher.c
+      UnixNativeDispatcher.c \
+      UnixConstants.c
 endif
 
 ifeq ($(OPENJDK_TARGET_OS), macosx)

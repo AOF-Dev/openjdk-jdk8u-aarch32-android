@@ -102,7 +102,11 @@ ifneq ($(OPENJDK_TARGET_OS), windows)
   GENSRC_MISC += $(JDK_OUTPUTDIR)/gensrc/sun/nio/fs/UnixConstants.java
 
   GENSRC_UC_SRC := $(JDK_TOPDIR)/make/src/native/genconstants/fs
+ifneq ($(OPENJDK_TARGET_OS), linux)
   GENSRC_UC_SRC_FILE := genUnixConstants.c
+else
+  GENSRC_UC_SRC_FILE := genCrossUnixConstants.c
+endif
   GENSRC_UC_BIN := $(JDK_OUTPUTDIR)/btnative/genUnixConstants
 
   UC_COPYRIGHT_YEARS = $(shell $(CAT) $(GENSRC_UC_SRC)/$(GENSRC_UC_SRC_FILE) | \
