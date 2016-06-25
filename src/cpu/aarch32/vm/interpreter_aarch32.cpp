@@ -92,6 +92,7 @@ address AbstractInterpreterGenerator::generate_slow_signature_handler() {
   // Restore LR
   __ ldr(lr, sp);
 
+#ifdef HARD_FLOAT_CC
   // Do FP first so we can use c_rarg3 as temp
   __ ldr(c_rarg3, Address(sp, wordSize)); // float/double identifiers
 
@@ -115,6 +116,7 @@ address AbstractInterpreterGenerator::generate_slow_signature_handler() {
     }
     __ bind(fp_done);
   }
+#endif // HARD_FLOAT_CC
 
   // c_rarg0 contains the result from the call of
   // InterpreterRuntime::slow_signature_handler so we don't touch it
