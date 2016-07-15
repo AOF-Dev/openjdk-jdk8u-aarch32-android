@@ -94,8 +94,13 @@ inline jint Atomic::cmpxchg (jint exchange_value, volatile jint* dest, jint comp
  return __sync_val_compare_and_swap(dest, compare_value, exchange_value);
 }
 
-inline void Atomic::store (jlong store_value, jlong* dest) { *dest = store_value; }
-inline void Atomic::store (jlong store_value, volatile jlong* dest) { *dest = store_value; }
+inline void Atomic::store (jlong store_value, jlong* dest) {
+  __atomic_store_n(dest, store_value, __ATOMIC_RELAXED);
+}
+
+inline void Atomic::store (jlong store_value, volatile jlong* dest) {
+  __atomic_store_n(dest, store_value, __ATOMIC_RELAXED);
+}
 
 inline intptr_t Atomic::add_ptr(intptr_t add_value, volatile intptr_t* dest)
 {
@@ -141,6 +146,8 @@ inline void* Atomic::cmpxchg_ptr(void* exchange_value, volatile void* dest, void
                               (intptr_t) compare_value);
 }
 
-inline jlong Atomic::load(volatile jlong* src) { return *src; }
+inline jlong Atomic::load(volatile jlong* src) {
+  return __atomic_load_n(src, __ATOMIC_RELAXED);
+}
 
 #endif // OS_CPU_LINUX_AARCH32_VM_ATOMIC_LINUX_AARCH32_INLINE_HPP

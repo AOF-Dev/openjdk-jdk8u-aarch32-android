@@ -102,9 +102,8 @@ void CompiledStaticCall::set_to_interpreted(methodHandle callee, address entry) 
 
   // Creation also verifies the object.
   NativeMovConstReg* method_holder = nativeMovConstReg_at(stub);
+  NativeJump* jump = NativeJump::from(method_holder->next_instruction_address());
 #ifndef PRODUCT
-  NativeGeneralJump* jump = nativeGeneralJump_at(method_holder->next_instruction_address());
-
   assert(method_holder->data() == 0 || method_holder->data() == (intptr_t)callee(),
          "a) MT-unsafe modification of inline cache");
   assert(method_holder->data() == 0 || jump->jump_destination() == entry,
@@ -112,7 +111,7 @@ void CompiledStaticCall::set_to_interpreted(methodHandle callee, address entry) 
 #endif
   // Update stub.
   method_holder->set_data((intptr_t)callee());
-  NativeGeneralJump::insert_unconditional(method_holder->next_instruction_address(), entry);
+  jump->set_jump_destination(entry);
   ICache::invalidate_range(stub, to_interp_stub_size());
   // Update jump to call.
   set_destination_mt_safe(stub);

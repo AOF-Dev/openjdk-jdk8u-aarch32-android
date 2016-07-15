@@ -70,7 +70,6 @@ class NativeInstruction VALUE_OBJ_CLASS_SPEC {
   bool is_movw(Register dst, unsigned imm, Assembler::Condition cond = Assembler::C_DFLT);
   bool is_ldr(Register dst, Address addr, Assembler::Condition cond = Assembler::C_DFLT);
 
-
   inline bool is_jump() const;
   inline bool is_call() const;
 
@@ -114,6 +113,12 @@ class NativeInstruction VALUE_OBJ_CLASS_SPEC {
 
   void set_uint(juint v) {
     *(juint *) addr() = v;
+  }
+
+  void atomic_set_ulong_at(int offset, julong v) {
+    address a = addr() + offset;
+    assert(((uintptr_t) a) % 8 == 0, "should be aligned");
+    Atomic::store(v, (volatile jlong *) a);
   }
 
  public:
@@ -174,11 +179,9 @@ class NativeMovConstReg: public NativeInstruction {
 
   intptr_t data() const;
   void set_data(intptr_t x);
-  void set_data_mt_safe(intptr_t x);
 
   Register destination() const;
   void set_destination(Register r);
-  void set_destination_mt_safe(Register r, bool assert_lock = true);
 
   void flush() {
     ICache::invalidate_range(addr(), max_instruction_size);
@@ -220,15 +223,52 @@ inline NativeMovConstReg* nativeMovConstReg_before(address addr) {
   return test;
 }
 
+class NativeTrampolineCall: public NativeBranchType {
+ public:
+  enum {
+    instruction_size = 3 * arm_insn_sz
+  };
+  address destination() const;
+  void set_destination(address dest);
+  void set_destination_mt_safe(address dest, bool assert_lock = true);
+
+  static bool is_at(address address);
+  static NativeTrampolineCall* from(address address);
+
+  address next_instruction_address() const  {
+    assert(is_at(addr()), "not call");
+    return addr() + instruction_size;
+  }
+};
+
+class NativeRegCall: public NativeBranchType {
+ public:
+
+  Register destination() const;
+  void set_destination(Register r);
+
+  static bool is_at(address address);
+  static NativeRegCall* from(address address);
+};
+
 class NativeCall: public NativeInstruction {
   friend class Relocation;
  protected:
   NativeInstruction* is_long_jump_or_call_at(address addr);
 
+  // NativeCall represents:
+  //  NativeImmCall,
+  //  NativeMovConstReg + NativeBranchType,
+  //  NativeTrampolineCall
  public:
   enum {
-    instruction_size = NativeMovConstReg::movw_movt_pair_sz + NativeBranchType::instruction_size,
+    instruction_size = 3 * arm_insn_sz
   };
+#ifdef ASSERT
+  StaticAssert<(int) NativeTrampolineCall::instruction_size <= (int) instruction_size> dummy1;
+  StaticAssert<NativeMovConstReg::movw_movt_pair_sz
+      + NativeRegCall::instruction_size <= (int) instruction_size> dummy2;
+#endif
 
   address destination() const;
   void set_destination(address dest);
@@ -243,8 +283,6 @@ class NativeCall: public NativeInstruction {
 
   // MT-safe patching of a call instruction.
   static void insert(address code_pos, address entry);
-
-  static void replace_mt_safe(address instr_addr, address code_buffer);
 
   // Similar to replace_mt_safe, but just changes the destination.  The
   // important thing is that free-running threads are able to execute
@@ -386,7 +424,7 @@ inline NativeJump* nativeJump_at(address addr) {
 class NativeGeneralJump: public NativeJump {
 public:
   enum {
-    instruction_size = NativeJump::instruction_size,
+    instruction_size = arm_insn_sz,
   };
 
   static void insert_unconditional(address code_pos, address entry);
@@ -440,20 +478,9 @@ class NativeImmCall: public NativeBranchType {
  public:
   address destination() const;
   void set_destination(address dest);
-  void set_destination_mt_safe(address dest, bool assert_lock = true);
 
   static bool is_at(address address);
   static NativeImmCall* from(address address);
-};
-
-class NativeRegCall: public NativeBranchType {
- public:
-
-  Register destination() const;
-  void set_destination(Register r);
-
-  static bool is_at(address address);
-  static NativeRegCall* from(address address);
 };
 
 class NativeImmJump: public NativeBranchType {

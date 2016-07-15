@@ -56,6 +56,8 @@ address NativeCall::destination() const {
     return NativeImmCall::from(addr())->destination();
   } else if (NativeMovConstReg::is_at(addr())) {
     return address(NativeMovConstReg::from(addr())->data());
+  } else if (NativeTrampolineCall::is_at(addr())) {
+    return NativeTrampolineCall::from(addr())->destination();
   }
   ShouldNotReachHere();
   return NULL;
@@ -67,6 +69,8 @@ void NativeCall::set_destination(address dest) {
     NativeImmCall::from(addr())->set_destination(dest);
   } else if (NativeMovConstReg::is_at(addr())) {
     NativeMovConstReg::from(addr())->set_data((uintptr_t) dest);
+  } else if (NativeTrampolineCall::is_at(addr())) {
+    NativeTrampolineCall::from(addr())->set_destination(dest);
   } else {
     ShouldNotReachHere();
   }
@@ -74,10 +78,18 @@ void NativeCall::set_destination(address dest) {
 
 void NativeCall::set_destination_mt_safe(address dest, bool assert_lock) {
   assert(is_call(), "not a call");
+
+  // patching should be not only safe (i.e. this call could be executed by some thread),
+  // but it also should be atomic (some other thread could call NativeCall::destination()
+  // and see valid destination value)
+
   if (NativeImmCall::is_at(addr())) {
-    NativeImmCall::from(addr())->set_destination_mt_safe(dest);
-  } else if (NativeMovConstReg::is_at(addr())) {
-    NativeMovConstReg::from(addr())->set_data_mt_safe((uintptr_t) dest);
+    assert(false, "could be patched mt_safe way, but should not be requested to. "
+           "Known mt_safe requests have arbitrary destination offset. "
+           "Use trampoline_call for this.");
+    ShouldNotCallThis();
+  } else if (NativeTrampolineCall::is_at(addr())) {
+    NativeTrampolineCall::from(addr())->set_destination_mt_safe(dest);
   } else {
     ShouldNotReachHere();
   }
@@ -89,7 +101,7 @@ void NativeCall::insert(address code_pos, address entry) {
 
 bool NativeCall::is_call_before(address return_address) {
   return is_at(return_address - NativeImmCall::instruction_size) ||
-    is_at(return_address - NativeMovConstReg::movw_movt_pair_sz - NativeRegCall::instruction_size);
+    is_at(return_address - NativeCall::instruction_size);
 }
 
 address NativeCall::next_instruction_address() const {
@@ -101,6 +113,8 @@ address NativeCall::next_instruction_address() const {
     address next_instr = nm->next_instruction_address();
     assert(NativeRegCall::is_at(next_instr), "should be");
     return NativeRegCall::from(next_instr)->next_instruction_address();
+  } else if (NativeTrampolineCall::is_at(addr())) {
+    return NativeTrampolineCall::from(addr())->next_instruction_address();
   } else {
     ShouldNotReachHere();
     return NULL;
@@ -119,6 +133,8 @@ bool NativeCall::is_at(address addr) {
     address next_instr = nm->next_instruction_address();
     return NativeRegCall::is_at(next_instr) &&
       NativeRegCall::from(next_instr)->destination() == nm->destination();
+  } else if (NativeTrampolineCall::is_at(addr)) {
+    return true;
   }
   return false;
 }
@@ -126,6 +142,34 @@ bool NativeCall::is_at(address addr) {
 NativeCall* NativeCall::from(address addr) {
   assert(NativeCall::is_at(addr), "");
   return (NativeCall*) addr;
+}
+
+//-------------------------------------------------------------------
+
+address NativeTrampolineCall::destination() const {
+  assert(is_at(addr()), "not call");
+  return (address) uint_at(8);
+}
+
+void NativeTrampolineCall::set_destination(address dest) {
+  assert(is_at(addr()), "not call");
+  set_uint_at(8, (uintptr_t) dest);
+}
+
+void NativeTrampolineCall::set_destination_mt_safe(address dest, bool assert_lock) {
+  assert(is_at(addr()), "not call");
+  set_destination(dest);
+  // FIXME invalidate data cache
+}
+
+bool NativeTrampolineCall::is_at(address addr) {
+  return as_uint(addr    ) == 0xe28fe004    // add     lr, pc, #4
+      && as_uint(addr + 4) == 0xe51ff004;   // ldr     pc, [pc, -4]
+}
+
+NativeTrampolineCall* NativeTrampolineCall::from(address addr) {
+  assert(NativeTrampolineCall::is_at(addr), "");
+  return (NativeTrampolineCall*) addr;
 }
 
 //-------------------------------------------------------------------
@@ -141,14 +185,6 @@ address NativeImmCall::destination() const {
 void NativeImmCall::set_destination(address dest) {
   assert(is_imm_call(), "not call");
   patch_offset_to(dest);
-}
-
-void NativeImmCall::set_destination_mt_safe(address dest, bool assert_lock) {
-  ResourceMark rm;
-  assert(is_call(), "unexpected code at call site");
-
-  set_destination(dest);
-  ICache::invalidate_range(dest, instruction_size);
 }
 
 bool NativeImmCall::is_at(address addr) {
@@ -196,32 +232,6 @@ void NativeMovConstReg::set_data(intptr_t x) {
   MacroAssembler::pd_patch_instruction(addr(), (address)x);
   ICache::invalidate_range(addr(), max_instruction_size);
 };
-
-void NativeMovConstReg::set_data_mt_safe(intptr_t data) {
-  assert(is_movw_movt_at(addr()), "only movw movt supported");
-
-  // Can't use CodeBlob/(Macro)Assembler here, as assembling required
-  // from high addreses to low. Use direct encoding instead.
-
-  unsigned r = destination()->encoding();
-  assert(r < 16, "register should be encodeable");
-
-  set_uint(0xeafffffeul); // loop: b loop
-
-  ICache::invalidate_range(addr(), arm_insn_sz);
-
-  set_uint_at(4,      0xe3400000   |
-      ((data >> 12) & 0x000f0000)  |
-      (r << 12)                    |
-      ((data >> 16) & 0x00000fff));
-
-  set_uint_at(0,      0xe3000000   |
-      ((data << 4)  & 0x000f0000)  |
-      (r << 12)                    |
-      (data         & 0x00000fff));
-
-  ICache::invalidate_range(addr(), movw_movt_pair_sz);
-}
 
 void NativeMovConstReg::print() {
   tty->print_cr(PTR_FORMAT ": mov reg, " INTPTR_FORMAT,
@@ -390,7 +400,6 @@ bool NativeBranchType::is_branch_type(uint32_t insn) {
 }
 
 void NativeBranchType::patch_offset_to(address dest) {
-  assert(is_imm_call(), "not call");
   uint32_t insn = as_uint();
   const intptr_t off = (dest - (addr() + 8));
   assert((off & 3) == 0, "should be");
@@ -545,13 +554,24 @@ void NativeGeneralJump::insert_unconditional(address code_pos, address entry) {
   CodeBuffer cb(code_pos, instruction_size);
   MacroAssembler a(&cb);
 
-  a.mov(rscratch1, entry);
-  a.b(rscratch1);
+  a.b(entry);
 
   ICache::invalidate_range(code_pos, instruction_size);
 }
 
 // MT-safe patching of a long jump instruction.
 void NativeGeneralJump::replace_mt_safe(address instr_addr, address code_buffer) {
-  ShouldNotCallThis();
+  // FIXME NativeCall from patching_epilog nops filling
+  const int bytes_to_copy = NativeCall::instruction_size;
+  const address patching_switch_addr = code_buffer + bytes_to_copy;
+  NativeImmJump* patching_switch = NativeImmJump::from(patching_switch_addr);
+  assert(patching_switch->destination() == patching_switch_addr + NativeInstruction::arm_insn_sz,
+         "switch should be branch to next instr at this point");
+  patching_switch->set_destination(instr_addr + bytes_to_copy);
+  ICache::invalidate_word(patching_switch_addr);
+
+  NativeImmJump* nj = NativeImmJump::from(instr_addr); // checking that it is a jump
+  nj->set_destination(code_buffer);
+  ICache::invalidate_word(instr_addr);
+
 }

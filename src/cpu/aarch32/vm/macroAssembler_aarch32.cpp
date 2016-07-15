@@ -625,8 +625,11 @@ void MacroAssembler::trampoline_call(Address entry, CodeBuffer *cbuf) {
   if (cbuf) cbuf->set_insts_mark();
   relocate(entry.rspec());
 
-  mov(rscratch1, entry.target());
-  bl(rscratch1);
+  // Have make trampline such way: destination address should be raw 4 byte value,
+  // so it's patching could be done atomically.
+  add(lr, r15_pc, 4); // pc is this addr + 8
+  ldr(r15_pc, Address(r15_pc, 4)); // Address does correction for offset from pc base
+  emit_int32((uintptr_t) entry.target());
 }
 
 void MacroAssembler::ic_call(address entry) {
