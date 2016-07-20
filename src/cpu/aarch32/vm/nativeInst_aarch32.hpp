@@ -69,6 +69,7 @@ class NativeInstruction VALUE_OBJ_CLASS_SPEC {
   bool is_movt(Register dst, unsigned imm, Assembler::Condition cond = Assembler::C_DFLT);
   bool is_movw(Register dst, unsigned imm, Assembler::Condition cond = Assembler::C_DFLT);
   bool is_ldr(Register dst, Address addr, Assembler::Condition cond = Assembler::C_DFLT);
+  bool is_patched_already() const;
 
   inline bool is_jump() const;
   inline bool is_call() const;

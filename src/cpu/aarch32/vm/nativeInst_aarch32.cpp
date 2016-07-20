@@ -38,6 +38,9 @@
 #include "c1/c1_Runtime1.hpp"
 #endif
 
+// LIRAssembler fills patching site with nops up to NativeCall::instruction_size
+static const int patching_copy_buff_len = NativeCall::instruction_size;
+
 NativeInstruction* NativeInstruction::from(address addr) {
   return (NativeInstruction*) addr;
 }
@@ -561,17 +564,28 @@ void NativeGeneralJump::insert_unconditional(address code_pos, address entry) {
 
 // MT-safe patching of a long jump instruction.
 void NativeGeneralJump::replace_mt_safe(address instr_addr, address code_buffer) {
-  // FIXME NativeCall from patching_epilog nops filling
-  const int bytes_to_copy = NativeCall::instruction_size;
-  const address patching_switch_addr = code_buffer + bytes_to_copy;
+  const address patching_switch_addr = code_buffer + patching_copy_buff_len;
   NativeImmJump* patching_switch = NativeImmJump::from(patching_switch_addr);
+  assert(!NativeInstruction::from(instr_addr)->is_patched_already(), "not patched yet");
   assert(patching_switch->destination() == patching_switch_addr + NativeInstruction::arm_insn_sz,
          "switch should be branch to next instr at this point");
-  patching_switch->set_destination(instr_addr + bytes_to_copy);
+  patching_switch->set_destination(instr_addr + patching_copy_buff_len);
   ICache::invalidate_word(patching_switch_addr);
 
   NativeImmJump* nj = NativeImmJump::from(instr_addr); // checking that it is a jump
   nj->set_destination(code_buffer);
   ICache::invalidate_word(instr_addr);
 
+  assert(NativeInstruction::from(instr_addr)->is_patched_already(), "should patched already");
+}
+
+bool NativeInstruction::is_patched_already() const {
+  if (NativeImmJump::is_at(addr())) {
+    address maybe_copy_buff = NativeImmJump::from(addr())->destination();
+    address maybe_patching_switch = maybe_copy_buff + patching_copy_buff_len;
+    if (NativeImmJump::is_at(maybe_patching_switch)) {
+      return NativeImmJump::from(maybe_patching_switch)->destination() == addr() + patching_copy_buff_len;
+    }
+  }
+  return false;
 }

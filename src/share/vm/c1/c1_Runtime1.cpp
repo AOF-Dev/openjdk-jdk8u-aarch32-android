@@ -954,7 +954,8 @@ JRT_ENTRY(void, Runtime1::patch_code(JavaThread* thread, Runtime1::StubID stub_i
       NativeGeneralJump* jump = nativeGeneralJump_at(caller_frame.pc());
       address instr_pc = jump->jump_destination();
       NativeInstruction* ni = nativeInstruction_at(instr_pc);
-      if (ni->is_jump() ) {
+      if (NOT_AARCH32(ni->is_jump())
+          AARCH32_ONLY(!ni->is_patched_already())) {
         // the jump has not been patched yet
         // The jump destination is slow case and therefore not part of the stubs
         // (stubs are only for StaticCalls)
