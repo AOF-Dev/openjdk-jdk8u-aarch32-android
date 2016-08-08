@@ -492,7 +492,7 @@ bool NativeInstruction::is_movt(Register dst, unsigned imm, Assembler::Condition
   bool a2 = Instruction_aarch32::extract(uint_at(0), 15, 12) == (unsigned)dst;
   bool a3 = Instruction_aarch32::extract(uint_at(0), 11, 0) == ((unsigned)imm & 0xfff);
   bool a4 = Instruction_aarch32::extract(uint_at(0), 19, 16) == ((unsigned)imm >> 12);
-  bool a5 = Instruction_aarch32::extract(uint_at(0), 31, 28) == cond;
+  bool a5 = Instruction_aarch32::extract(uint_at(0), 31, 28) == (unsigned)cond;
 
   return a1 && a2 && a3 && a4 && a5;
 }
@@ -502,7 +502,7 @@ bool NativeInstruction::is_movw(Register dst, unsigned imm, Assembler::Condition
   bool a2 = Instruction_aarch32::extract(uint_at(0), 15, 12) == (unsigned)dst;
   bool a3 = Instruction_aarch32::extract(uint_at(0), 11, 0) == ((unsigned)imm & 0xfff);
   bool a4 = Instruction_aarch32::extract(uint_at(0), 19, 16) == ((unsigned)imm >> 12);
-  bool a5 = Instruction_aarch32::extract(uint_at(0), 31, 28) == cond;
+  bool a5 = Instruction_aarch32::extract(uint_at(0), 31, 28) == (unsigned)cond;
 
   return a1 && a2 && a3 && a4 && a5;
 }
@@ -525,7 +525,7 @@ bool NativeInstruction::is_ldr(Register dst, Address addr, Assembler::Condition 
     bool a3 = Instruction_aarch32::extract(uint_at(0), 20, 20) == 1;
     bool a4 = Instruction_aarch32::extract(uint_at(0), 22, 22) == 0;
     bool a5 = Instruction_aarch32::extract(uint_at(0), 27, 25) == 0b010;
-    bool a6 = Instruction_aarch32::extract(uint_at(0), 31, 28) == cond;
+    bool a6 = Instruction_aarch32::extract(uint_at(0), 31, 28) == (unsigned)cond;
 
     return a1 && a2 && a3 && a4 && a5 && a6;
 }
