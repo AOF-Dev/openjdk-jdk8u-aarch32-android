@@ -34,14 +34,24 @@ class Bytes: AllStatic {
   // Returns true if the byte ordering used by Java is different from the native byte ordering
   // of the underlying machine. For example, this is true for Intel x86, but false for Solaris
   // on Sparc.
+  //
+  // AArch32 is little-endian, Java is big-endian; returns true
   static inline bool is_Java_byte_ordering_different(){ return true; }
 
 
-  // Efficient reading and writing of unaligned unsigned data in platform-specific byte ordering
-  // (no special code is needed since x86 CPUs can access unaligned data)
+  // Efficient reading and writing of unaligned unsigned data in platform-specific byte ordering.
+  // Since ARMv6 unaligned short and word accesses are handled by hardware.
+  // However, unaligned double-word access causes kernel trap and software processing,
+  // so we turn it to fast unalinged word access.
   static inline u2   get_native_u2(address p)         { return *(u2*)p; }
   static inline u4   get_native_u4(address p)         { return *(u4*)p; }
-  static inline u8   get_native_u8(address p)         { return *(u8*)p; }
+  static inline u8   get_native_u8(address p)         {
+    if (!(uintptr_t(p) & 3)) {
+      return *(u8*)p;
+    }
+    u4 *const a = (u4*) p;
+    return (u8(a[1]) << 32) | a[0];
+  }
 
   static inline void put_native_u2(address p, u2 x)   { *(u2*)p = x; }
   static inline void put_native_u4(address p, u4 x)   { *(u4*)p = x; }
@@ -50,15 +60,23 @@ class Bytes: AllStatic {
 
   // Efficient reading and writing of unaligned unsigned data in Java
   // byte ordering (i.e. big-endian ordering). Byte-order reversal is
-  // needed since x86 CPUs use little-endian format.
+  // needed since AArch32 use little-endian format.
   static inline u2   get_Java_u2(address p)           { return swap_u2(get_native_u2(p)); }
   static inline u4   get_Java_u4(address p)           { return swap_u4(get_native_u4(p)); }
   static inline u8   get_Java_u8(address p)           { return swap_u8(get_native_u8(p)); }
 
   static inline void put_Java_u2(address p, u2 x)     { put_native_u2(p, swap_u2(x)); }
   static inline void put_Java_u4(address p, u4 x)     { put_native_u4(p, swap_u4(x)); }
-  static inline void put_Java_u8(address p, u8 x)     { put_native_u8(p, swap_u8(x)); }
-
+  static inline void put_Java_u8(address p, u8 x)     {
+    const u8 nx = swap_u8(x);
+    if (!(uintptr_t(p) & 3)) {
+      *(u8*)p = nx;
+    } else {
+      u4 *const a = (u4*) p;
+      a[0] = nx;
+      a[1] = nx >> 32;
+    }
+  }
 
   // Efficient swapping of byte ordering
   static inline u2   swap_u2(u2 x);                   // compiler-dependent implementation

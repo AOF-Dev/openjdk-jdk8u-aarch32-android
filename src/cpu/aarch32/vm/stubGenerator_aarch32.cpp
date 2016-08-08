@@ -638,155 +638,64 @@ class StubGenerator: public StubCodeGenerator {
     }
   }
 
-  typedef enum {
-    copy_forwards = 1,
-    copy_backwards = -1
-  } copy_direction;
-
-  // Bulk copy of blocks of 4 words.
   //
-  // count is a count of words.
+  // Small copy: less than 4 bytes.
   //
-  // Precondition: count >= 2
-  //
-  // Postconditions:
-  //
-  // The least significant bit of count contains the remaining count
-  // of words to copy.  The rest of count is trash.
-  //
-  // s and d are adjusted to point to the remaining words to copy
-  //
-  void generate_copy_longs(Label &start, Register s, Register d, Register count,
-                           copy_direction direction) {
-    int unit = wordSize * direction;
-
-    int offset;
-    const Register t0 = r4, t1 = r5, t2 = r6, t3 = r7;
-
-    assert_different_registers(rscratch1, t0, t1, t2, t3);
-    assert_different_registers(s, d, count, rscratch1);
-
-    Label again, large, small;
-    __ align(6);
-    __ bind(start);
-    __ cmp(count, 4);
-    __ b(small, Assembler::LO);
-    if (direction == copy_forwards) {
-      __ sub(s, s, 2 * wordSize);
-      __ sub(d, d, 2 * wordSize);
-    }
-    __ subs(count, count, 8);
-    __ b(large, Assembler::GE);
-
-    // 4 <= count < 8 words.  Copy 4.
-    __ ldrd(t0, t1, Address(s, 2 * unit));
-    __ ldrd(t2, t3, Address(__ pre(s, 4 * unit)));
-
-    __ strd(t0, t1, Address(d, 2 * unit));
-    __ strd(t2, t3, Address(__ pre(d, 4 * unit)));
-
-    if (direction == copy_forwards) {
-      __ add(s, s, 2 * wordSize);
-      __ add(d, d, 2 * wordSize);
-    }
-
-    {
-      Label L2;
-      __ bind(small);
-      __ tbz(count, 1, L2);
-      __ ldrd(t0, t1, Address(__ adjust(s, 2 * unit, direction == copy_backwards)));
-      __ strd(t0, t1, Address(__ adjust(d, 2 * unit, direction == copy_backwards)));
-      __ bind(L2);
-    }
-
-    __ b(lr);
-
-    __ align(6);
-    __ bind(large);
-
-    // Fill 4 registers
-    __ ldrd(t0, t1, Address(s, 2 * unit));
-    __ ldrd(t2, t3, Address(__ pre(s, 4 * unit)));
-
-    __ bind(again);
-
-    if (direction == copy_forwards && PrefetchCopyIntervalInBytes > 0) {
-      __ pld(s, PrefetchCopyIntervalInBytes);
-    }
-
-    __ strd(t0, t1, Address(d, 2 * unit));
-    __ ldrd(t0, t1, Address(s, 2 * unit));
-    __ strd(t2, t3, Address(__ pre(d, 4 * unit)));
-    __ ldrd(t2, t3, Address(__ pre(s, 4 * unit)));
-
-    __ subs(count, count, 4);
-    __ b(again, Assembler::HS);
-
-    // Drain
-    __ strd(t0, t1, Address(d, 2 * unit));
-    __ strd(t2, t3, Address(__ pre(d, 4 * unit)));
-
-    if (direction == copy_forwards) {
-      __ add(s, s, 2 * wordSize);
-      __ add(d, d, 2 * wordSize);
-    }
-
-    {
-      Label L2;
-      __ tbz(count, 1, L2);
-      __ ldrd(t0, t1, Address(__ adjust(s, 2 * unit, direction == copy_backwards)));
-      __ strd(t0, t1, Address(__ adjust(d, 2 * unit, direction == copy_backwards)));
-      __ bind(L2);
-    }
-
-    __ b(lr);
-
-  }
-
-  // Small copy: less than 8 bytes.
-  //
-  // NB: Ignores all of the bits of count which represent more than 7
+  // NB: Ignores all of the bits of count which represent more than 3
   // bytes, so a caller doesn't have to mask them.
 
-  void copy_memory_small(Register s, Register d, Register count, Register tmp, int step) {
-    bool is_backwards = step < 0;
-    size_t granularity = uabs(step);
-    int direction = is_backwards ? -1 : 1;
-    int unit = wordSize * direction;
+  void copy_memory_small(Register s, Register d, Register count, Register tmp, bool is_aligned, int step) {
+    const int granularity = uabs(step);
+    const bool gen_always = !is_aligned || (-4 < step && step < 0);
+    Label halfword, done;
 
-    Label Lpair, Lword, Lint, Lshort, Lbyte;
-
-    assert(granularity
-           && granularity <= sizeof (jlong), "Impossible granularity in copy_memory_small");
-
-    // ??? I don't know if this bit-test-and-branch is the right thing
-    // to do.  It does a lot of jumping, resulting in several
-    // mispredicted branches.  It might make more sense to do this
-    // with something like Duff's device with a single computed branch.
-
-    if (granularity <= sizeof (jint)) {
-      __ tbz(count, 2 - exact_log2(granularity), Lint);
-      __ ldr(tmp, Address(__ adjust(s, sizeof (jint) * direction, is_backwards)));
-      __ str(tmp, Address(__ adjust(d, sizeof (jint) * direction, is_backwards)));
-      __ bind(Lint);
+    if ((granularity <= 1) || gen_always) {
+      __ tst(count, 1);
+      __ b(halfword, Assembler::EQ);
+      __ ldrb(tmp, step < 0 ? __ pre(s, -1) : __ post(s, 1));
+      __ strb(tmp, step < 0 ? __ pre(d, -1) : __ post(d, 1));
     }
 
-    if (granularity <= sizeof (jshort)) {
-      __ tbz(count, 1 - exact_log2(granularity), Lshort);
-      __ ldrh(tmp, Address(__ adjust(s, sizeof (jshort) * direction, is_backwards)));
-      __ strh(tmp, Address(__ adjust(d, sizeof (jshort) * direction, is_backwards)));
-      __ bind(Lshort);
+    if ((granularity <= 2) || gen_always) {
+      __ bind(halfword);
+      __ tst(count, 2);
+      __ b(done, Assembler::EQ);
+      __ ldrh(tmp, step < 0 ? __ pre(s, -2) : __ post(s, 2));
+      __ strh(tmp, step < 0 ? __ pre(d, -2) : __ post(d, 2));
     }
 
-    if (granularity <= sizeof (jbyte)) {
-      __ tbz(count, 0, Lbyte);
-      __ ldrb(tmp, Address(__ adjust(s, sizeof (jbyte) * direction, is_backwards)));
-      __ strb(tmp, Address(__ adjust(d, sizeof (jbyte) * direction, is_backwards)));
-      __ bind(Lbyte);
-    }
+    __ bind(done);
   }
 
-  Label copy_f, copy_b;
+  void copy_memory_simd(Register s, Register d,
+                   Register count, Register tmp, int step,
+                   DoubleFloatRegSet tmp_set, size_t tmp_set_size ) {
+    assert(UseSIMDForMemoryOps, "should be available");
+    Label simd_loop, simd_small;
+
+    __ cmp(count, tmp_set_size);
+    __ b(simd_small, Assembler::LT);
+
+    __ mov(tmp, count, __ lsr(exact_log2(tmp_set_size)));
+    __ sub(count, count, tmp, __ lsl(exact_log2(tmp_set_size)));
+
+    __ bind(simd_loop);
+
+    __ pld(s, step < 0 ? -2 * tmp_set_size : tmp_set_size);
+
+    if (step < 0) {
+      __ vldmdb_f64(s, tmp_set.bits());
+      __ vstmdb_f64(d, tmp_set.bits());
+    } else {
+      __ vldmia_f64(s, tmp_set.bits());
+      __ vstmia_f64(d, tmp_set.bits());
+    }
+
+    __ subs(tmp, tmp, 1);
+    __ b(simd_loop, Assembler::NE);
+
+    __ bind(simd_small);
+  }
 
   // All-singing all-dancing memory copy.
   //
@@ -797,93 +706,114 @@ class StubGenerator: public StubCodeGenerator {
 
   void copy_memory(bool is_aligned, Register s, Register d,
                    Register count, Register tmp, int step) {
-    copy_direction direction = step < 0 ? copy_backwards : copy_forwards;
-    bool is_backwards = step < 0;
-    int granularity = uabs(step);
-    const Register t0 = r3, t1 = r4;
+    const int small_copy_size = 32; // 1 copy by ldm pays off alignment efforts and push/pop of temp set
+    const int granularity = uabs(step);
+    const Register tmp2 = rscratch2;
+    const Register t0 = r3;
+    Label small;
 
-    if (is_backwards) {
-      __ lea(s, Address(s, count, lsl(exact_log2(-step))));
-      __ lea(d, Address(d, count, lsl(exact_log2(-step))));
+    assert_different_registers(s, d, count, tmp, tmp2, t0);
+
+    __ mov(count, count, __ lsl(exact_log2(granularity)));
+
+    if (step < 0) {
+      __ add(s, s, count);
+      __ add(d, d, count);
     }
 
-    Label done, tail;
+    __ cmp(count, small_copy_size);
+    __ b(small, Assembler::LT);
 
-    __ cmp(count, 8/granularity);
-    __ b(tail, Assembler::LO);
-
-    // Now we've got the small case out of the way we can align the
-    // source address on a 2-word boundary.
-
-    Label aligned;
-
-    if (is_aligned) {
-      // We may have to adjust by 1 word to get s 2-word-aligned.
-      __ tbz(s, exact_log2(wordSize), aligned);
-      __ ldr(tmp, Address(__ adjust(s, direction * wordSize, is_backwards)));
-      __ str(tmp, Address(__ adjust(d, direction * wordSize, is_backwards)));
-      __ sub(count, count, wordSize/granularity);
-    } else {
-      if (is_backwards) {
-        __ andr(rscratch2, s, 2 * wordSize - 1);
+    // aligning
+    if (!is_aligned || (-4 < step && step < 0)) {
+      assert(3 <= small_copy_size, "may copy number of bytes required for alignment");
+      if (step < 0) {
+        __ andr(tmp2, s, 3);
       } else {
-        __ neg(rscratch2, s);
-        __ andr(rscratch2, rscratch2, 2 * wordSize - 1);
+        __ rsb(tmp2, s, 0);
+        __ andr(tmp2, tmp2, 3);
       }
-      // rscratch2 is the byte adjustment needed to align s.
-      __ cbz(rscratch2, aligned);
-      __ lsr(rscratch2, rscratch2, exact_log2(granularity));
-      __ sub(count, count, rscratch2);
+      __ sub(count, count, tmp2);
+      copy_memory_small(s, d, tmp2, tmp, is_aligned, step);
+    }
 
-#if 0
-      // ?? This code is only correct for a disjoint copy.  It may or
-      // may not make sense to use it in that case.
-
-      // Copy the first pair; s and d may not be aligned.
-      __ ldrd(t0, t1, Address(s, is_backwards ? -2 * wordSize : 0));
-      __ strd(t0, t1, Address(d, is_backwards ? -2 * wordSize : 0));
-
-      // Align s and d, adjust count
-      if (is_backwards) {
-        __ sub(s, s, rscratch2);
-        __ sub(d, d, rscratch2);
-      } else {
-        __ add(s, s, rscratch2);
-        __ add(d, d, rscratch2);
-      }
-#else
-      copy_memory_small(s, d, rscratch2, rscratch1, step);
+#ifdef ASSERT
+    Label src_aligned;
+    __ tst(s, 3);
+    __ b(src_aligned, Assembler::EQ);
+    __ stop("src is not aligned");
+    __ bind(src_aligned);
 #endif
+
+    // if destination is unaliged, copying by words is the only option
+    __ tst(d, 3);
+    __ b(small, Assembler::NE);
+#ifndef __SOFTFP__
+    if (UseSIMDForMemoryOps) {
+      copy_memory_simd(s, d, count, tmp2, step, DoubleFloatRegSet::range(d0, d7), 64);
+      copy_memory_simd(s, d, count, tmp2, step, DoubleFloatRegSet::range(d0, d1), 16);
+    } else
+#endif //__SOFTFP__
+    {
+      const RegSet tmp_set = RegSet::range(r4, r7);
+      const int tmp_set_size = 16;
+      Label ldm_loop;
+
+      assert_different_registers(s, d, count, tmp2, r4, r5, r6, r7);
+
+      __ cmp(count, tmp_set_size);
+      __ b(small, Assembler::LT);
+
+      __ push(tmp_set, sp);
+
+      __ mov(tmp2, count, __ lsr(exact_log2(tmp_set_size)));
+      __ sub(count, count, tmp2, __ lsl(exact_log2(tmp_set_size)));
+
+      __ bind(ldm_loop);
+
+      __ pld(s, step < 0 ? -2 * tmp_set_size : tmp_set_size);
+
+      if (step < 0) {
+        __ ldmdb(s, tmp_set.bits());
+        __ stmdb(d, tmp_set.bits());
+      } else {
+        __ ldmia(s, tmp_set.bits());
+        __ stmia(d, tmp_set.bits());
+      }
+
+      __ subs(tmp2, tmp2, 1);
+      __ b(ldm_loop, Assembler::NE);
+
+      __ pop(tmp_set, sp);
     }
 
-    __ cmp(count, 8/granularity);
-    __ b(tail, Assembler::LT);
-    __ bind(aligned);
+    __ bind(small);
 
-    // s is now 2-word-aligned.
+    Label words_loop, words_done;
+    __ cmp(count, BytesPerWord);
+    __ b(words_done, Assembler::LT);
 
-    // We have a count of units and some trailing bytes.  Adjust the
-    // count and do a bulk copy of words.
-    // hacky fix
-    if (granularity > wordSize) {
-      assert(granularity == 8, "should only be copy of longs");
-      __ lsl(rscratch2, count, 1);
-    } else {
-      __ lsr(rscratch2, count, exact_log2(wordSize/granularity));
-    }
-    if (direction == copy_forwards)
-      __ bl(copy_f);
-    else
-      __ bl(copy_b);
+    __ mov(tmp2, count, __ lsr(exact_log2(BytesPerWord)));
+    __ sub(count, count, tmp2, __ lsl(exact_log2(BytesPerWord)));
 
-    // And the tail.
+    __ bind(words_loop);
 
-    __ bind(tail);
-    copy_memory_small(s, d, count, tmp, step);
+    Address src = step < 0 ? __ pre(s, -BytesPerWord) : __ post(s, BytesPerWord);
+    Address dst = step < 0 ? __ pre(d, -BytesPerWord) : __ post(d, BytesPerWord);
+
+    __ pld(s, step < 0 ? -2 * BytesPerWord : BytesPerWord);
+    __ ldr(t0, src);
+    __ str(t0, dst);
+    __ subs(tmp2, tmp2, 1);
+
+    __ b(words_loop, Assembler::NE);
+
+    __ bind(words_done);
+    copy_memory_small(s, d, count, tmp, is_aligned, step);
   }
 
   // Arguments:
-  //   aligned - true => Input and output aligned on a HeapWord == 8-byte boundary
+  //   aligned - true => Input and output aligned on a HeapWord == 4-byte boundary
   //             ignored
   //   is_oop  - true => oop array, so generate store check code
   //   name    - stub name string
@@ -931,7 +861,7 @@ class StubGenerator: public StubCodeGenerator {
   }
 
   // Arguments:
-  //   aligned - true => Input and output aligned on a HeapWord == 8-byte boundary
+  //   aligned - true => Input and output aligned on a HeapWord == 4-byte boundary
   //             ignored
   //   is_oop  - true => oop array, so generate store check code
   //   name    - stub name string
@@ -949,7 +879,7 @@ class StubGenerator: public StubCodeGenerator {
                                  address *entry, const char *name,
                                  bool dest_uninitialized = false) {
     Register s = c_rarg0, d = c_rarg1, count = c_rarg2;
-
+    __ align(CodeEntryAlignment);
     StubCodeMark mark(this, "StubRoutines", name);
     address start = __ pc();
 
@@ -1134,9 +1064,6 @@ class StubGenerator: public StubCodeGenerator {
   }
 
   void generate_arraycopy_stubs() {
-    generate_copy_longs(copy_f, r0, r1, rscratch2, copy_forwards);
-    generate_copy_longs(copy_b, r0, r1, rscratch2, copy_backwards);
-
     address entry;
 
     // jbyte

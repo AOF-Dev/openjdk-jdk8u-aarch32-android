@@ -281,6 +281,10 @@ void VM_Version::get_processor_features() {
   }
 #endif // COMPILER2
 
+  if (FLAG_IS_DEFAULT(UseSIMDForMemoryOps) && (f & (FT_VFPV2 | FT_AdvSIMD))) {
+    FLAG_SET_DEFAULT(UseSIMDForMemoryOps, true);
+  }
+
 /*  if (FLAG_IS_DEFAULT(UseBarriersForVolatile)) {
     UseBarriersForVolatile = (_cpuFeatures & CPU_DMB_ATOMICS) != 0;
   }*/

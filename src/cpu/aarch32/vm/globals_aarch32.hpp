@@ -89,6 +89,8 @@ define_pd_global(intx, InlineSmallCode,          1000);
   product(bool, UseBarriersForVolatile, false,                          \
           "Use memory barriers to implement volatile accesses")         \
   product(bool, TraceTraps, false, "Trace all traps the signal handler")\
+  product(bool, UseSIMDForMemoryOps, false,                             \
+      "Use SIMD instructions in generated memory move code")            \
   product(bool, UseNeon, false,                                         \
           "Use Neon for CRC32 computation")                             \
   product(bool, UseCRC32, false,                                        \
