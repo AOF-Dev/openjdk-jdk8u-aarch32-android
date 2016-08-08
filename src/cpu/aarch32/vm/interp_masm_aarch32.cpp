@@ -1596,7 +1596,7 @@ void InterpreterMacroAssembler::profile_obj_type(Register obj, const Address& md
 
   ldr(rscratch1, mdo_addr);
   eor(obj, obj, rscratch1);
-  tst(obj, TypeEntries::type_klass_mask);
+  bics(rscratch1, obj, ~TypeEntries::type_klass_mask);
   b(next, Assembler::EQ); // klass seen before, nothing to
                            // do. The unknown bit may have been
                            // set already but no need to check.
@@ -1613,7 +1613,7 @@ void InterpreterMacroAssembler::profile_obj_type(Register obj, const Address& md
   // profiling to this obj's klass
   ldr(rscratch1, mdo_addr);
   eor(obj, obj, rscratch1);
-  tst(obj, TypeEntries::type_klass_mask);
+  bics(rscratch1, obj, ~TypeEntries::type_klass_mask);
   b(next, Assembler::EQ);
 
   // different than before. Cannot keep accurate profile.

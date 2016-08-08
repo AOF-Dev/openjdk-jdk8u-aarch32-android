@@ -1894,7 +1894,9 @@ void TemplateTable::branch(bool is_jsr, bool is_wide)
           // being compiled, add a second test to make sure the overflow
           // function is called only once every overflow_frequency.
           const int overflow_frequency = 1024;
-          __ ands(r1, r1, overflow_frequency - 1);
+          const int of_mask_lsb = exact_log2(overflow_frequency);
+          __ bfc(r1, of_mask_lsb, 32 - of_mask_lsb);
+          __ cmp(r1, 0);
           __ b(backedge_counter_overflow, Assembler::EQ);
 
         }
