@@ -1761,6 +1761,7 @@ nmethod* SharedRuntime::generate_native_wrapper(MacroAssembler* masm,
   // We have all of the arguments setup at this point. We must not touch any register
   // argument registers at this point (what if we save/restore them there are no oop?
 
+#ifdef DTRACE_ENABLED
   {
     SkipIfEqual skip(masm, &DTraceMethodProbes, false);
     // protect the args we've loaded
@@ -1771,6 +1772,7 @@ nmethod* SharedRuntime::generate_native_wrapper(MacroAssembler* masm,
       rthread, c_rarg1);
     restore_args(masm, total_c_args, c_arg, out_regs);
   }
+#endif
 
   // RedefineClasses() tracing support for obsolete method entry
   if (RC_TRACE_IN_RANGE(0x00001000, 0x00002000)) {
@@ -1934,7 +1936,7 @@ nmethod* SharedRuntime::generate_native_wrapper(MacroAssembler* masm,
     __ bind(unlock_done);
   }
 
-
+#ifdef DTRACE_ENABLED
   {
     SkipIfEqual skip(masm, &DTraceMethodProbes, false);
     save_native_result(masm, ret_type, stack_slots);
@@ -1944,6 +1946,7 @@ nmethod* SharedRuntime::generate_native_wrapper(MacroAssembler* masm,
          rthread, c_rarg1);
     restore_native_result(masm, ret_type, stack_slots);
   }
+#endif
 
   __ reset_last_Java_frame(false, true);
 

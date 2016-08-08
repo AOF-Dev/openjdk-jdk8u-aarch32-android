@@ -1461,12 +1461,14 @@ void InterpreterMacroAssembler::notify_method_entry() {
     bind(L);
   }
 
+#ifdef DTRACE_ENABLED
   {
     SkipIfEqual skip(this, &DTraceMethodProbes, false);
     get_method(c_rarg1);
     call_VM_leaf(CAST_FROM_FN_PTR(address, SharedRuntime::dtrace_method_entry),
                  rthread, c_rarg1);
   }
+#endif
 
   // RedefineClasses() tracing support for obsolete method entry
   if (RC_TRACE_IN_RANGE(0x00001000, 0x00002000)) {
@@ -1502,6 +1504,7 @@ void InterpreterMacroAssembler::notify_method_exit(
     NOT_CC_INTERP(pop(state));
   }
 
+#ifdef DTRACE_ENABLED
   {
     SkipIfEqual skip(this, &DTraceMethodProbes, false);
     NOT_CC_INTERP(push(state));
@@ -1510,6 +1513,7 @@ void InterpreterMacroAssembler::notify_method_exit(
                  rthread, c_rarg1);
     NOT_CC_INTERP(pop(state));
   }
+#endif
 }
 
 

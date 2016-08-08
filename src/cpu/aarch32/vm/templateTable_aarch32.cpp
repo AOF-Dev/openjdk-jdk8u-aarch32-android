@@ -3618,6 +3618,7 @@ void TemplateTable::_new() {
     // not using compressed oops
     __ store_klass(r0, r2);      // store klass last
 
+#ifdef DTRACE_ENABLED
     {
       SkipIfEqual skip(_masm, &DTraceAllocProbes, false);
       // Trigger dtrace event for fastpath
@@ -3627,6 +3628,7 @@ void TemplateTable::_new() {
       __ pop(atos); // restore the return value
 
     }
+#endif
     __ b(done);
   }
 
