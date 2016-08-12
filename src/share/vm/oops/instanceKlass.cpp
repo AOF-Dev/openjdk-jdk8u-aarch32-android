@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 1997, 2015, Oracle and/or its affiliates. All rights reserved.
+ * Copyright (c) 1997, 2016, Oracle and/or its affiliates. All rights reserved.
  * DO NOT ALTER OR REMOVE COPYRIGHT NOTICES OR THIS FILE HEADER.
  *
  * This code is free software; you can redistribute it and/or modify it
@@ -25,6 +25,7 @@
 #include "precompiled.hpp"
 #include "classfile/javaClasses.hpp"
 #include "classfile/systemDictionary.hpp"
+#include "classfile/systemDictionaryShared.hpp"
 #include "classfile/verifier.hpp"
 #include "classfile/vmSymbols.hpp"
 #include "compiler/compileBroker.hpp"
@@ -706,6 +707,16 @@ bool InstanceKlass::link_class_impl(
 
         // also sets rewritten
         this_oop->rewrite_class(CHECK_false);
+      } else if (this_oop()->is_shared()) {
+        ResourceMark rm(THREAD);
+        char* message_buffer; // res-allocated by check_verification_dependencies
+        Handle loader = this_oop()->class_loader();
+        Handle pd     = this_oop()->protection_domain();
+        bool verified = SystemDictionaryShared::check_verification_dependencies(this_oop(),
+                        loader, pd, &message_buffer, THREAD);
+        if (!verified) {
+          THROW_MSG_(vmSymbols::java_lang_VerifyError(), message_buffer, false);
+        }
       }
 
       // relocate jsrs and link methods after they are all rewritten
@@ -715,7 +726,12 @@ bool InstanceKlass::link_class_impl(
       // methods have been rewritten since rewrite may
       // fabricate new Method*s.
       // also does loader constraint checking
-      if (!this_oop()->is_shared()) {
+      //
+      // Initialize_vtable and initialize_itable need to be rerun for
+      // a shared class if the class is not loaded by the NULL classloader.
+      ClassLoaderData * loader_data = this_oop->class_loader_data();
+      if (!(this_oop()->is_shared() &&
+            loader_data->is_the_null_class_loader_data())) {
         ResourceMark rm(THREAD);
         this_oop->vtable()->initialize_vtable(true, CHECK_false);
         this_oop->itable()->initialize_itable(true, CHECK_false);
@@ -1969,7 +1985,7 @@ void InstanceKlass::add_dependent_nmethod(nmethod* nm) {
 // find a corresponding bucket otherwise there's a bug in the
 // recording of dependecies.
 //
-void InstanceKlass::remove_dependent_nmethod(nmethod* nm) {
+void InstanceKlass::remove_dependent_nmethod(nmethod* nm, bool delete_immediately) {
   assert_locked_or_safepoint(CodeCache_lock);
   nmethodBucket* b = _dependencies;
   nmethodBucket* last = NULL;
@@ -1978,7 +1994,17 @@ void InstanceKlass::remove_dependent_nmethod(nmethod* nm) {
       int val = b->decrement();
       guarantee(val >= 0, err_msg("Underflow: %d", val));
       if (val == 0) {
-        set_has_unloaded_dependent(true);
+        if (delete_immediately) {
+          if (last == NULL) {
+            _dependencies = b->next();
+          } else {
+            last->set_next(b->next());
+          }
+          delete b;
+        } else {
+          // The deletion of this entry is deferred until a later, potentially parallel GC phase.
+          set_has_unloaded_dependent(true);
+        }
       }
       return;
     }
@@ -2317,6 +2343,13 @@ int InstanceKlass::oop_update_pointers(ParCompactionManager* cm, oop obj) {
 }
 
 #endif // INCLUDE_ALL_GCS
+
+void InstanceKlass::clean_weak_instanceklass_links(BoolObjectClosure* is_alive) {
+  clean_implementors_list(is_alive);
+  clean_method_data(is_alive);
+
+  clean_dependent_nmethods();
+}
 
 void InstanceKlass::clean_implementors_list(BoolObjectClosure* is_alive) {
   assert(class_loader_data()->is_alive(is_alive), "this klass should be live");

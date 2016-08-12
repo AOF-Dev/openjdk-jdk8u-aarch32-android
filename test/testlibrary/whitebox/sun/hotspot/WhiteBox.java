@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2012, 2015, Oracle and/or its affiliates. All rights reserved.
+ * Copyright (c) 2012, 2016, Oracle and/or its affiliates. All rights reserved.
  * DO NOT ALTER OR REMOVE COPYRIGHT NOTICES OR THIS FILE HEADER.
  *
  * This code is free software; you can redistribute it and/or modify it
@@ -174,11 +174,15 @@ public class WhiteBox {
   public native long incMetaspaceCapacityUntilGC(long increment);
   public native long metaspaceCapacityUntilGC();
 
-  // force Young GC
+  // Force Young GC
   public native void youngGC();
 
-  // force Full GC
+  // Force Full GC
   public native void fullGC();
+
+  // Method tries to start concurrent mark cycle.
+  // It returns false if CM Thread is always in concurrent cycle.
+  public native boolean g1StartConcMarkCycle();
 
   // Tests on ReservedSpace/VirtualSpace classes
   public native int stressVirtualSpaceResize(long reservedSpaceSize, long magnitude, long iterations);
@@ -229,4 +233,6 @@ public class WhiteBox {
     return offset;
   }
 
+  // Class Data Sharing
+  public native boolean isSharedClass(Class<?> c);
 }

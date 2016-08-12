@@ -1,5 +1,5 @@
 #
-# Copyright (c) 2006, 2015, Oracle and/or its affiliates. All rights reserved.
+# Copyright (c) 2006, 2016, Oracle and/or its affiliates. All rights reserved.
 # DO NOT ALTER OR REMOVE COPYRIGHT NOTICES OR THIS FILE HEADER.
 #
 # This code is free software; you can redistribute it and/or modify it
@@ -285,7 +285,7 @@ ifneq ($(OSNAME),windows)
 
   # Use uname output for SRCARCH, but deal with platform differences. If ARCH
   # is not explicitly listed below, it is treated as x86.
-  SRCARCH     ?= $(ARCH/$(filter x86_64 amd64 ia64 sparc sparc64 zero ppc64 aarch32, $(ARCH)))
+  SRCARCH     ?= $(ARCH/$(filter x86_64 amd64 ia64 sparc sparc64 zero ppc ppc64 aarch32, $(ARCH)))
   ARCH/        = x86
   ARCH/x86_64  = x86
   ARCH/amd64   = x86
@@ -294,6 +294,7 @@ ifneq ($(OSNAME),windows)
   ARCH/sparc64 = sparc
   ARCH/zero    = zero
   ARCH/ppc64   = ppc
+  ARCH/ppc     = ppc
   ARCH/aarch32 = aarch32
 
   # BUILDARCH is usually the same as SRCARCH, except for sparcv9
