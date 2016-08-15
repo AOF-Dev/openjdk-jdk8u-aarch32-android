@@ -171,11 +171,10 @@ address MacroAssembler::target_addr_for_insn(address insn_addr, unsigned insn) {
       assert(nativeInstruction_at(&insn_buf[2])->is_orr(), "wrong insns in patch");
       assert(nativeInstruction_at(&insn_buf[3])->is_orr(), "wrong insns in patch");
       u_int32_t addr;
-      // TODO Check that the rotations are in the expected order.
-      addr  = Instruction_aarch32::extract(insn_buf[0], 7, 0) << 0;
-      addr |= Instruction_aarch32::extract(insn_buf[1], 7, 0) << 8;
-      addr |= Instruction_aarch32::extract(insn_buf[2], 7, 0) << 16;
-      addr |= Instruction_aarch32::extract(insn_buf[3], 7, 0) << 24;
+      addr  = Assembler::decode_imm12(Instruction_aarch32::extract(insn_buf[0], 11, 0));
+      addr |= Assembler::decode_imm12(Instruction_aarch32::extract(insn_buf[1], 11, 0));
+      addr |= Assembler::decode_imm12(Instruction_aarch32::extract(insn_buf[2], 11, 0));
+      addr |= Assembler::decode_imm12(Instruction_aarch32::extract(insn_buf[3], 11, 0));
       return address(addr);
     } else {
       ShouldNotReachHere();
@@ -627,9 +626,12 @@ void MacroAssembler::trampoline_call(Address entry, CodeBuffer *cbuf) {
 
   // Have make trampline such way: destination address should be raw 4 byte value,
   // so it's patching could be done atomically.
-  add(lr, r15_pc, 4); // pc is this addr + 8
+  add(lr, r15_pc, NativeCall::instruction_size - 2 * NativeInstruction::arm_insn_sz);
   ldr(r15_pc, Address(r15_pc, 4)); // Address does correction for offset from pc base
   emit_int32((uintptr_t) entry.target());
+  // possibly pad the call to the NativeCall size to make patching happy
+  for (int i = NativeCall::instruction_size; i > 3 * NativeInstruction::arm_insn_sz; i -= NativeInstruction::arm_insn_sz)
+    nop();
 }
 
 void MacroAssembler::ic_call(address entry) {
@@ -3225,4 +3227,23 @@ void MacroAssembler::kernel_crc32(Register crc, Register buf, Register len,
 
   BIND(L_exit);
     inv(crc, crc);
+}
+
+void MacroAssembler::bfc_impl(Register Rd, int lsb, int width, Condition cond) {
+  if (width > 15 && lsb == 0) {
+    lsr(Rd, Rd, width);
+    lsl(Rd, Rd, width);
+  } else if (width > 15 && lsb + width == 32) {
+    lsl(Rd, Rd, 32 - lsb);
+    lsr(Rd, Rd, 32 - lsb);
+  } else {
+    const int lsb1 = (lsb & 1);
+    int w1 = width <= 8 - lsb1 ? width : 8 - lsb1;
+    while (width) {
+      bic(Rd, Rd, ((1 << w1) - 1) << lsb);
+      width -= w1;
+      lsb += w1;
+      w1 = width > 8 ? 8 : width;
+    }
+  }
 }

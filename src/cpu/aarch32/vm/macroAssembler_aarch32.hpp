@@ -799,10 +799,19 @@ public:
   using Assembler::strd;
   int strd(Register Rt, Register Rt2, const Address& adr, Condition cond = C_DFLT);
 
+private:
+  void bfc_impl(Register rd, int lsb, int width, Condition cond);
+public:
+  void bfc(Register Rd, int lsb, int width, Condition cond = C_DFLT) {
+    if (VM_Version::features() & (FT_ARMV6T2 | FT_ARMV7))
+      Assembler::bfc(Rd, lsb, width, cond);
+    else
+      bfc_impl(Rd, lsb, width, cond);
+  }
+
   void align_stack() {
-    // sp &= ~StackAlignmentInBytes, assuming it's the power of 2
     if (StackAlignmentInBytes > 4)
-      bfc(sp, 0, __builtin_ctz(StackAlignmentInBytes));
+      bic(sp, sp, StackAlignmentInBytes-1);
   }
 
 #ifdef ASSERT

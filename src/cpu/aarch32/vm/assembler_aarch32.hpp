@@ -28,6 +28,7 @@
 #define CPU_AARCH32_VM_ASSEMBLER_AARCH32_HPP
 
 #include "asm/register.hpp"
+#include "vm_version_aarch32.hpp"
 
 // Definitions of various symbolic names for machine registers
 
@@ -618,6 +619,8 @@ public:
   } Condition;
 
   enum { instruction_size = 4 };
+
+  static const uint32_t nop_insn = 0xe1a00000;
 
   Address adjust(Register base, int offset, bool preIncrement) {
     if (preIncrement)
@@ -1416,6 +1419,7 @@ void extend_instr(int decode, int decode2, int decode3, Register Rd, Register Rn
 #undef INSN
 
 void bfi(Register Rd, Register Rn, int lsb, int width, Condition cond = C_DFLT) {
+  assert(VM_Version::features() & (FT_ARMV6T2 | FT_ARMV7), "unsupported on the cpu");
   int msb = lsb + width - 1;
   assert(lsb >= 0 && lsb < 32, "lsb out of range");
   assert(msb < 32 && msb >= lsb, "width out of range");
@@ -1425,6 +1429,7 @@ void bfi(Register Rd, Register Rn, int lsb, int width, Condition cond = C_DFLT) 
 }
 
 void bfc(Register Rd, int lsb, int width, Condition cond = C_DFLT) {
+  assert(VM_Version::features() & (FT_ARMV6T2 | FT_ARMV7), "unsupported on the cpu");
   int msb = lsb + width - 1;
   assert(lsb >= 0 && lsb < 32, "lsb out of range");
   assert(msb < 32 && msb >= lsb, "width out of range");

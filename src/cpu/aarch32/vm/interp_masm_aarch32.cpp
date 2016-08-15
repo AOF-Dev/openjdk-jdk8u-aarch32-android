@@ -61,12 +61,12 @@ void InterpreterMacroAssembler::narrow(Register result) {
   andr(result, result, 0x1, Assembler::EQ);
 
   cmp(rscratch1, T_BYTE);
-  sbfx(result, result, 0, 8, Assembler::EQ);
+  sxtb(result, result, Assembler::ror(), Assembler::EQ);
 
   cmp(rscratch1, T_CHAR);
-  ubfx(result, result, 0, 16, Assembler::EQ);  // truncate upper 16 bits
+  uxth(result, result, Assembler::ror(), Assembler::EQ);  // truncate upper 16 bits
 
-  sbfx(result, result, 0, 16, Assembler::NE);  // sign-extend short
+  sxth(result, result, Assembler::ror(), Assembler::NE);  // sign-extend short
 
   // Nothing to do for T_INT
   bind(done);

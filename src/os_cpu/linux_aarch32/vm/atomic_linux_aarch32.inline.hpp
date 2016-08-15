@@ -33,9 +33,15 @@
 
 // Implementation of class atomic
 
+#if defined(__ARM_ARCH) && __ARM_ARCH >= 7
+#define FULL_MEM_BARRIER  __asm__ __volatile__ ("dmb ish"   : : : "memory")
+#define READ_MEM_BARRIER  __asm__ __volatile__ ("dmb ish"   : : : "memory")
+#define WRITE_MEM_BARRIER __asm__ __volatile__ ("dmb ishst" : : : "memory")
+#else
 #define FULL_MEM_BARRIER  __sync_synchronize()
 #define READ_MEM_BARRIER  __atomic_thread_fence(__ATOMIC_ACQUIRE);
 #define WRITE_MEM_BARRIER __atomic_thread_fence(__ATOMIC_RELEASE);
+#endif
 
 inline void Atomic::store    (jbyte    store_value, jbyte*    dest) { *dest = store_value; }
 inline void Atomic::store    (jshort   store_value, jshort*   dest) { *dest = store_value; }

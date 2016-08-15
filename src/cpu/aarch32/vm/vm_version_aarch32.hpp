@@ -41,6 +41,7 @@ enum ProcessorFeatures {
   FT_SINGLE_CORE = 64,
   FT_AdvSIMD = 128,
   FT_CRC32 = 256,
+  FT_ALL = 0xffff
 };
 
 class VM_Version : public Abstract_VM_Version {
@@ -67,6 +68,7 @@ class VM_Version : public Abstract_VM_Version {
  private:
   static enum ProcessorFeatures _features;
   static const char* _cpu_features;
+    static volatile bool _is_determine_features_test_running;
 
   static void get_processor_features();
   static bool identify_procline(const char *tag, char **line);
@@ -75,7 +77,12 @@ class VM_Version : public Abstract_VM_Version {
   static enum ProcessorFeatures features() {
     return _features;
   }
+    static void features(ProcessorFeatures f) {
+      _features = f;
+    }
   static const char* cpu_features() { return _cpu_features; }
+
+    static bool is_determine_features_test_running() { return _is_determine_features_test_running; }
 };
 
 #endif // CPU_AARCH32_VM_VM_VERSION_AARCH32_HPP

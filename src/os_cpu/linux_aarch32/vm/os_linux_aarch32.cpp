@@ -375,6 +375,11 @@ JVM_handle_linux_signal(int sig,
           // Determination of interpreter/vtable stub/compiled code null exception
           stub = SharedRuntime::continuation_for_implicit_exception(thread, pc, SharedRuntime::IMPLICIT_NULL);
       }
+    } else if (sig == SIGILL && VM_Version::is_determine_features_test_running()) {
+        // SIGILL must be caused by VM_Version::get_processor_features().
+        *(int *)pc = Assembler::nop_insn; // patch instruction to NOP to indicate that it causes a SIGILL,
+                        // flushing of icache is not necessary.
+        stub = pc + 4;  // continue with next instruction.
     } else if (thread->thread_state() == _thread_in_vm &&
                sig == SIGBUS && /* info->si_code == BUS_OBJERR && */
                thread->doing_unsafe_access()) {

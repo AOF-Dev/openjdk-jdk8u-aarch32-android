@@ -34,102 +34,19 @@
 #ifdef TARGET_OS_FAMILY_linux
 # include "os_linux.inline.hpp"
 #endif
-
-#ifndef AT_HWCAP
-#define AT_HWCAP        16              /* Machine-dependent hints about
-                                           processor capabilities.  */
-#endif
-
-#ifndef AT_HWCAP2
-#define AT_HWCAP2       26              /* More machine-dependent hints about
-                                           processor capabilities.  */
-#endif
-
-#ifndef HWCAP2_PMULL
-#define HWCAP2_PMULL    (1 << 1)
-#endif
-
-#ifndef HWCAP2_AES
-#define HWCAP2_AES      (1 << 0)
-#endif
-
-#ifndef HWCAP2_SHA1
-#define HWCAP2_SHA1     (1 << 2)
-#endif
-
-#ifndef HWCAP2_SHA2
-#define HWCAP2_SHA2     (1 << 3)
-#endif
-
-#ifndef HWCAP2_CRC32
-#define HWCAP2_CRC32    (1 << 4)
-#endif
-
-#ifndef HWCAP_NEON
-#define HWCAP_NEON      (1 << 12)
-#endif
-
-#ifndef HWCAP_VFPv3
-#define HWCAP_VFPv3     (1 << 13)
-#endif
-
-#ifndef HWCAP_VFPv3D16
-#define HWCAP_VFPv3D16  (1 << 14)       /* also set for VFPv4-D16 */
-#endif
-
-#ifndef HWCAP_TLS
-#define HWCAP_TLS       (1 << 15)
-#endif
-
-#ifndef HWCAP_VFPv4
-#define HWCAP_VFPv4     (1 << 16)
-#endif
-
-#ifndef HWCAP_IDIVA
-#define HWCAP_IDIVA     (1 << 17)
-#endif
-
-#ifndef HWCAP_VFPD32
-#define HWCAP_VFPD32    (1 << 19)       /* set if VFP has 32 regs (not 16) */
-#endif
+#include "compiler/disassembler.hpp"
 
 enum ProcessorFeatures VM_Version::_features = FT_NONE;
 const char* VM_Version::_cpu_features = "";
 
 static BufferBlob* stub_blob;
 static const int stub_size = 550;
+volatile bool VM_Version::_is_determine_features_test_running = false;
 
 extern "C" {
   typedef void (*getPsrInfo_stub_t)(void*);
 }
 static getPsrInfo_stub_t getPsrInfo_stub = NULL;
-
-typedef unsigned long (*pgetauxval)(unsigned long type);
-
-class VM_Version_StubGenerator: public StubCodeGenerator {
- public:
-
-  VM_Version_StubGenerator(CodeBuffer *c) : StubCodeGenerator(c) {}
-
-  address generate_getPsrInfo() {
-    StubCodeMark mark(this, "VM_Version", "getPsrInfo_stub");
-#   define __ _masm->
-    address start = __ pc();
-
-    // void getPsrInfo(VM_Version::CpuidInfo* cpuid_info);
-
-    address entry = __ pc();
-
-    // TODO : redefine fields in CpuidInfo and generate
-    // code to fill them in
-
-    __ b(lr);
-
-#   undef __
-
-    return start;
-  }
-};
 
 
 bool VM_Version::identify_procline(const char *tag, char **line) {
@@ -165,87 +82,59 @@ void VM_Version::get_processor_features() {
 
   enum ProcessorFeatures f = FT_NONE;
 
-  // try the recommended way, by using glibc API.
-  // however since this API is only available in recent
-  // versions of glibc we got to invoke it indirectly for
-  // not to create compile and run-time dependency
-  pgetauxval getauxval_ptr = (pgetauxval) os::dll_lookup((void*) 0, "getauxval");
-  if (getauxval_ptr) {
-    unsigned long auxv2 = (*getauxval_ptr)(AT_HWCAP2);
-    unsigned long auxv = (*getauxval_ptr)(AT_HWCAP);
-    if (FLAG_IS_DEFAULT(UseCRC32)) {
-      UseCRC32 = (auxv2 & HWCAP2_CRC32) != 0;
-    }
-    if (auxv2 & HWCAP2_AES) {
-      UseAES = UseAES || FLAG_IS_DEFAULT(UseAES);
-      UseAESIntrinsics =
-              UseAESIntrinsics || (UseAES && FLAG_IS_DEFAULT(UseAESIntrinsics));
-      if (UseAESIntrinsics && !UseAES) {
-        warning("UseAESIntrinsics enabled, but UseAES not, enabling");
-        UseAES = true;
-      }
-    } else {
-      if (UseAES) {
-        warning("UseAES specified, but not supported on this CPU");
-      }
-      if (UseAESIntrinsics) {
-        warning("UseAESIntrinsics specified, but not supported on this CPU");
-      }
-    }
-    if (auxv & HWCAP_NEON)
-      f = (ProcessorFeatures) (f | FT_AdvSIMD);
-    if (auxv & HWCAP_IDIVA)
-      f = (ProcessorFeatures) (f | FT_HW_DIVIDE);
-    if (auxv & HWCAP_VFPv3)
-      f = (ProcessorFeatures) (f | FT_VFPV3 | FT_VFPV2);
-    if (auxv2 & HWCAP2_CRC32)
-      f = (ProcessorFeatures) (f | FT_CRC32);
+  // Allocate space for the code.
+  const int code_size = 10 * Assembler::instruction_size;
+  ResourceMark rm;
+  CodeBuffer cb("detect_cpu_features", code_size, 0);
+  MacroAssembler* a = new MacroAssembler(&cb);
+  jlong test_area;
+
+  // Must be set to true so we can generate the test code.
+  _features = FT_ALL;
+  // Emit code.
+  uint32_t *const code = (uint32_t *)a->pc();
+  void (*test)(address addr, uintptr_t offset)=(void(*)(address addr, uintptr_t nonzero))(void *)code;
+
+  a->udiv(r3, r2, r1);     // FT_HW_DIVIDE
+  a->bfc(r1, 1, 1);        // FT_ARMV6T2
+  a->vneg_f64(d0, d0);     // FT_VFPV2
+  a->vmov_f64(d0, 1.);     // FT_VFPV3
+  a->dmb(Assembler::ISH);  // FT_ARMV7
+  a->ldrexd(r2, r0);       // FT_ARMV6K
+  a->vmov_f64(d0, 0.0);    // FT_AdvSIMD
+  a->crc32b(r3, r2, r1);   // FT_CRC32
+  a->b(lr);
+
+  uint32_t *const code_end = (uint32_t *)a->pc();
+  a->flush();
+  _features = FT_NONE;
+
+  // Print the detection code.
+  if (PrintAssembly) {
+    ttyLocker ttyl;
+    tty->print_cr("Decoding cpu-feature detection stub at " INTPTR_FORMAT " before execution:", p2i(code));
+    Disassembler::decode((u_char*)code, (u_char*)code_end, tty);
   }
+  // Execute code. Illegal instructions will be replaced by 0 in the signal handler.
+  VM_Version::_is_determine_features_test_running = true;
+  (*test)((address)&test_area, 1);
+  VM_Version::_is_determine_features_test_running = false;
+
+  uint32_t *insn = code;
+  if (*insn++ != Assembler::nop_insn) f = (ProcessorFeatures) (f | FT_HW_DIVIDE);
+  if (*insn++ != Assembler::nop_insn) f = (ProcessorFeatures) (f | FT_ARMV6T2);
+  if (*insn++ != Assembler::nop_insn) f = (ProcessorFeatures) (f | FT_VFPV2);
+  if (*insn++ != Assembler::nop_insn) f = (ProcessorFeatures) (f | FT_VFPV3);
+  if (*insn++ != Assembler::nop_insn) f = (ProcessorFeatures) (f | FT_ARMV7);
+  if (*insn++ != Assembler::nop_insn) f = (ProcessorFeatures) (f | FT_ARMV6K);
+  if (*insn++ != Assembler::nop_insn) f = (ProcessorFeatures) (f | FT_AdvSIMD);
+  if (*insn++ != Assembler::nop_insn) f = (ProcessorFeatures) (f | FT_CRC32);
 
   int ncores = 0, cpu, variant, model, revision;
   char buf[2048], *i;
   if (FILE * fp = fopen("/proc/cpuinfo", "r")) {
     while ((i = fgets(buf, 2048, fp))) {
-      if (identify_procline("Features", &i)) {
-        i = strtok(i, " \n");
-        while (i) {
-          if (!strcmp("idiva", i)) {
-            f = (ProcessorFeatures) (f | FT_HW_DIVIDE);
-          } else if (!strcmp("vfpv3", i) || !strcmp("vfpv4", i)) {
-            // Assuming that vfpv4 implements all of vfpv3
-            // and that they both implement all of v2.
-            f = (ProcessorFeatures) (f | FT_VFPV3 | FT_VFPV2);
-          } else if (!strcmp("vfp", i)) {
-            // Assuming that VFPv2 is identified by plain vfp
-            f = (ProcessorFeatures) (f | FT_VFPV2);
-          } else if (!strcmp("neon", i)) {
-            f = (ProcessorFeatures) (f | FT_AdvSIMD);
-          }
-          i = strtok(NULL, " \n");
-        }
-      } else if (identify_procline("Processor", &i)) {
-        i = strtok(i, " \n");
-        while (i) {
-          // if the info is read correctly do
-          if (!strcmp("ARMv7", i)) {
-            f = (ProcessorFeatures) (f | FT_ARMV7);
-          } else if (!strcmp("ARMv6-compatible", i)) {
-            //TODO sort out the ARMv6 identification code
-          }
-          i = strtok(NULL, " \n");
-        }
-      } else if (identify_procline("model name", &i)) {
-        i = strtok(i, " \n");
-        while (i) {
-          // if the info is read correctly do
-          if (!strcmp("ARMv7", i) || !strcmp("AArch64", i)) {
-            f = (ProcessorFeatures) (f | FT_ARMV7);
-          } else if (!strcmp("ARMv6-compatible", i)) {
-            //TODO sort out the ARMv6 identification code
-          }
-          i = strtok(NULL, " \n");
-        }
-      } else if (identify_procline("processor", &i)) {
+      if (identify_procline("processor", &i)) {
         ncores++;
       } else if (identify_procline("CPU implementer", &i)) {
         cpu = strtol(i, NULL, 0);
@@ -325,11 +214,6 @@ void VM_Version::initialize() {
   if (stub_blob == NULL) {
     vm_exit_during_initialization("Unable to allocate getPsrInfo_stub");
   }
-
-  CodeBuffer c(stub_blob);
-  VM_Version_StubGenerator g(&c);
-  getPsrInfo_stub = CAST_TO_FN_PTR(getPsrInfo_stub_t,
-                                   g.generate_getPsrInfo());
 
   get_processor_features();
 

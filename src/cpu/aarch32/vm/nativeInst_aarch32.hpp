@@ -158,11 +158,13 @@ class NativeMovConstReg: public NativeInstruction {
  protected:
   static bool is_movw_movt_at(address instr);
   static bool is_ldr_literal_at(address instr);
+  static bool is_mov_n_three_orr_at(address instr);
  public:
   enum {
     movw_movt_pair_sz = 2 * arm_insn_sz,
+    mov_n_three_orr_sz = 4 * arm_insn_sz,
     ldr_sz = arm_insn_sz,
-    max_instruction_size = movw_movt_pair_sz,
+    max_instruction_size = mov_n_three_orr_sz,
     min_instruction_size = ldr_sz,
   };
 
@@ -171,6 +173,8 @@ class NativeMovConstReg: public NativeInstruction {
       return addr() + movw_movt_pair_sz;
     } else if (is_ldr_literal_at(addr())) {
       return addr() + ldr_sz;
+    } else if (is_mov_n_three_orr_at(addr())) {
+      return addr() + mov_n_three_orr_sz;
     }
 
     // Unknown instruction in NativeMovConstReg
@@ -207,23 +211,6 @@ inline NativeMovConstReg* nativeMovConstReg_at(address address) {
   return NativeMovConstReg::from(address);
 }
 
-inline NativeMovConstReg* nativeMovConstReg_before(address addr) {
-  address mov_addr = NULL;
-  if (NativeMovConstReg::is_movw_movt_at(addr - NativeMovConstReg::movw_movt_pair_sz)) {
-    mov_addr = addr - NativeMovConstReg::movw_movt_pair_sz;
-  } else if (NativeMovConstReg::is_ldr_literal_at(addr - NativeMovConstReg::ldr_sz)) {
-    mov_addr = addr - NativeMovConstReg::ldr_sz;
-  } else {
-    ShouldNotReachHere();
-  }
-
-  NativeMovConstReg* test = (NativeMovConstReg*) mov_addr;
-#ifdef ASSERT
-  test->verify();
-#endif
-  return test;
-}
-
 class NativeTrampolineCall: public NativeBranchType {
  public:
   enum {
@@ -236,10 +223,7 @@ class NativeTrampolineCall: public NativeBranchType {
   static bool is_at(address address);
   static NativeTrampolineCall* from(address address);
 
-  address next_instruction_address() const  {
-    assert(is_at(addr()), "not call");
-    return addr() + instruction_size;
-  }
+  address next_instruction_address() const;
 };
 
 class NativeRegCall: public NativeBranchType {
@@ -263,17 +247,22 @@ class NativeCall: public NativeInstruction {
   //  NativeTrampolineCall
  public:
   enum {
-    instruction_size = 3 * arm_insn_sz
+    max_instruction_size = 5 * arm_insn_sz
   };
+
+  static int instruction_size;
 #ifdef ASSERT
-  StaticAssert<(int) NativeTrampolineCall::instruction_size <= (int) instruction_size> dummy1;
+  StaticAssert<(int) NativeTrampolineCall::instruction_size <= (int) max_instruction_size> dummy1;
   StaticAssert<NativeMovConstReg::movw_movt_pair_sz
-      + NativeRegCall::instruction_size <= (int) instruction_size> dummy2;
+      + NativeRegCall::instruction_size <= (int) max_instruction_size> dummy2;
+  StaticAssert<NativeMovConstReg::mov_n_three_orr_sz
+      + NativeRegCall::instruction_size <= (int) max_instruction_size> dummy3;
 #endif
 
   address destination() const;
   void set_destination(address dest);
 
+  static void init();
   void  verify_alignment()                       { ; }
   void  verify();
   void  print();
@@ -305,6 +294,11 @@ class NativeCall: public NativeInstruction {
 
   static bool is_call_before(address return_address);
 };
+
+inline address NativeTrampolineCall::next_instruction_address() const {
+  assert(is_at(addr()), "not call");
+  return addr() + NativeCall::instruction_size;
+}
 
 inline NativeCall* nativeCall_at(address address) {
   return NativeCall::from(address);

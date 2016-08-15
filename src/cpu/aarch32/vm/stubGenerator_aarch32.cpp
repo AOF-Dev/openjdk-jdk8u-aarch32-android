@@ -1322,6 +1322,8 @@ class StubGenerator: public StubCodeGenerator {
       StubRoutines::_crc_table_adr = (address)StubRoutines::aarch32::_crc_table;
       StubRoutines::_updateBytesCRC32 = generate_updateBytesCRC32();
     }
+
+    NativeCall::init();
   }
 
   void generate_all() {

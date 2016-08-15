@@ -39,13 +39,18 @@
 #endif
 
 // LIRAssembler fills patching site with nops up to NativeCall::instruction_size
-static const int patching_copy_buff_len = NativeCall::instruction_size;
+int NativeCall::instruction_size = 5 * arm_insn_sz;
+#define patching_copy_buff_len (NativeCall::instruction_size)
 
 NativeInstruction* NativeInstruction::from(address addr) {
   return (NativeInstruction*) addr;
 }
 
 //-------------------------------------------------------------------
+
+void NativeCall::init() {
+  instruction_size = (VM_Version::features() & (FT_ARMV6T2 | FT_ARMV7) ? 3 : 5) * arm_insn_sz;
+}
 
 void NativeCall::verify() {
   if (!is_call()) {
@@ -166,8 +171,8 @@ void NativeTrampolineCall::set_destination_mt_safe(address dest, bool assert_loc
 }
 
 bool NativeTrampolineCall::is_at(address addr) {
-  return as_uint(addr    ) == 0xe28fe004    // add     lr, pc, #4
-      && as_uint(addr + 4) == 0xe51ff004;   // ldr     pc, [pc, -4]
+  return (as_uint(addr    ) & ~0xffu) == 0xe28fe000  // add     lr, pc, #disp
+       && as_uint(addr + 4)          == 0xe51ff004; // ldr     pc, [pc, -4]
 }
 
 NativeTrampolineCall* NativeTrampolineCall::from(address addr) {
@@ -266,11 +271,18 @@ bool NativeMovConstReg::is_ldr_literal_at(address addr) {
   return (Instruction_aarch32::extract(insn, 27, 16) & 0b111001011111) == 0b010000011111;
 }
 
-bool NativeMovConstReg::is_at(address addr) {
-  return NativeMovConstReg::is_movw_movt_at(addr) ||
-    NativeMovConstReg::is_ldr_literal_at(addr);
+bool NativeMovConstReg::is_mov_n_three_orr_at(address addr) {
+  return (Instruction_aarch32::extract(as_uint(addr), 27, 16) & 0b111111101111) == 0b001110100000 &&
+          Instruction_aarch32::extract(as_uint(addr+arm_insn_sz), 27, 20) == 0b00111000 &&
+          Instruction_aarch32::extract(as_uint(addr+2*arm_insn_sz), 27, 20) == 0b00111000 &&
+          Instruction_aarch32::extract(as_uint(addr+3*arm_insn_sz), 27, 21) == 0b0011100;
 }
 
+bool NativeMovConstReg::is_at(address addr) {
+  return is_ldr_literal_at(addr) ||
+          is_movw_movt_at(addr) ||
+          is_mov_n_three_orr_at(addr);
+}
 
 //-------------------------------------------------------------------
 // TODO review
