@@ -225,18 +225,15 @@ NativeRegCall* NativeRegCall::from(address addr) {
 
 void NativeMovConstReg::verify() {
   if (!is_mov_const_reg()) {
-    fatal("not a call");
+    fatal("not a mov const reg");
   }
 }
 
 intptr_t NativeMovConstReg::data() const {
-  // FIXME seems not very roboust
-  // das(uint64_t(addr()),2);
   return (intptr_t) MacroAssembler::target_addr_for_insn(addr());
 }
 
 void NativeMovConstReg::set_data(intptr_t x) {
-  // FIXME seems not very roboust
   MacroAssembler::pd_patch_instruction(addr(), (address)x);
   ICache::invalidate_range(addr(), max_instruction_size);
 };
@@ -247,10 +244,7 @@ void NativeMovConstReg::print() {
 }
 
 Register NativeMovConstReg::destination() const {
-  Register d = (Register) Instruction_aarch32::extract(as_uint(), 15, 12);
-  assert(d == (Register) Instruction_aarch32::extract(as_uint(addr() + arm_insn_sz), 15, 12),
-      "movw and movt should load same register");
-  return d;
+  return (Register) Instruction_aarch32::extract(as_uint(), 15, 12);
 }
 
 NativeMovConstReg* NativeMovConstReg::from(address addr) {
@@ -259,7 +253,6 @@ NativeMovConstReg* NativeMovConstReg::from(address addr) {
 }
 
 bool NativeMovConstReg::is_movw_movt_at(address addr) {
-  // Hopefully this is almost always ok - not sure about if at end
   unsigned insn = as_uint(addr);
   unsigned insn2 = as_uint(addr + arm_insn_sz);
   return Instruction_aarch32::extract(insn,  27, 20) == 0b00110000 && //mov
