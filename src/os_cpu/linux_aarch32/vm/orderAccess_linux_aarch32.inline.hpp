@@ -51,82 +51,126 @@ inline void OrderAccess::fence() {
   FULL_MEM_BARRIER;
 }
 
+// __atomic builtins should be supported since gcc 4.4, however not all 4.4 do support.
+// for simplicity, provide own implementation with same semantic.
+#define ARM_ATOMIC_ACQUIRE 2
+#define ARM_ATOMIC_RELEASE 3
+#define ARM_ATOMIC_RELAXED 0
+
+// the following implementation is only valid for values up to 4 bytes long. DO NOT USE for jlong!
+#define arm_atomic_load(S, D, X) { \
+    STATIC_ASSERT(sizeof(*S) <= sizeof(jint)); \
+    STATIC_ASSERT(X == ARM_ATOMIC_ACQUIRE || X == ARM_ATOMIC_RELAXED); \
+    *(D) = *(S); if (X == ARM_ATOMIC_ACQUIRE) READ_MEM_BARRIER; \
+}
+#define arm_atomic_store(D, S, X) { \
+    STATIC_ASSERT(sizeof(*S) <= sizeof(jint)); \
+    STATIC_ASSERT(X == ARM_ATOMIC_RELEASE || X == ARM_ATOMIC_RELAXED); \
+    if (X == ARM_ATOMIC_RELEASE) WRITE_MEM_BARRIER; *(D) = *(S); \
+}
+
 inline jbyte    OrderAccess::load_acquire(volatile jbyte*   p)
-{ jbyte data; __atomic_load(p, &data, __ATOMIC_ACQUIRE); return data; }
+{ jbyte data; arm_atomic_load(p, &data, ARM_ATOMIC_ACQUIRE); return data; }
 inline jshort   OrderAccess::load_acquire(volatile jshort*  p)
-{ jshort data; __atomic_load(p, &data, __ATOMIC_ACQUIRE); return data; }
+{ jshort data; arm_atomic_load(p, &data, ARM_ATOMIC_ACQUIRE); return data; }
 inline jint     OrderAccess::load_acquire(volatile jint*    p)
-{ jint data; __atomic_load(p, &data, __ATOMIC_ACQUIRE); return data; }
+{ jint data; arm_atomic_load(p, &data, ARM_ATOMIC_ACQUIRE); return data; }
 inline jlong    OrderAccess::load_acquire(volatile jlong*   p)
-{ jlong data; __atomic_load(p, &data, __ATOMIC_ACQUIRE); return data; }
+{
+    jlong data;
+    data = Atomic::load(p);
+    READ_MEM_BARRIER;
+    return data;
+}
 inline jubyte    OrderAccess::load_acquire(volatile jubyte*   p)
-{ jubyte data; __atomic_load(p, &data, __ATOMIC_ACQUIRE); return data; }
+{ jubyte data; arm_atomic_load(p, &data, ARM_ATOMIC_ACQUIRE); return data; }
 inline jushort   OrderAccess::load_acquire(volatile jushort*  p)
-{ jushort data; __atomic_load(p, &data, __ATOMIC_ACQUIRE); return data; }
+{ jushort data; arm_atomic_load(p, &data, ARM_ATOMIC_ACQUIRE); return data; }
 inline juint     OrderAccess::load_acquire(volatile juint*    p)
-{ juint data; __atomic_load(p, &data, __ATOMIC_ACQUIRE); return data; }
+{ juint data; arm_atomic_load(p, &data, ARM_ATOMIC_ACQUIRE); return data; }
 inline julong   OrderAccess::load_acquire(volatile julong*  p)
-{ julong data; __atomic_load(p, &data, __ATOMIC_ACQUIRE); return data; }
+{
+    julong data;
+    data = (julong)Atomic::load((volatile jlong*)p);
+    READ_MEM_BARRIER;
+    return data;
+}
 inline jfloat   OrderAccess::load_acquire(volatile jfloat*  p)
-{ jfloat data; __atomic_load(p, &data, __ATOMIC_ACQUIRE); return data; }
+{ jfloat data; arm_atomic_load(p, &data, ARM_ATOMIC_ACQUIRE); return data; }
 inline jdouble  OrderAccess::load_acquire(volatile jdouble* p)
-{ jdouble data; __atomic_load(p, &data, __ATOMIC_ACQUIRE); return data; }
+{
+    jlong data = Atomic::load((volatile jlong*)p);
+    READ_MEM_BARRIER;
+    // in -fno-strict-aliasing we trust. this option should be (and is) provided to g++
+    return *(jdouble*)&data;
+}
 inline intptr_t OrderAccess::load_ptr_acquire(volatile intptr_t*   p)
-{ intptr_t data; __atomic_load(p, &data, __ATOMIC_ACQUIRE); return data; }
+{ intptr_t data; arm_atomic_load(p, &data, ARM_ATOMIC_ACQUIRE); return data; }
 inline void*    OrderAccess::load_ptr_acquire(volatile void*       p)
-{ void* data; __atomic_load((void* volatile *)p, &data, __ATOMIC_ACQUIRE); return data; }
+{ void* data; arm_atomic_load((void* volatile *)p, &data, ARM_ATOMIC_ACQUIRE); return data; }
 inline void*    OrderAccess::load_ptr_acquire(const volatile void* p)
-{ void* data; __atomic_load((void* const volatile *)p, &data, __ATOMIC_ACQUIRE); return data; }
+{ void* data; arm_atomic_load((void* const volatile *)p, &data, ARM_ATOMIC_ACQUIRE); return data; }
 
 inline void     OrderAccess::release_store(volatile jbyte*   p, jbyte   v)
-{ __atomic_store(p, &v, __ATOMIC_RELEASE); }
+{ arm_atomic_store(p, &v, ARM_ATOMIC_RELEASE); }
 inline void     OrderAccess::release_store(volatile jshort*  p, jshort  v)
-{ __atomic_store(p, &v, __ATOMIC_RELEASE); }
+{ arm_atomic_store(p, &v, ARM_ATOMIC_RELEASE); }
 inline void     OrderAccess::release_store(volatile jint*    p, jint    v)
-{ __atomic_store(p, &v, __ATOMIC_RELEASE); }
+{ arm_atomic_store(p, &v, ARM_ATOMIC_RELEASE); }
 inline void     OrderAccess::release_store(volatile jlong*   p, jlong   v)
-{ __atomic_store(p, &v, __ATOMIC_RELEASE); }
+{
+  WRITE_MEM_BARRIER;
+  Atomic::store(v, p);
+}
 inline void     OrderAccess::release_store(volatile jubyte*  p, jubyte  v)
-{ __atomic_store(p, &v, __ATOMIC_RELEASE); }
+{ arm_atomic_store(p, &v, ARM_ATOMIC_RELEASE); }
 inline void     OrderAccess::release_store(volatile jushort* p, jushort v)
-{ __atomic_store(p, &v, __ATOMIC_RELEASE); }
+{ arm_atomic_store(p, &v, ARM_ATOMIC_RELEASE); }
 inline void     OrderAccess::release_store(volatile juint*   p, juint   v)
-{ __atomic_store(p, &v, __ATOMIC_RELEASE); }
+{ arm_atomic_store(p, &v, ARM_ATOMIC_RELEASE); }
 inline void     OrderAccess::release_store(volatile julong*  p, julong  v)
-{ __atomic_store(p, &v, __ATOMIC_RELEASE); }
+{
+  WRITE_MEM_BARRIER;
+  Atomic::store(*(jlong*)&v, (jlong*)p);
+}
 inline void     OrderAccess::release_store(volatile jfloat*  p, jfloat  v)
-{ __atomic_store(p, &v, __ATOMIC_RELEASE); }
+{ arm_atomic_store(p, &v, ARM_ATOMIC_RELEASE); }
 inline void     OrderAccess::release_store(volatile jdouble* p, jdouble v)
-{ __atomic_store(p, &v, __ATOMIC_RELEASE); }
+{
+  WRITE_MEM_BARRIER;
+  // in -fno-strict-aliasing we trust. this option should be (and is) provided to g++
+  Atomic::store(*(jlong*)&v, (jlong*)p);
+}
 inline void     OrderAccess::release_store_ptr(volatile intptr_t* p, intptr_t v)
-{ __atomic_store(p, &v, __ATOMIC_RELEASE); }
+{ arm_atomic_store(p, &v, ARM_ATOMIC_RELEASE); }
 inline void     OrderAccess::release_store_ptr(volatile void*     p, void*    v)
-{ __atomic_store((void* volatile *)p, &v, __ATOMIC_RELEASE); }
+{ arm_atomic_store((void* volatile *)p, &v, ARM_ATOMIC_RELEASE); }
 
 inline void     OrderAccess::store_fence(jbyte*   p, jbyte   v)
-{ __atomic_store(p, &v, __ATOMIC_RELAXED); fence(); }
+{ arm_atomic_store(p, &v, ARM_ATOMIC_RELAXED); fence(); }
 inline void     OrderAccess::store_fence(jshort*  p, jshort  v)
-{ __atomic_store(p, &v, __ATOMIC_RELAXED); fence(); }
+{ arm_atomic_store(p, &v, ARM_ATOMIC_RELAXED); fence(); }
 inline void     OrderAccess::store_fence(jint*    p, jint    v)
-{ __atomic_store(p, &v, __ATOMIC_RELAXED); fence(); }
+{ arm_atomic_store(p, &v, ARM_ATOMIC_RELAXED); fence(); }
 inline void     OrderAccess::store_fence(jlong*   p, jlong   v)
-{ __atomic_store(p, &v, __ATOMIC_RELAXED); fence(); }
+{ Atomic::store(v, p); fence(); }
 inline void     OrderAccess::store_fence(jubyte*  p, jubyte  v)
-{ __atomic_store(p, &v, __ATOMIC_RELAXED); fence(); }
+{ arm_atomic_store(p, &v, ARM_ATOMIC_RELAXED); fence(); }
 inline void     OrderAccess::store_fence(jushort* p, jushort v)
-{ __atomic_store(p, &v, __ATOMIC_RELAXED); fence(); }
+{ arm_atomic_store(p, &v, ARM_ATOMIC_RELAXED); fence(); }
 inline void     OrderAccess::store_fence(juint*   p, juint   v)
-{ __atomic_store(p, &v, __ATOMIC_RELAXED); fence(); }
+{ arm_atomic_store(p, &v, ARM_ATOMIC_RELAXED); fence(); }
 inline void     OrderAccess::store_fence(julong*  p, julong  v)
-{ __atomic_store(p, &v, __ATOMIC_RELAXED); fence(); }
+{ Atomic::store(*(jlong*)&v, (jlong*)p); fence(); }
 inline void     OrderAccess::store_fence(jfloat*  p, jfloat  v)
-{ __atomic_store(p, &v, __ATOMIC_RELAXED); fence(); }
+{ arm_atomic_store(p, &v, ARM_ATOMIC_RELAXED); fence(); }
+// in -fno-strict-aliasing we trust. this option should be (and is) provided to g++
 inline void     OrderAccess::store_fence(jdouble* p, jdouble v)
-{ __atomic_store(p, &v, __ATOMIC_RELAXED); fence(); }
+{ Atomic::store(*(jlong*)&v, (jlong*)p); fence(); }
 inline void     OrderAccess::store_ptr_fence(intptr_t* p, intptr_t v)
-{ __atomic_store(p, &v, __ATOMIC_RELAXED); fence(); }
+{ arm_atomic_store(p, &v, ARM_ATOMIC_RELAXED); fence(); }
 inline void     OrderAccess::store_ptr_fence(void**    p, void*    v)
-{ __atomic_store(p, &v, __ATOMIC_RELAXED); fence(); }
+{ arm_atomic_store(p, &v, ARM_ATOMIC_RELAXED); fence(); }
 
 inline void     OrderAccess::release_store_fence(volatile jbyte*   p, jbyte   v) { release_store(p, v); fence(); }
 inline void     OrderAccess::release_store_fence(volatile jshort*  p, jshort  v) { release_store(p, v); fence(); }
@@ -141,5 +185,11 @@ inline void     OrderAccess::release_store_fence(volatile jdouble* p, jdouble v)
 
 inline void     OrderAccess::release_store_ptr_fence(volatile intptr_t* p, intptr_t v) { release_store_ptr(p, v); fence(); }
 inline void     OrderAccess::release_store_ptr_fence(volatile void*     p, void*    v) { release_store_ptr(p, v); fence(); }
+
+#undef arm_atomic_load
+#undef arm_atomic_store
+#undef ARM_ATOMIC_ACQUIRE
+#undef ARM_ATOMIC_RELEASE
+#undef ARM_ATOMIC_RELAXED
 
 #endif // OS_CPU_LINUX_AARCH32_VM_ORDERACCESS_LINUX_AARCH32_INLINE_HPP

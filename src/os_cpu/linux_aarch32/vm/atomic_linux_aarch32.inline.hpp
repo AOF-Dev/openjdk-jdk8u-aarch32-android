@@ -33,14 +33,16 @@
 
 // Implementation of class atomic
 
-#if defined(__ARM_ARCH) && __ARM_ARCH >= 7
+// various toolchains set different symbols to indicate that ARMv7 architecture is set as a target
+// startign from v7 use more lightweight barrier instructions
+#if (defined(__ARM_ARCH) && __ARM_ARCH >= 7) || defined(__ARM_ARCH_7A__) || defined(__ARM_ARCH_7__)
 #define FULL_MEM_BARRIER  __asm__ __volatile__ ("dmb ish"   : : : "memory")
 #define READ_MEM_BARRIER  __asm__ __volatile__ ("dmb ish"   : : : "memory")
 #define WRITE_MEM_BARRIER __asm__ __volatile__ ("dmb ishst" : : : "memory")
 #else
 #define FULL_MEM_BARRIER  __sync_synchronize()
-#define READ_MEM_BARRIER  __atomic_thread_fence(__ATOMIC_ACQUIRE);
-#define WRITE_MEM_BARRIER __atomic_thread_fence(__ATOMIC_RELEASE);
+#define READ_MEM_BARRIER  __asm__ __volatile__ ("mcr p15,0,r0,c7,c10,5" : : : "memory")
+#define WRITE_MEM_BARRIER __asm__ __volatile__ ("mcr p15,0,r0,c7,c10,5" : : : "memory")
 #endif
 
 inline void Atomic::store    (jbyte    store_value, jbyte*    dest) { *dest = store_value; }
@@ -101,11 +103,29 @@ inline jint Atomic::cmpxchg (jint exchange_value, volatile jint* dest, jint comp
 }
 
 inline void Atomic::store (jlong store_value, jlong* dest) {
-  __atomic_store_n(dest, store_value, __ATOMIC_RELAXED);
+    store(store_value, (volatile jlong *)dest);
 }
 
 inline void Atomic::store (jlong store_value, volatile jlong* dest) {
+// have seen a few toolchains which only set a subset of appropriate defines
+// and as well do not provide atomic API, hence so complicated condition
+#if (defined(__ARM_ARCH) && __ARM_ARCH >= 7) || defined(__ARM_ARCH_7A__) || defined(__ARM_ARCH_7__) || defined(__ARM_ARCH_6ZK__) || defined(__ARM_ARCH_6K__) || (defined(__ARM_FEATURE_LDREX) && (__ARM_FEATURE_LDREX & 8))
+  // the below is only supported since ARMv6K, adapt otherwise
+  register long long t1;
+  register int t3;
+  __asm__ __volatile__ (
+      "repeat_%=:\n\t"
+      "ldrexd %Q[t1],%R[t1],[%[addr]]\n\t"
+      "strexd %[t3],%Q[val],%R[val],[%[addr]]\n\t"
+      "cmp %[t3],#0\n\t"
+      "bne repeat_%="
+      : [t1] "=&r" (t1),
+        [t3] "=&r" (t3)
+      : [val] "r" (store_value), [addr] "r" (dest)
+      : "memory");
+#else
   __atomic_store_n(dest, store_value, __ATOMIC_RELAXED);
+#endif
 }
 
 inline intptr_t Atomic::add_ptr(intptr_t add_value, volatile intptr_t* dest)
@@ -137,7 +157,31 @@ inline intptr_t Atomic::xchg_ptr(intptr_t exchange_value, volatile intptr_t* des
 
 inline jlong Atomic::cmpxchg (jlong exchange_value, volatile jlong* dest, jlong compare_value)
 {
- return __sync_val_compare_and_swap(dest, compare_value, exchange_value);
+// have seen a few toolchains which only set a subset of appropriate defines
+// and as well do not provide dword CAS, hence so complicated condition
+#if (defined(__ARM_ARCH) && __ARM_ARCH >= 7) || defined(__ARM_ARCH_7A__) || defined(__ARM_ARCH_7__) || defined(__ARM_ARCH_6ZK__) || defined(__ARM_ARCH_6K__) || (defined(__ARM_FEATURE_LDREX) && (__ARM_FEATURE_LDREX & 8))
+  register long long old_value;
+  register int store_result;
+  __asm__ __volatile__ (
+      "mov %[res],#1\n\t"
+      "repeat_%=:\n\t"
+      "ldrexd %Q[old],%R[old],[%[addr]]\n\t"
+      "cmp %Q[old], %Q[cmpr]\n\t"
+      "ittt eq\n\t"
+      "cmpeq %R[old], %R[cmpr]\n\t"
+      "strexdeq %[res],%Q[exch],%R[exch],[%[addr]]\n\t"
+      "cmpeq %[res],#1\n\t"
+      "beq repeat_%="
+      : [old] "=&r" (old_value),
+        [res] "=&r" (store_result)
+      : [exch] "r" (exchange_value),
+        [cmpr] "r" (compare_value),
+        [addr] "r" (dest)
+      : "memory");
+  return old_value;
+#else
+  return __sync_val_compare_and_swap(dest, compare_value, exchange_value);
+#endif
 }
 
 inline intptr_t Atomic::cmpxchg_ptr(intptr_t exchange_value, volatile intptr_t* dest, intptr_t compare_value)
@@ -153,7 +197,19 @@ inline void* Atomic::cmpxchg_ptr(void* exchange_value, volatile void* dest, void
 }
 
 inline jlong Atomic::load(volatile jlong* src) {
+// have seen a few toolchains which only set a subset of appropriate defines
+// and as well do not provide atomic API, hence so complicated condition
+#if (defined(__ARM_ARCH) && __ARM_ARCH >= 7) || defined(__ARM_ARCH_7A__) || defined(__ARM_ARCH_7__) || defined(__ARM_ARCH_6ZK__) || defined(__ARM_ARCH_6K__) || (defined(__ARM_FEATURE_LDREX) && (__ARM_FEATURE_LDREX & 8))
+  register long long res;
+  __asm__ __volatile__ (
+      "ldrexd %Q[res], %R[res], [%[addr]]"
+      : [res] "=r" (res)
+      : [addr] "r" (src)
+      : "memory");
+  return res;
+#else
   return __atomic_load_n(src, __ATOMIC_RELAXED);
+#endif
 }
 
 #endif // OS_CPU_LINUX_AARCH32_VM_ATOMIC_LINUX_AARCH32_INLINE_HPP

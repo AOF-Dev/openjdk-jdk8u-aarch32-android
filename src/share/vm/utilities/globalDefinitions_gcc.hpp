@@ -234,7 +234,12 @@ inline int g_isnan(float  f) { return isnand(f); }
 inline int g_isnan(double f) { return isnand(f); }
 #elif defined(__APPLE__)
 inline int g_isnan(double f) { return isnan(f); }
-#elif defined(LINUX) || defined(_ALLBSD_SOURCE)
+#elif defined(LINUX)
+// Linux libc without BSD extensions not required
+// to have isnanf, but should have isnan macro
+inline int g_isnan(float  f) { return isnan(f); }
+inline int g_isnan(double f) { return isnan(f); }
+#elif defined(_ALLBSD_SOURCE)
 inline int g_isnan(float  f) { return isnanf(f); }
 inline int g_isnan(double f) { return isnan(f); }
 #else
@@ -249,8 +254,14 @@ inline int g_isnan(double f) { return isnan(f); }
 
 // Checking for finiteness
 
+#if defined(LINUX)
+// Linux libc without BSD extensions have no finite, but has isfinite
+inline int g_isfinite(jfloat  f)                 { return isfinite(f); }
+inline int g_isfinite(jdouble f)                 { return isfinite(f); }
+#else
 inline int g_isfinite(jfloat  f)                 { return finite(f); }
 inline int g_isfinite(jdouble f)                 { return finite(f); }
+#endif
 
 
 // Wide characters
