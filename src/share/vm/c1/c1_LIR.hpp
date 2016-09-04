@@ -619,7 +619,7 @@ class LIR_OprFact: public AllStatic {
                                                                              LIR_OprDesc::single_size); }
 #if defined(C1_LIR_MD_HPP)
 # include C1_LIR_MD_HPP
-#elif defined(SPARC)
+#elif defined(SPARC) || defined(AARCH32)
   static LIR_Opr double_fpu(int reg1, int reg2) { return (LIR_Opr)(intptr_t)((reg1 << LIR_OprDesc::reg1_shift) |
                                                                              (reg2 << LIR_OprDesc::reg2_shift) |
                                                                              LIR_OprDesc::double_type          |

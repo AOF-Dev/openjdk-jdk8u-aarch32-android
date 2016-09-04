@@ -32,15 +32,16 @@
 #include "runtime/safepoint.hpp"
 
 void Relocation::pd_set_data_value(address x, intptr_t o, bool verify_only) {
-  if (verify_only)
-    return;
-
-  int bytes = 0;
+  int bytes;
 
   NativeInstruction *ni = NativeInstruction::from(addr());
   if (ni->is_mov_const_reg()) {
     NativeMovConstReg *nm = NativeMovConstReg::from(addr());
-    nm->set_data((uintptr_t) x);
+    if (verify_only) {
+      assert(nm->data() == (intptr_t) x, "instructions must match");
+      return;
+    }
+    nm->set_data((intptr_t) x);
     bytes = nm->next_instruction_address() - nm->addr();
   } else {
     ShouldNotReachHere();
@@ -59,24 +60,34 @@ address Relocation::pd_call_destination(address orig_addr) {
 
   NativeInstruction *ni = NativeInstruction::from(addr());
 
-  if (ni->is_call()) {
+  // Checking from shortest encoding size to longets,
+  // to avoid access beyond CodeCache boundary
+  if (NativeImmCall::is_at(addr())) {
+    return NativeImmCall::from(addr())->destination() + adj;
+  } else if (NativeImmJump::is_at(addr())) {
+    return NativeImmJump::from(addr())->destination() + adj;
+  } else if (NativeCall::is_at(addr())) {
     return NativeCall::from(addr())->destination();
-  } else if (ni->is_jump()) {
+  } else if (NativeJump::is_at(addr())) {
     return NativeJump::from(addr())->jump_destination();
   }
 
   ShouldNotReachHere();
-
-  return NULL;
 }
 
 void Relocation::pd_set_call_destination(address x) {
   assert(addr() != x, "call instruction in an infinite loop"); // FIXME what's wrong to _generate_ loop?
   NativeInstruction *ni = NativeInstruction::from(addr());
 
-  if (ni->is_call()) {
+  // Checking from shortest encoding size to longets,
+  // to avoid access beyond CodeCache boundary
+  if (NativeImmCall::is_at(addr())) {
+    NativeImmCall::from(addr())->set_destination(x);
+  } else if (NativeImmJump::is_at(addr())) {
+    NativeImmJump::from(addr())->set_destination(x);
+  } else if (NativeCall::is_at(addr())) {
     NativeCall::from(addr())->set_destination(x);
-  } else if (ni->is_jump()) {
+  } else if (NativeJump::is_at(addr())) {
     NativeJump::from(addr())->set_jump_destination(x);
   } else {
     ShouldNotReachHere();

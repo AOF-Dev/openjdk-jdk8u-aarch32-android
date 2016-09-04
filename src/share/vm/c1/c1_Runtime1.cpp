@@ -1049,7 +1049,7 @@ JRT_ENTRY(void, Runtime1::patch_code(JavaThread* thread, Runtime1::StubID stub_i
           ShouldNotReachHere();
         }
 
-#if defined(SPARC) || defined(PPC)
+#if defined(SPARC) || defined(PPC) || defined(AARCH32)
         if (load_klass_or_mirror_patch_id ||
             stub_id == Runtime1::load_appendix_patching_id) {
           // Update the location in the nmethod with the proper
@@ -1086,7 +1086,7 @@ JRT_ENTRY(void, Runtime1::patch_code(JavaThread* thread, Runtime1::StubID stub_i
         if (do_patch) {
           // replace instructions
           // first replace the tail, then the call
-#ifdef ARM
+#if defined(ARM) && !defined(AARCH32)
           if((load_klass_or_mirror_patch_id ||
               stub_id == Runtime1::load_appendix_patching_id) &&
               nativeMovConstReg_at(copy_buff)->is_pc_relative()) {
@@ -1134,12 +1134,14 @@ JRT_ENTRY(void, Runtime1::patch_code(JavaThread* thread, Runtime1::StubID stub_i
             nmethod* nm = CodeCache::find_nmethod(instr_pc);
             assert(nm != NULL, "invalid nmethod_pc");
 
+#if !defined(AARCH32)
             // The old patch site is now a move instruction so update
             // the reloc info so that it will get updated during
             // future GCs.
             RelocIterator iter(nm, (address)instr_pc, (address)(instr_pc + 1));
             relocInfo::change_reloc_info_for_address(&iter, (address) instr_pc,
                                                      relocInfo::none, rtype);
+#endif
 #ifdef SPARC
             // Sparc takes two relocations for an metadata so update the second one.
             address instr_pc2 = instr_pc + NativeMovConstReg::add_offset;

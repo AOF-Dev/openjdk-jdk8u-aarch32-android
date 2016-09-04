@@ -159,7 +159,7 @@ address MacroAssembler::target_addr_for_insn(address insn_addr, unsigned insn) {
     if(0b000 == opc2) {
       // movw, movt (only on newer ARMs)
       assert(nativeInstruction_at(&insn_buf[1])->is_movt(), "wrong insns in patch");
-      u_int32_t addr;
+      uint32_t addr;
       addr  = Instruction_aarch32::extract(insn_buf[1], 19, 16) << 28;
       addr |= Instruction_aarch32::extract(insn_buf[1], 11, 0) << 16;
       addr |= Instruction_aarch32::extract(insn_buf[0], 19, 16) << 12;
@@ -170,7 +170,7 @@ address MacroAssembler::target_addr_for_insn(address insn_addr, unsigned insn) {
       assert(nativeInstruction_at(&insn_buf[1])->is_orr(), "wrong insns in patch");
       assert(nativeInstruction_at(&insn_buf[2])->is_orr(), "wrong insns in patch");
       assert(nativeInstruction_at(&insn_buf[3])->is_orr(), "wrong insns in patch");
-      u_int32_t addr;
+      uint32_t addr;
       addr  = Assembler::decode_imm12(Instruction_aarch32::extract(insn_buf[0], 11, 0));
       addr |= Assembler::decode_imm12(Instruction_aarch32::extract(insn_buf[1], 11, 0));
       addr |= Assembler::decode_imm12(Instruction_aarch32::extract(insn_buf[2], 11, 0));
@@ -209,12 +209,12 @@ address MacroAssembler::target_addr_for_insn(address insn_addr, unsigned insn) {
   }
   //Correct offset for PC
   offset -= 8;
-  return address(((u_int32_t)insn_addr + offset));
+  return address(((uint32_t)insn_addr + offset));
 }
 
 
 void MacroAssembler::serialize_memory(Register thread, Register tmp) {
-  dsb(Assembler::SY);
+  dmb(Assembler::ISH);
 }
 
 
@@ -304,7 +304,7 @@ void MacroAssembler::far_call(Address entry, CodeBuffer *cbuf, Register tmp) {
          "destination of far call not found in code cache");
   // TODO performance issue: if intented to patch later,
   // generate mov rX, imm; bl rX far call (to reserve space)
-  if (entry.rspec().type() != relocInfo::none || far_branches()) {
+  if (far_branches()) {
     lea(tmp, entry);
     if (cbuf) cbuf->set_insts_mark();
     bl(tmp);
@@ -318,9 +318,7 @@ void MacroAssembler::far_jump(Address entry, CodeBuffer *cbuf, Register tmp) {
   assert(CodeCache::find_blob(entry.target()) != NULL,
          "destination of far call not found in code cache");
   assert(!external_word_Relocation::is_reloc_index((intptr_t)entry.target()), "can't far jump to reloc index)");
-  // TODO performance issue: if intented to patch later,
-  // generate mov rX, imm; bl rX far call (to reserve space)
-  if (entry.rspec().type() != relocInfo::none || far_branches()) {
+  if (far_branches()) {
     lea(tmp, entry);
     if (cbuf) cbuf->set_insts_mark();
     b(tmp);
@@ -591,7 +589,10 @@ void MacroAssembler::call_VM_base(Register oop_result,
     ldr(rscratch2, Address(java_thread, in_bytes(Thread::pending_exception_offset())));
     Label ok;
     cbz(rscratch2, ok);
+
     lea(rscratch2, RuntimeAddress(StubRoutines::forward_exception_entry()));
+    // forward_exception uses LR to choose exception handler but LR is trashed by previous code
+    // since we used to get here from interpreted code BL is acceptable way to acquire correct LR (see StubGenerator::generate_forward_exception)
     bl(rscratch2);
     bind(ok);
   }
@@ -615,23 +616,23 @@ void MacroAssembler::trampoline_call(Address entry, CodeBuffer *cbuf) {
          || entry.rspec().type() == relocInfo::static_call_type
          || entry.rspec().type() == relocInfo::virtual_call_type, "wrong reloc type");
 
-  //FIXME This block
-  bool compile_in_scratch_emit_size = false;
-  #ifdef COMPILER2
-  compile_in_scratch_emit_size = Compile::current()->in_scratch_emit_size();
-  #endif
+  if (cbuf) {
+    cbuf->set_insts_mark();
+  }
 
-  if (cbuf) cbuf->set_insts_mark();
-  relocate(entry.rspec());
-
-  // Have make trampline such way: destination address should be raw 4 byte value,
-  // so it's patching could be done atomically.
-  add(lr, r15_pc, NativeCall::instruction_size - 2 * NativeInstruction::arm_insn_sz);
-  ldr(r15_pc, Address(r15_pc, 4)); // Address does correction for offset from pc base
-  emit_int32((uintptr_t) entry.target());
-  // possibly pad the call to the NativeCall size to make patching happy
-  for (int i = NativeCall::instruction_size; i > 3 * NativeInstruction::arm_insn_sz; i -= NativeInstruction::arm_insn_sz)
-    nop();
+  if (far_branches()) {
+    // Have make trampline such way: destination address should be raw 4 byte value,
+    // so it's patching could be done atomically.
+    relocate(entry.rspec());
+    add(lr, r15_pc, NativeCall::instruction_size - 2 * NativeInstruction::arm_insn_sz);
+    ldr(r15_pc, Address(r15_pc, 4));
+    emit_int32((uintptr_t) entry.target());
+    // possibly pad the call to the NativeCall size to make patching happy
+    for (int i = NativeCall::instruction_size; i > 3 * NativeInstruction::arm_insn_sz; i -= NativeInstruction::arm_insn_sz)
+      nop();
+  } else {
+    bl(entry);
+  }
 }
 
 void MacroAssembler::ic_call(address entry) {
@@ -1741,23 +1742,7 @@ void MacroAssembler::cmpptr(Register src1, Address src2) {
 void MacroAssembler::store_check(Register obj) {
   // Does a store check for the oop in register obj. The content of
   // register obj is destroyed afterwards.
-  store_check_part_1(obj);
-  store_check_part_2(obj);
-}
 
-void MacroAssembler::store_check(Register obj, Address dst) {
-  store_check(obj);
-}
-
-
-// split the store check operation so that other instructions can be scheduled inbetween
-void MacroAssembler::store_check_part_1(Register obj) {
-  BarrierSet* bs = Universe::heap()->barrier_set();
-  assert(bs->kind() == BarrierSet::CardTableModRef, "Wrong barrier set kind");
-  lsr(obj, obj, CardTableModRefBS::card_shift);
-}
-
-void MacroAssembler::store_check_part_2(Register obj) {
   BarrierSet* bs = Universe::heap()->barrier_set();
   assert(bs->kind() == BarrierSet::CardTableModRef, "Wrong barrier set kind");
   CardTableModRefBS* ct = (CardTableModRefBS*)bs;
@@ -1772,8 +1757,21 @@ void MacroAssembler::store_check_part_2(Register obj) {
   // don't bother to check, but it could save an instruction.
   intptr_t disp = (intptr_t) ct->byte_map_base;
   mov(rscratch1, disp);
-  mov(rscratch2, 0);
-  strb(rscratch2, Address(obj, rscratch1));
+  assert((disp & 0xff) == 0, "fix store char 0 below");
+  strb(rscratch1, Address(rscratch1, obj, lsr((int) CardTableModRefBS::card_shift)));
+}
+
+void MacroAssembler::store_check(Register obj, Address dst) {
+  store_check(obj);
+}
+
+// split the store check operation so that other instructions can be scheduled inbetween
+void MacroAssembler::store_check_part_1(Register obj) {
+  ShouldNotCallThis();
+}
+
+void MacroAssembler::store_check_part_2(Register obj) {
+  ShouldNotCallThis();
 }
 
 void MacroAssembler::load_klass(Register dst, Register src) {

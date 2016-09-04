@@ -67,8 +67,6 @@ define_pd_global(intx, PreInflateSpin,           10);
 define_pd_global(bool, RewriteBytecodes,     true);
 define_pd_global(bool, RewriteFrequentPairs, true);
 
-define_pd_global(bool, UseMembar,            true);
-
 define_pd_global(bool, PreserveFramePointer, false);
 
 // GC Ergo Flags
@@ -81,9 +79,13 @@ define_pd_global(uintx, TypeProfileLevel, 111);
 define_pd_global(intx, InlineSmallCode,          1000);
 //#endif
 
+// Define it instead providing as option, inlining the constant significantly
+// improves perfromance. The option is disabled for AARCH32 in globals.hpp too.
+#define UseMembar true
+
 #define ARCH_FLAGS(develop, product, diagnostic, experimental, notproduct) \
-                                                                        \
-  product(bool, NearCpool, true,                                        \
+                                                                           \
+  product(bool, NearCpool, true,                                           \
          "constant pool is close to instructions")                      \
                                                                         \
   product(bool, UseBarriersForVolatile, false,                          \

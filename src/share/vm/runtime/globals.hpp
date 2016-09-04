@@ -536,8 +536,9 @@ class CommandLineFlags {
   /* UseMembar is theoretically a temp flag used for memory barrier         \
    * removal testing.  It was supposed to be removed before FCS but has     \
    * been re-added (see 6401008) */                                         \
+  NOT_AARCH32(                                                              \
   product_pd(bool, UseMembar,                                               \
-          "(Unstable) Issues membars on thread state transitions")          \
+          "(Unstable) Issues membars on thread state transitions"))         \
                                                                             \
   develop(bool, CleanChunkPoolAsync, falseInEmbedded,                       \
           "Clean the chunk pool asynchronously")                            \

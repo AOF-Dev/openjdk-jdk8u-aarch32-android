@@ -142,6 +142,12 @@ address TemplateInterpreterGenerator::generate_exception_handler_common(
   // expression stack must be empty before entering the VM if an
   // exception happened
   __ empty_expression_stack();
+  // FIXME shouldn't it be in rest of generate_* ?
+  // rdispatch assumed to cache dispatch table. This code can be called from
+  // signal handler, so it can't assume execption caller preserved the register,
+  // so restore it here
+  __ get_dispatch();
+  // FIXME shouldn't get_method be here ?
   // setup parameters
   __ lea(c_rarg1, Address((address)name));
   if (pass_oop) {
@@ -508,7 +514,9 @@ void InterpreterGenerator::generate_stack_overflow_check(void) {
   __ b(after_frame_check, Assembler::HI);
 
   // Remove the incoming args, peeling the machine SP back to where it
-  // was in the caller.
+  // was in the caller.  This is not strictly necessary, but unless we
+  // do so the stack frame may have a garbage FP; this ensures a
+  // correct call stack that we can always unwind.
   __ mov(sp, r4);
 
   // Note: the restored frame is not necessarily interpreted.
@@ -1039,7 +1047,7 @@ address InterpreterGenerator::generate_native_entry(bool synchronized) {
   if (os::is_MP()) {
     if (UseMembar) {
       // Force this write out before the read below
-      __ dsb(Assembler::SY);
+      __ membar(Assembler::AnyAny);
     } else {
       // Write serialization page so VM thread can do a pseudo remote membar.
       // We use the current thread pointer to calculate a thread specific
@@ -1992,17 +2000,16 @@ InterpreterGenerator::InterpreterGenerator(StubQueue* code)
 address TemplateInterpreterGenerator::generate_trace_code(TosState state) {
   address entry = __ pc();
 
-  __ push(lr);
   __ push(state);
-  __ push(RegSet::range(r0, r12), sp);
+  // Save all registers on stack, so omit SP and PC
+  __ push(RegSet::range(r0, r12) + lr, sp);
   __ mov(c_rarg2, r0);  // Pass itos
   __ mov(c_rarg3, r1);  // Pass ltos/dtos high part
   __ call_VM(noreg,
              CAST_FROM_FN_PTR(address, SharedRuntime::trace_bytecode),
              c_rarg1, c_rarg2, c_rarg3);
-  __ pop(RegSet::range(r0, r12), sp);
+  __ pop(RegSet::range(r0, r12) + lr, sp);
   __ pop(state);
-  __ pop(lr);
   __ b(lr);                                   // return from result handler
 
   return entry;

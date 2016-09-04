@@ -1046,11 +1046,13 @@ void SharedRuntime::restore_native_result(MacroAssembler *masm, BasicType ret_ty
   }
 }
 
-static void save_args(MacroAssembler *masm, int arg_count, int first_arg, VMRegPair *args) {
+static int save_args(MacroAssembler *masm, int arg_count, int first_arg, VMRegPair *args) {
   RegSet x;
+  int saved_slots = 0;
   for ( int i = first_arg ; i < arg_count ; i++ ) {
     if (args[i].first()->is_Register()) {
       x = x + args[i].first()->as_Register();
+      ++saved_slots;
     } else if (args[i].first()->is_FloatRegister()) {
       FloatRegister fr = args[i].first()->as_FloatRegister();
 
@@ -1058,13 +1060,16 @@ static void save_args(MacroAssembler *masm, int arg_count, int first_arg, VMRegP
     assert(args[i].is_single_phys_reg(), "doubles should be 2 consequents float regs");
         __ decrement(sp, 2 * wordSize);
     __ vstr_f64(fr, Address(sp));
+        saved_slots += 2;
       } else {
         __ decrement(sp, wordSize);
     __ vstr_f32(fr, Address(sp));
+        ++saved_slots;
       }
     }
   }
   __ push(x, sp);
+  return saved_slots;
 }
 
 static void restore_args(MacroAssembler *masm, int arg_count, int first_arg, VMRegPair *args) {
@@ -1765,7 +1770,7 @@ nmethod* SharedRuntime::generate_native_wrapper(MacroAssembler* masm,
   {
     SkipIfEqual skip(masm, &DTraceMethodProbes, false);
     // protect the args we've loaded
-    save_args(masm, total_c_args, c_arg, out_regs);
+    (void) save_args(masm, total_c_args, c_arg, out_regs);
     __ mov_metadata(c_rarg1, method());
     __ call_VM_leaf(
       CAST_FROM_FN_PTR(address, SharedRuntime::dtrace_method_entry),
@@ -1777,7 +1782,7 @@ nmethod* SharedRuntime::generate_native_wrapper(MacroAssembler* masm,
   // RedefineClasses() tracing support for obsolete method entry
   if (RC_TRACE_IN_RANGE(0x00001000, 0x00002000)) {
     // protect the args we've loaded
-    save_args(masm, total_c_args, c_arg, out_regs);
+    (void) save_args(masm, total_c_args, c_arg, out_regs);
     __ mov_metadata(c_rarg1, method());
     __ call_VM_leaf(
       CAST_FROM_FN_PTR(address, SharedRuntime::rc_trace_method_entry),
@@ -1794,11 +1799,44 @@ nmethod* SharedRuntime::generate_native_wrapper(MacroAssembler* masm,
 
   if (method->is_synchronized()) {
     assert(!is_critical_native, "unhandled");
-    // TODO Fast path disabled as requires at least 4 registers, which already contain arguments prepared for call
+
+    // registers below are not used to pass parameters
+    // and they are caller save in C1
+    // => safe to use as temporary here
+#ifdef COMPILER2
+    stop("fix temporary register set below");
+#endif
+    const Register swap_reg = r5;
+    const Register obj_reg  = r6;  // Will contain the oop
+    const Register lock_reg = r7;  // Address of compiler lock object (BasicLock)
+
+    const int mark_word_offset = BasicLock::displaced_header_offset_in_bytes();
 
     // Get the handle (the 2nd argument)
     __ mov(oop_handle_reg, c_rarg1);
-    __ b(slow_path_lock);
+
+    // Get address of the box
+
+    __ lea(lock_reg, Address(sp, lock_slot_offset * VMRegImpl::stack_slot_size));
+
+    // Load the oop from the handle
+    __ ldr(obj_reg, Address(oop_handle_reg, 0));
+
+    if (UseBiasedLocking) {
+      __ biased_locking_enter(lock_reg, obj_reg, swap_reg, rscratch2, false, lock_done, &slow_path_lock);
+    }
+
+    // Load (object->mark() | 1) into swap_reg %r0
+    __ ldr(swap_reg, Address(obj_reg, 0));
+    __ orr(swap_reg, swap_reg, 1);
+
+    // Save (object->mark() | 1) into BasicLock's displaced header
+    __ str(swap_reg, Address(lock_reg, mark_word_offset));
+
+    // src -> dest iff dest == r0 else r0 <- dest
+    { Label here;
+      __ cmpxchgptr(swap_reg, lock_reg, obj_reg, rscratch1, lock_done, &slow_path_lock);
+    }
 
     // Slow path will re-enter here
     __ bind(lock_done);
@@ -1856,7 +1894,7 @@ nmethod* SharedRuntime::generate_native_wrapper(MacroAssembler* masm,
   if(os::is_MP()) {
     if (UseMembar) {
       // Force this write out before the read below
-      __ dmb(Assembler::SY);
+      __ membar(Assembler::AnyAny);
     } else {
       // Write serialization page so VM thread can do a pseudo remote membar.
       // We use the current thread pointer to calculate a thread specific
@@ -1929,8 +1967,29 @@ nmethod* SharedRuntime::generate_native_wrapper(MacroAssembler* masm,
   Label unlock_done;
   Label slow_path_unlock;
   if (method->is_synchronized()) {
-    // TODO fast path disabled as requires at least 4 registers, but r0,r1 contains result
-    __ b(slow_path_unlock);
+    const Register obj_reg  = r2;  // Will contain the oop
+    const Register lock_reg = rscratch1; // Address of compiler lock object (BasicLock)
+    const Register old_hdr  = r3;  // value of old header at unlock time
+
+    // Get locked oop from the handle we passed to jni
+    __ ldr(obj_reg, Address(oop_handle_reg, 0));
+
+    if (UseBiasedLocking) {
+      __ biased_locking_exit(obj_reg, old_hdr, unlock_done);
+    }
+
+    // Simple recursive lock?
+    // get address of the stack lock
+    __ lea(lock_reg, Address(sp, lock_slot_offset * VMRegImpl::stack_slot_size));
+
+    //  get old displaced header
+    __ ldr(old_hdr, Address(lock_reg, 0));
+    __ cbz(old_hdr, unlock_done);
+
+    // Atomic swap old header if oop still contains the stack lock
+    Label succeed;
+    __ cmpxchgptr(lock_reg, old_hdr, obj_reg, rscratch1, succeed, &slow_path_unlock);
+    __ bind(succeed);
 
     // slow path re-enters here
     __ bind(unlock_done);
@@ -1997,10 +2056,10 @@ nmethod* SharedRuntime::generate_native_wrapper(MacroAssembler* masm,
     // args are (oop obj, BasicLock* lock, JavaThread* thread)
 
     // protect the args we've loaded
-    save_args(masm, total_c_args, c_arg, out_regs);
+    const int extra_words = save_args(masm, total_c_args, c_arg, out_regs);
 
     __ ldr(c_rarg0, Address(oop_handle_reg));
-    __ lea(c_rarg1, Address(sp, lock_slot_offset * VMRegImpl::stack_slot_size));
+    __ lea(c_rarg1, Address(sp, (extra_words + lock_slot_offset) * VMRegImpl::stack_slot_size));
     __ mov(c_rarg2, rthread);
 
     // Not a leaf but we have last_Java_frame setup as we want

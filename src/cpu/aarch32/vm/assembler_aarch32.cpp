@@ -1375,7 +1375,7 @@ void Address::lea(MacroAssembler *as, Register r) const {
     if (rtype == relocInfo::none)
       __ mov(r, target());
     else
-      __ movptr(r, (u_int32_t)target());
+      __ movptr(r, (uint32_t)target());
     break;
   }
   default:
@@ -1693,10 +1693,10 @@ void Assembler::mov_immediate(Register dst, uint32_t imm32, Condition cond, bool
 }
 
 //This should really be in the macroassembler
-void Assembler::mov_immediate32(Register dst, u_int32_t imm32, Condition cond, bool s)
+void Assembler::mov_immediate32(Register dst, uint32_t imm32, Condition cond, bool s)
 {
-  // Need to move a full 32 bit immediate, for example if we're loading an address that
-  // might change later and therefore need to be updated.
+    // Need to move a full 32 bit immediate, for example if we're loading an address that
+    // might change later and therefore need to be updated.
   if (VM_Version::features() & (FT_ARMV7 | FT_ARMV6T2))  {
     //Use a movw and a movt
     Assembler::movw_i(dst, (unsigned)(imm32 & 0xffff), cond);
@@ -1735,7 +1735,7 @@ void Assembler::add_sub_imm(int decode, Register Rd, Register Rn, int imm,
 
   //Try plan B - a mov first - need to have destination that is not an arg
   assert(Rd != Rn, "Can't use imm and can't do a mov. I'm in a jam.");
-  mov_immediate(Rd, (u_int32_t)uabs(imm), cond, s);
+  mov_immediate(Rd, (uint32_t)uabs(imm), cond, s);
   //Now do the non immediate version - copied from the immediate encodings
   {
     starti;

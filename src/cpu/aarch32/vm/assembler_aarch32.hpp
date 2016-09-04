@@ -874,10 +874,10 @@ void mvns(Register Rd, Register Rm, Condition cond = C_DFLT) {
  protected:
   // Mov data to destination register in the shortest number of instructions
   // possible.
-  void mov_immediate(Register dst, u_int32_t imm32, Condition cond, bool s);
+  void mov_immediate(Register dst, uint32_t imm32, Condition cond, bool s);
   // Mov data to destination register but always emit enough instructions that would
   // permit any 32-bit constant to be loaded. (Allow for rewriting later).
-  void mov_immediate32(Register dst, u_int32_t imm32, Condition cond, bool s);
+  void mov_immediate32(Register dst, uint32_t imm32, Condition cond, bool s);
 
    void add_sub_imm(int decode, Register Rd, Register Rn, int imm,
                    Condition cond, bool s);
@@ -1210,7 +1210,7 @@ void movt_i(Register Rd, unsigned imm, Condition cond = C_DFLT) {
       NAME(Rt, Address(r15_pc, offset), cond);                                       \
     } else if(isload){ /* Plan B */                                                  \
       /* TODO check we don't have to relocate this*/                                 \
-      mov_immediate(Rt, (u_int32_t)dest, cond, false);                               \
+      mov_immediate(Rt, (uint32_t)dest, cond, false);                               \
       NAME(Rt, Address(Rt, 0), cond);                                                \
     } else { /* There is no plan C */                                                \
       ShouldNotReachHere();                                                          \
@@ -1596,7 +1596,7 @@ bool can_ldst_multiple( unsigned regset, const Address& adr);
     sync_instr(0b0100, option);
   }
   void dmb(enum barrier option) {
-    sync_instr(0b0100, option);
+    sync_instr(0b0101, option);
   }
   void bkpt();
   void isb() {

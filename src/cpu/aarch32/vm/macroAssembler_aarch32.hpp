@@ -159,19 +159,19 @@ public:
     // TODO: Do Address end up as address and then passing through this method, after
     // being marked for relocation elsewhere? If not (as I suspect) then this can
     // be relaxed to mov_immediate to potentially produce shorter code sequences.
-    mov_immediate32(dst, (u_int32_t)addr, cond, false);
+    mov_immediate32(dst, (uint32_t)addr, cond, false);
   }
 
   inline void mov(Register dst, long l, Condition cond = C_DFLT) {
-    mov(dst, (u_int32_t)l, cond);
+    mov(dst, (uint32_t)l, cond);
   }
   inline void mov(Register dst, unsigned long l, Condition cond = C_DFLT) {
-    mov(dst, (u_int32_t)l, cond);
+    mov(dst, (uint32_t)l, cond);
   }
   inline void mov(Register dst, int i, Condition cond = C_DFLT) {
-    mov(dst, (u_int32_t)i, cond);
+    mov(dst, (uint32_t)i, cond);
   }
-  inline void mov(Register dst, u_int32_t i, Condition cond = C_DFLT) {
+  inline void mov(Register dst, uint32_t i, Condition cond = C_DFLT) {
     mov_immediate(dst, i, cond, false);
   }
 
@@ -590,9 +590,14 @@ public:
   void bang_stack_with_offset(int offset) {
     // stack grows down, caller passes positive offset
     assert(offset > 0, "must bang with negative offset");
-    mov(rscratch2, -offset);
-    // bang with random number from r0
-    str(r0, Address(sp, rscratch2));
+    // bang with random value from r0
+    if (operand_valid_for_add_sub_immediate(offset)) {
+      sub(rscratch2, sp, offset);
+      strb(r0, Address(rscratch2));
+    } else {
+      mov(rscratch2, offset);
+      strb(r0, Address(sp, rscratch2, Assembler::lsl(), Address::SUB));
+    }
   }
 
   // Writes to stack successive pages until offset reached to check for
@@ -653,7 +658,11 @@ public:
 
   static int far_branch_size() {
     // TODO performance issue: always generate real far jumps
-    return 3 * 4;  // movw, movt, br
+    if (far_branches()) {
+      return 3 * 4;  // movw, movt, br
+    } else {
+      return 4;
+    }
   }
 
   // Emit the CompiledIC call idiom

@@ -92,10 +92,8 @@ void NativeCall::set_destination_mt_safe(address dest, bool assert_lock) {
   // and see valid destination value)
 
   if (NativeImmCall::is_at(addr())) {
-    assert(false, "could be patched mt_safe way, but should not be requested to. "
-           "Known mt_safe requests have arbitrary destination offset. "
-           "Use trampoline_call for this.");
-    ShouldNotCallThis();
+    NativeImmCall::from(addr())->set_destination(dest);
+    ICache::invalidate_word(addr());
   } else if (NativeTrampolineCall::is_at(addr())) {
     NativeTrampolineCall::from(addr())->set_destination_mt_safe(dest);
   } else {
