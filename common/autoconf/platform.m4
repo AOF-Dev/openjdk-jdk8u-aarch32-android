@@ -320,6 +320,8 @@ AC_DEFUN([PLATFORM_SETUP_LEGACY_VARS],
   elif test "x$OPENJDK_TARGET_OS" != xmacosx && test "x$OPENJDK_TARGET_CPU" = xx86_64; then
     # On all platforms except macosx, we replace x86_64 with amd64.
     OPENJDK_TARGET_CPU_OSARCH="amd64"
+  elif test "x$OPENJDK_TARGET_CPU" = xaarch32; then
+    OPENJDK_TARGET_CPU_OSARCH="arm"
   fi
   AC_SUBST(OPENJDK_TARGET_CPU_OSARCH)
 
