@@ -39,6 +39,7 @@
 #include "runtime/sharedRuntime.hpp"
 #include "runtime/stubRoutines.hpp"
 #include "runtime/synchronizer.hpp"
+#include "vm_version_aarch32.hpp"
 
 #ifndef CC_INTERP
 
@@ -339,11 +340,15 @@ void TemplateTable::fconst(int value)
   transition(vtos, ftos);
   float fval = value;
   assert(value == 0 || value == 1 || value == 2, "invalid float const");
-  if(__ operand_valid_for_float_immediate(fval)) {
-    __ vmov_f32(d0, fval);
+  if (hasFPU()) {
+    if(__ operand_valid_for_float_immediate(fval)) {
+      __ vmov_f32(d0, fval);
+    } else {
+      __ mov(r0, *((uint32_t*)&fval));
+      __ vmov_f32(d0, r0);
+    }
   } else {
     __ mov(r0, *((uint32_t*)&fval));
-    __ vmov_f32(d0, r0);
   }
 }
 
@@ -352,13 +357,19 @@ void TemplateTable::dconst(int value)
   transition(vtos, dtos);
   double dval = value;
   assert(value == 0 || value == 1 || value == 2, "invalid double const");
-  if(__ operand_valid_for_double_immediate(dval)) {
-    __ vmov_f64(d0, dval);
+  if (hasFPU()) {
+    if(__ operand_valid_for_double_immediate(dval)) {
+      __ vmov_f64(d0, dval);
+    } else {
+      uint32_t* ptr = (uint32_t*)&dval;
+      __ mov(r0, *ptr);
+      __ mov(r1, *(ptr + 1));
+      __ vmov_f64(d0, r0, r1);
+    }
   } else {
     uint32_t* ptr = (uint32_t*)&dval;
     __ mov(r0, *ptr);
     __ mov(r1, *(ptr + 1));
-    __ vmov_f64(d0, r0, r1);
   }
 }
 
@@ -416,17 +427,25 @@ void TemplateTable::ldc(bool wide)
   __ b(Done);
 
   __ bind(notClass);
-  __ cmp(r3, JVM_CONSTANT_Float);
-  __ b(notFloat, Assembler::NE);
-  // ftos
-  __ adds(r1, r2, r1, lsl(2));
-  __ vldr_f32(d0, Address(r1, base_offset));
+  if (hasFPU()) {
+    __ cmp(r3, JVM_CONSTANT_Float);
+    __ b(notFloat, Assembler::NE);
+    // ftos
+    __ adds(r1, r2, r1, lsl(2));
+    __ vldr_f32(d0, Address(r1, base_offset));
 
-  __ push_f();
+    __ push_f();
 
-  __ b(Done);
+    __ b(Done);
 
-  __ bind(notFloat);
+    __ bind(notFloat);
+  } else {
+        // Soft FP pass through T_INT case.
+#ifdef ASSERT
+        __ cmp(r3, JVM_CONSTANT_Float);
+        __ mov(r3, JVM_CONSTANT_Integer,  Assembler::EQ);
+#endif // ASSER
+  }
 #ifdef ASSERT
   {
     Label L;
@@ -478,7 +497,7 @@ void TemplateTable::fast_aldc(bool wide)
 void TemplateTable::ldc2_w()
 {
   transition(vtos, vtos);
-  Label Long, Done;
+   Label Done;
   __ get_unsigned_2_byte_index_at_bcp(r0, 1);
 
   __ get_cpool_and_tags(r1, r2);
@@ -488,15 +507,18 @@ void TemplateTable::ldc2_w()
   // get type
   __ lea(r2, Address(r2, r0, lsl(0)));
   __ load_unsigned_byte(r2, Address(r2, tags_offset));
-  __ cmp(r2, (int)JVM_CONSTANT_Double);
-  __ b(Long, Assembler::NE);
-  // dtos
-  __ lea (r2, Address(r1, r0, lsl(2)));
-  __ vldr_f64(d0, Address(r2, base_offset));
-  __ push_d();
-  __ b(Done);
+  if (hasFPU()) {
+    Label Long;
+    __ cmp(r2, (int)JVM_CONSTANT_Double);
+    __ b(Long, Assembler::NE);
+    // dtos
+    __ lea (r2, Address(r1, r0, lsl(2)));
+    __ vldr_f64(d0, Address(r2, base_offset));
+    __ push_d();
+    __ b(Done);
 
-  __ bind(Long);
+    __ bind(Long);
+  }
   // ltos
   __ lea(r1, Address(r1, r0, lsl(2)));
   __ ldr(r0, Address(r1, base_offset));
@@ -583,15 +605,24 @@ void TemplateTable::fload()
 {
   transition(vtos, ftos);
   locals_index(r1);
-  __ vldr_f32(d0, faddress(r1, r2, _masm));
+  if (hasFPU()) {
+      __ vldr_f32(d0, faddress(r1, r2, _masm));
+  } else {
+    __ ldr(r0, faddress(r1, r2, _masm));
+  }
 }
 
 void TemplateTable::dload()
 {
   transition(vtos, dtos);
-  __ ldrb(r1, at_bcp(1));
-  __ sub(r1, rlocals, r1, lsl(LogBytesPerWord));
-  __ vldr_f64(d0, Address(r1, Interpreter::local_offset_in_bytes(1)));
+  if (hasFPU()) {
+    __ ldrb(r1, at_bcp(1));
+    __ sub(r1, rlocals, r1, lsl(LogBytesPerWord));
+    __ vldr_f64(d0, Address(r1, Interpreter::local_offset_in_bytes(1)));
+  } else {
+    locals_index(r2);
+    __ ldrd(r0, r1, daddress(r2, r3, _masm));
+  }
 }
 
 void TemplateTable::aload()
@@ -624,16 +655,25 @@ void TemplateTable::wide_fload()
 {
   transition(vtos, ftos);
   locals_index_wide(r1);
-  __ vldr_f32(d0, faddress(r1, rscratch1, _masm));
+  if (hasFPU()) {
+      __ vldr_f32(d0, faddress(r1, rscratch1, _masm));
+  } else {
+  __ ldr (r0, faddress(r1, rscratch1, _masm));
+  }
 }
 
 void TemplateTable::wide_dload()
 {
   transition(vtos, dtos);
-  __ ldrh(r1, at_bcp(2));
-  __ rev16(r1, r1);
-  __ sub(r1, rlocals, r1, lsl(LogBytesPerWord));
-  __ vldr_f64(d0, Address(r1, Interpreter::local_offset_in_bytes(1)));
+  if (hasFPU()) {
+    __ ldrh(r1, at_bcp(2));
+    __ rev16(r1, r1);
+    __ sub(r1, rlocals, r1, lsl(LogBytesPerWord));
+    __ vldr_f64(d0, Address(r1, Interpreter::local_offset_in_bytes(1)));
+  } else {
+    locals_index_wide(r2);
+    __ ldrd(r0, r1, daddress(r2, r3, _masm));
+  }
 }
 
 void TemplateTable::wide_aload()
@@ -701,7 +741,11 @@ void TemplateTable::faload()
   // r2: index
   index_check(r0, r2); // leaves index in r2, kills rscratch1
   __ lea(r2,  Address(r0, r2, lsl(2)));
-  __ vldr_f32(d0, Address(r2,  arrayOopDesc::base_offset_in_bytes(T_FLOAT)));
+  if (hasFPU()) {
+      __ vldr_f32(d0, Address(r2,  arrayOopDesc::base_offset_in_bytes(T_FLOAT)));
+  } else {
+    __ ldr(r0, Address(r2,  arrayOopDesc::base_offset_in_bytes(T_FLOAT)));
+  }
 }
 
 void TemplateTable::daload()
@@ -715,7 +759,9 @@ void TemplateTable::daload()
   __ lea(r2,  Address(r0, r2, lsl(3)));
   __ add(r2, r2, arrayOopDesc::base_offset_in_bytes(T_DOUBLE));
   __ atomic_ldrd(r0, r1, r2);
-  __ vmov_f64(d0, r0, r1);
+  if (hasFPU()) {
+      __ vmov_f64(d0, r0, r1);
+  }
 }
 
 void TemplateTable::aaload()
@@ -798,17 +844,21 @@ void TemplateTable::lload(int n)
 void TemplateTable::fload(int n)
 {
   transition(vtos, ftos);
-  __ vldr_f32(d0, faddress(n));
-  __ vmov_f32(rscratch1, d0);
-  __ reg_printf("Just loaded float 0x%08x\n", rscratch1);
-  __ vmov_f32(rscratch1, d0);
-  __ reg_printf("Just loaded float, confirm 0x%08x\n", rscratch1);
+  if (hasFPU()) {
+      __ vldr_f32(d0, faddress(n));
+  } else {
+    __ ldr(r0, faddress(n));
+  }
 }
 
 void TemplateTable::dload(int n)
 {
   transition(vtos, dtos);
-  __ vldr_f64(d0, daddress(n));
+  if (hasFPU()) {
+    __ vldr_f64(d0, daddress(n));
+  } else {
+    __ ldrd(r0, r1, daddress(n));
+  }
 }
 
 void TemplateTable::aload(int n)
@@ -906,13 +956,22 @@ void TemplateTable::fstore() {
   transition(ftos, vtos);
   locals_index(r1);
   __ lea(rscratch1, iaddress(r1));
-  __ vstr_f32(d0, Address(rscratch1));
+  if (hasFPU()) {
+      __ vstr_f32(d0, Address(rscratch1));
+  } else {
+    __ str(r0, Address(rscratch1));
+  }
 }
 
 void TemplateTable::dstore() {
   transition(dtos, vtos);
-  locals_index(r1);
-  __ vstr_f64(d0, daddress(r1, rscratch1, _masm));
+  if (hasFPU()) {
+    locals_index(r1);
+    __ vstr_f64(d0, daddress(r1, rscratch1, _masm));
+  } else {
+    locals_index(r2);
+    __ strd(r0, r1, daddress(r2, rscratch1, _masm));
+  }
 }
 
 void TemplateTable::astore()
@@ -941,17 +1000,28 @@ void TemplateTable::wide_lstore() {
 
 void TemplateTable::wide_fstore() {
   transition(vtos, vtos);
-  __ pop_f();
   locals_index_wide(r1);
   __ lea(rscratch1, faddress(r1, rscratch1, _masm));
-  __ vstr_f32(d0, rscratch1);
+  if (hasFPU()) {
+      __ pop_f();
+    __ vstr_f32(d0, rscratch1);
+  } else {
+    __ pop_i();
+    __ str(r0, Address(rscratch1));
+  }
 }
 
 void TemplateTable::wide_dstore() {
   transition(vtos, vtos);
-  __ pop_d();
-  locals_index_wide(r1);
-  __ vstr_f64(d0, daddress(r1, rscratch1, _masm));
+  if (hasFPU()) {
+    __ pop_d();
+    locals_index_wide(r1);
+    __ vstr_f64(d0, daddress(r1, rscratch1, _masm));
+  } else {
+    __ pop_l();
+    locals_index_wide(r2);
+    __ strd(r0, r1, daddress(r2, rscratch1, _masm));
+  }
 }
 
 void TemplateTable::wide_astore() {
@@ -992,27 +1062,34 @@ void TemplateTable::fastore() {
   transition(ftos, vtos);
   __ pop_i(r2);
   __ pop_ptr(r3);
-  // d0: value
+  // d0/r0: value
   // r2:  index
   // r3:  array
   index_check(r3, r2); // prefer index in r2
   __ lea(rscratch1, Address(r3, r2, lsl(2)));
-  __ vstr_f32(d0, Address(rscratch1,
-                      arrayOopDesc::base_offset_in_bytes(T_FLOAT)));
+  if (hasFPU()) {
+    __ vstr_f32(d0, Address(rscratch1,
+                        arrayOopDesc::base_offset_in_bytes(T_FLOAT)));
+  } else {
+        __ str(r0, Address(rscratch1,
+                           arrayOopDesc::base_offset_in_bytes(T_FLOAT)));
+  }
 }
 
 void TemplateTable::dastore() {
   transition(dtos, vtos);
   __ pop_i(r2);
   __ pop_ptr(r3);
-  // d0: value
+  // d0/r0:r1: value
   // r2:  index
   // r3:  array
   index_check(r3, r2); // prefer index in r2
   __ lea(rscratch1, Address(r3, r2, lsl(3)));
   __ lea(rscratch1, Address(rscratch1,
                             arrayOopDesc::base_offset_in_bytes(T_DOUBLE)));
-  __ vmov_f64(r0, r1, d0);
+    if (hasFPU()) {
+        __ vmov_f64(r0, r1, d0);
+    }
   __ atomic_strd(r0, r1, rscratch1, r2, r3);
 }
 
@@ -1131,13 +1208,21 @@ void TemplateTable::lstore(int n)
 void TemplateTable::fstore(int n)
 {
   transition(ftos, vtos);
-  __ vstr_f32(d0, faddress(n));
+  if (hasFPU()) {
+      __ vstr_f32(d0, faddress(n));
+  } else {
+    __ str(r0, faddress(n));
+  }
 }
 
 void TemplateTable::dstore(int n)
 {
   transition(dtos, vtos);
-  __ vstr_f64(d0, daddress(n));
+  if (hasFPU()) {
+      __ vstr_f64(d0, daddress(n));
+  } else {
+    __ strd(r0, r1, daddress(n));
+  }
 }
 
 void TemplateTable::astore(int n)
@@ -1413,74 +1498,139 @@ void TemplateTable::lushr() {
 void TemplateTable::fop2(Operation op)
 {
   transition(ftos, ftos);
-  switch (op) {
-  case add:
-    __ pop_f(d1);
-    __ vadd_f32(d0, d1, d0);
-    break;
-  case sub:
-    __ pop_f(d1);
-    __ vsub_f32(d0, d1, d0);
-    break;
-  case mul:
-    __ pop_f(d1);
-    __ vmul_f32(d0, d1, d0);
-    break;
-  case div:
-    __ pop_f(d1);
-    __ vdiv_f32(d0, d1, d0);
-    break;
-  case rem:
-    __ vcvt_f64_f32(d1, d0);
-    __ pop_f(d0);
-    __ vcvt_f64_f32(d0, d0);
-#ifndef HARD_FLOAT_CC
-    __ vmov_f64(r0, r1, d0);
-    __ vmov_f64(r2, r3, d1);
+  if(hasFPU()) {
+    switch (op) {
+    case add:
+      __ pop_f(d1);
+      __ vadd_f32(d0, d1, d0);
+      break;
+    case sub:
+      __ pop_f(d1);
+      __ vsub_f32(d0, d1, d0);
+      break;
+    case mul:
+      __ pop_f(d1);
+      __ vmul_f32(d0, d1, d0);
+      break;
+    case div:
+      __ pop_f(d1);
+      __ vdiv_f32(d0, d1, d0);
+      break;
+    case rem:
+      __ vmov_f32(f1, f0);
+      __ pop_f(f0);
+      #ifndef HARD_FLOAT_CC
+      __ vmov_f32(r0, f0);
+      __ vmov_f32(r1, f1);
+      #endif
+      __ mov(rscratch1, (address)fmodf);
+      __ bl(rscratch1);
+      #ifndef HARD_FLOAT_CC
+      __ vmov_f32(f0, r0);
+      #endif
+      break;
+    default:
+      ShouldNotReachHere();
+      break;
+    }
+  } else {
+#ifdef __SOFTFP__
+    __ mov(r1, r0);
+    __ pop_i(r0);
+    switch (op) {
+    case add:
+      __ call_VM_leaf_base(CAST_FROM_FN_PTR(address, SharedRuntime::fadd), 0);
+      break;
+    case sub:
+      __ call_VM_leaf_base(CAST_FROM_FN_PTR(address, SharedRuntime::fsub), 0);
+      break;
+    case mul:
+      __ call_VM_leaf_base(CAST_FROM_FN_PTR(address, SharedRuntime::fmul), 0);
+      break;
+    case div:
+      __ call_VM_leaf_base(CAST_FROM_FN_PTR(address, SharedRuntime::fdiv), 0);
+      break;
+    case rem:
+      __ call_VM_leaf_base(CAST_FROM_FN_PTR(address, SharedRuntime::frem), 0);
+      break;
+    default:
+      ShouldNotReachHere();
+      break;
+    }
+  #else
+      // expected -mfloat-abi=soft
+      ShouldNotReachHere();
 #endif
-    __ mov(rscratch1, (address)(double (*)(double, double))fmod);
-    __ bl(rscratch1);
-    __ vcvt_f32_f64(d0, d0);
-    break;
-  default:
-    ShouldNotReachHere();
-    break;
-  }
+}
 }
 
 void TemplateTable::dop2(Operation op)
 {
   transition(dtos, dtos);
-  switch (op) {
-  case add:
-    __ pop_d(d1);
-    __ vadd_f64(d0, d1, d0);
-    break;
-  case sub:
-    __ pop_d(d1);
-    __ vsub_f64(d0, d1, d0);
-    break;
-  case mul:
-    __ pop_d(d1);
-    __ vmul_f64(d0, d1, d0);
-    break;
-  case div:
-    __ pop_d(d1);
-    __ vdiv_f64(d0, d1, d0);
-    break;
-  case rem:
-    __ vmov_f64(d1, d0);
-    __ pop_d(d0);
-#ifndef HARD_FLOAT_CC
-    __ vmov_f64(r0, r1, d0);
-    __ vmov_f64(r2, r3, d1);
+  if (hasFPU()) {
+    switch (op) {
+    case add:
+      __ pop_d(d1);
+      __ vadd_f64(d0, d1, d0);
+      break;
+    case sub:
+      __ pop_d(d1);
+      __ vsub_f64(d0, d1, d0);
+      break;
+    case mul:
+      __ pop_d(d1);
+      __ vmul_f64(d0, d1, d0);
+      break;
+    case div:
+      __ pop_d(d1);
+      __ vdiv_f64(d0, d1, d0);
+      break;
+    case rem:
+      __ vmov_f64(d1, d0);
+      __ pop_d(d0);
+      #ifndef HARD_FLOAT_CC
+      __ vmov_f64(r0, r1, d0);
+      __ vmov_f64(r2, r3, d1);
+      #endif
+      __ mov(rscratch1, (address)fmod);
+      __ bl(rscratch1);
+      #ifndef HARD_FLOAT_CC
+      __ vmov_f64(d0, r0, r1);
+      #endif
+      break;
+    default:
+      ShouldNotReachHere();
+      break;
+    }
+  } else {
+#ifdef __SOFTFP__
+    __ push_l(r0, r1);
+    __ pop_l(r2,r3);
+    __ pop_l(r0,r1);
+    switch (op) {
+    case add:
+      __ call_VM_leaf_base(CAST_FROM_FN_PTR(address, SharedRuntime::dadd), 0);
+      break;
+    case sub:
+      __ call_VM_leaf_base(CAST_FROM_FN_PTR(address, SharedRuntime::dsub), 0);
+      break;
+    case mul:
+      __ call_VM_leaf_base(CAST_FROM_FN_PTR(address, SharedRuntime::dmul), 0);
+      break;
+    case div:
+      __ call_VM_leaf_base(CAST_FROM_FN_PTR(address, SharedRuntime::ddiv), 0);
+      break;
+    case rem:
+      __ call_VM_leaf_base(CAST_FROM_FN_PTR(address, SharedRuntime::drem), 0);
+      break;
+    default:
+      ShouldNotReachHere();
+      break;
+    }
+#else
+      // expected -mfloat-abi=soft
+      ShouldNotReachHere();
 #endif
-    __ mov(rscratch1, (address)(double (*)(double, double))fmod);
-    __ bl(rscratch1);
-    break;
-  default:
-    ShouldNotReachHere();
-    break;
   }
 }
 
@@ -1501,13 +1651,31 @@ void TemplateTable::lneg()
 void TemplateTable::fneg()
 {
   transition(ftos, ftos);
-  __ vneg_f32(d0, d0);
+  if(hasFPU()) {
+      __ vneg_f32(d0, d0);
+  } else {
+#ifdef __SOFTFP__
+    __ call_VM_leaf_base(CAST_FROM_FN_PTR(address, SharedRuntime::fneg), 0);
+#else
+      // expected -mfloat-abi=soft
+      ShouldNotReachHere();
+#endif
+  }
 }
 
 void TemplateTable::dneg()
 {
   transition(dtos, dtos);
-  __ vneg_f64(d0, d0);
+  if(hasFPU()) {
+      __ vneg_f64(d0, d0);
+  } else {
+#ifdef __SOFTFP__
+      __ call_VM_leaf_base(CAST_FROM_FN_PTR(address, SharedRuntime::dneg), 0);
+#else
+      // expected -mfloat-abi=soft
+      ShouldNotReachHere();
+#endif
+  }
 }
 
 void TemplateTable::iinc()
@@ -1592,20 +1760,32 @@ void TemplateTable::convert()
     __ reg_printf("Convert i2l (after) 0x%08x%08x\n", r1, r0);
     break;
   case Bytecodes::_i2f:
-    //__ bkpt(735);
-    //__ scvtfws(d0, r0);
-    //__ reg_printf("VCVT Convert i2f, (before) 0x%08x\n", r0);
-    __ vmov_f32(d0, r0);
-    //__ vmov_f32(r0, d0);
-    //__ reg_printf("VCVT Convert i2f, (before) 0x%08x\n", r0);
-    __ vcvt_f32_s32(d0, d0);
-    //__ vmov_f32(rscratch1, d0);
-    //__ reg_printf("VCVT Convert i2f, (after ) 0x%08x\n", rscratch1);
+    if(hasFPU()) {
+      __ vmov_f32(d0, r0);
+      __ vcvt_f32_s32(d0, d0);
+    } else {
+#ifdef __SOFTFP__
+      __ call_VM_leaf_base(CAST_FROM_FN_PTR(address, SharedRuntime::i2f), 0);
+#else
+      // expected -mfloat-abi=soft
+      ShouldNotReachHere();
+#endif
+    }
     break;
   case Bytecodes::_i2d:
-    //__ scvtfwd(d0, r0);
-    __ vmov_f32(d0, r0);
-    __ vcvt_f64_s32(d0, d0);
+    if(hasFPU()) {
+      //__ scvtfwd(d0, r0);
+      __ vmov_f32(d0, r0);
+      __ vcvt_f64_s32(d0, d0);
+    } else {
+#ifdef __SOFTFP__
+        // ro -> <r1:r0>
+      __ call_VM_leaf_base(CAST_FROM_FN_PTR(address, SharedRuntime::i2d), 0);
+#else
+      // expected -mfloat-abi=soft
+      ShouldNotReachHere();
+#endif
+    }
     break;
   case Bytecodes::_i2b:
     __ sxtb(r0, r0);
@@ -1621,72 +1801,96 @@ void TemplateTable::convert()
     break;
   case Bytecodes::_l2f:
     // <r1:r0> -> d0
+    // or <r1:r0> -> r0 for softfp
     __ call_VM_leaf_base(CAST_FROM_FN_PTR(address, SharedRuntime::l2f), 0);
+#ifndef HARD_FLOAT_CC
+    if(hasFPU()) {
+        __ vmov_f32(d0, r0);
+    }
+#endif
     break;
   case Bytecodes::_l2d:
     // <r1:r0> -> d0
+    // or <r1:r0> -> <r1:r0> for softfp
     __ call_VM_leaf_base(CAST_FROM_FN_PTR(address, SharedRuntime::l2d), 0);
+#ifndef HARD_FLOAT_CC
+    if(hasFPU()) {
+        __ vmov_f64(d0, r0, r1);
+    }
+#endif
     break;
-   //FIXME these instructions have a fallback in aarch64 but not sure why these especially
   case Bytecodes::_f2i:
   {
-    /*Label L_Okay;
-    __ clear_fpsr();
-    __ fcvtzsw(r0, d0);
-    __ get_fpsr(r1);
-    __ cmp(r1, 0);
-    __ b(L_Okay, Assmembler::EQ);
-    //__ call_VM_leaf_base1(CAST_FROM_FN_PTR(address, SharedRuntime::f2i),
-    //                      0, 1, MacroAssembler::ret_type_integral);
-    __ call_VM_leaf_base(CAST_FROM_FN_PTR(address, SharedRuntime::f2i), 0);
-    //TODO why float not counted
-    __ bind(L_Okay);*/
-    __ vcvt_s32_f32(d0, d0);
-    __ vmov_f32(r0, d0);
+      if(hasFPU()) {
+        __ vcvt_s32_f32(d0, d0);
+        __ vmov_f32(r0, d0);
+      } else {
+        __ call_VM_leaf_base(CAST_FROM_FN_PTR(address, SharedRuntime::f2i), 0);
+      }
   }
     break;
   case Bytecodes::_f2l:
   {
+#if !defined(HARD_FLOAT_CC)
     //float already in d0 long goes to <r1:r0>
-#ifndef HARD_FLOAT_CC
-    //Need to move float in d0 to r0
-    __ vmov_f32(r0, d0);
-#endif
+    if(hasFPU()) {
+        //Need to move float in d0 to r0
+        __ vmov_f32(r0, d0);
+    }
+#endif //!defined(HARD_FLOAT_CC)
     __ call_VM_leaf_base(CAST_FROM_FN_PTR(address, SharedRuntime::f2l), 0);
   }
     break;
   case Bytecodes::_f2d:
-    __ vcvt_f64_f32(d0, d0);
+    if(hasFPU()) {
+        __ vcvt_f64_f32(d0, d0);
+    } else {
+#ifdef __SOFTFP__
+        __ call_VM_leaf_base(CAST_FROM_FN_PTR(address, SharedRuntime::f2d), 0);
+#else
+      // expected -mfloat-abi=soft
+      ShouldNotReachHere();
+#endif
+    }
     break;
   case Bytecodes::_d2i:
   {
-    /*Label L_Okay;
-    __ clear_fpsr();
-    __ fcvtzdw(r0, d0);
-    __ get_fpsr(r1);
-    __ cmp(r1, 0);
-    __ b(L_Okay, Assmembler::EQ);
-    // __ call_VM_leaf_base1(CAST_FROM_FN_PTR(address, SharedRuntime::d2i),
-    //                      0, 1, MacroAssembler::ret_type_integral);
-    __ call_VM_leaf_base(CAST_FROM_FN_PTR(address, SharedRuntime::d2i), 0);
-    // TODO why float not counted?
-    __ bind(L_Okay);*/
-    __ vcvt_s32_f64(d0, d0);
-    __ vmov_f32(r0, d0);
+    if(hasFPU()) {
+        __ vcvt_s32_f64(d0, d0);
+        __ vmov_f32(r0, d0);
+    } else {
+#ifdef __SOFTFP__
+        __ call_VM_leaf_base(CAST_FROM_FN_PTR(address, SharedRuntime::d2i), 0);
+#else
+        // expected -mfloat-abi=soft
+        ShouldNotReachHere();
+#endif
+    }
   }
     break;
   case Bytecodes::_d2l:
   {
     // d0 -> <r1:r0>
-#ifndef HARD_FLOAT_CC
-    //Need to move float in d0 to r0
-    __ vmov_f64(r0, r1, d0);
-#endif
+#if !defined(HARD_FLOAT_CC)
+    if(hasFPU()) {
+        //Need to move float in d0 to r0
+        __ vmov_f64(r0, r1, d0);
+    }
+#endif //!defined(HARD_FLOAT_CC)
     __ call_VM_leaf_base(CAST_FROM_FN_PTR(address, SharedRuntime::d2l), 0);
   }
     break;
   case Bytecodes::_d2f:
-    __ vcvt_f32_f64(d0, d0);
+    if(hasFPU()) {
+        __ vcvt_f32_f64(d0, d0);
+    } else {
+#ifdef __SOFTFP__
+        __ call_VM_leaf_base(CAST_FROM_FN_PTR(address, SharedRuntime::d2f), 0);
+#else
+      // expected -mfloat-abi=soft
+      ShouldNotReachHere();
+#endif
+    }
     break;
   default:
     ShouldNotReachHere();
@@ -1721,40 +1925,65 @@ void TemplateTable::lcmp()
 
 void TemplateTable::float_cmp(bool is_float, int unordered_result)
 {
-  //__ bkpt(400);
-  if (is_float) {
-    __ pop_f(d1);
-    __ vcmp_f32(d1, d0);
-  } else {
-    __ pop_d(d1);
-    /*__ vmov_f64(r0, r1, d0);
-    __ vmov_f64(r2, r3, d1);
-    __ reg_printf("Doing comparison cmp( 0x%08x%08x,\n", r3, r2);
-    __ reg_printf("                      0x%08x%08x)\n", r1, r0);*/
-    __ vcmp_f64(d1, d0);
-  }
-  __ vmrs(rscratch1);
-  __ andr(rscratch1, rscratch1, Assembler::FP_MASK);
-  __ reg_printf("Masked comparison result is %08x\n", rscratch1);
+    if(hasFPU()) {
+        if (is_float) {
+         __ pop_f(d1);
+         __ vcmp_f32(d1, d0);
+       } else {
+         __ pop_d(d1);
+         /*__ vmov_f64(r0, r1, d0);
+         __ vmov_f64(r2, r3, d1);
+         __ reg_printf("Doing comparison cmp( 0x%08x%08x,\n", r3, r2);
+         __ reg_printf("                      0x%08x%08x)\n", r1, r0);*/
+         __ vcmp_f64(d1, d0);
+       }
+       __ vmrs(rscratch1);
+       __ andr(rscratch1, rscratch1, Assembler::FP_MASK);
+       __ reg_printf("Masked comparison result is %08x\n", rscratch1);
 
-  if (unordered_result < 0) {
-    // we want -1 for unordered or less than, 0 for equal and 1 for
-    // greater than.
-    __ mov(r0, -1);
-    __ cmp(rscratch1, Assembler::FP_EQ);
-    __ mov(r0, 0, Assembler::EQ);
-    __ cmp(rscratch1, Assembler::FP_GT);
-    __ mov(r0, 1, Assembler::EQ);
-    __ reg_printf("un_res < 0, comparison result is %d\n", r0);
-  } else {
-    // we want -1 for less than, 0 for equal and 1 for unordered or
-    // greater than.
-    __ mov(r0, 1);
-    __ cmp(rscratch1, Assembler::FP_LT);
-    __ sub(r0, r0, 2, Assembler::EQ); //Load -1 - but one less instruction
-    __ cmp(rscratch1, Assembler::FP_EQ);
-    __ mov(r0, 0, Assembler::EQ);
-    __ reg_printf("un_res >= 0, comparison result is %d\n", r0);
+       if (unordered_result < 0) {
+         // we want -1 for unordered or less than, 0 for equal and 1 for
+         // greater than.
+         __ mov(r0, -1);
+         __ cmp(rscratch1, Assembler::FP_EQ);
+         __ mov(r0, 0, Assembler::EQ);
+         __ cmp(rscratch1, Assembler::FP_GT);
+         __ mov(r0, 1, Assembler::EQ);
+         __ reg_printf("un_res < 0, comparison result is %d\n", r0);
+       } else {
+         // we want -1 for less than, 0 for equal and 1 for unordered or
+         // greater than.
+         __ mov(r0, 1);
+         __ cmp(rscratch1, Assembler::FP_LT);
+         __ sub(r0, r0, 2, Assembler::EQ); //Load -1 - but one less instruction
+         __ cmp(rscratch1, Assembler::FP_EQ);
+         __ mov(r0, 0, Assembler::EQ);
+         __ reg_printf("un_res >= 0, comparison result is %d\n", r0);
+       }
+    } else { // hasFPU
+#ifdef __SOFTFP__
+        if (is_float) {
+            __ mov(r1, r0);
+            __ pop_i(r0);
+            if (unordered_result < 0) {
+                __ call_VM_leaf_base(CAST_FROM_FN_PTR(address, SharedRuntime::fcmpl), 0);
+            } else {
+                __ call_VM_leaf_base(CAST_FROM_FN_PTR(address, SharedRuntime::fcmpg), 0);
+            }
+        } else {
+            __ mov(r2, r0);
+            __ mov(r3, r1);
+            __ pop_l(r0);
+            if (unordered_result < 0) {
+                __ call_VM_leaf_base(CAST_FROM_FN_PTR(address, SharedRuntime::dcmpl), 0);
+            } else {
+                __ call_VM_leaf_base(CAST_FROM_FN_PTR(address, SharedRuntime::dcmpg), 0);
+            }
+        }
+#else
+        // expected -mfloat-abi=soft
+        ShouldNotReachHere();
+#endif
   }
 }
 
@@ -2441,7 +2670,6 @@ void TemplateTable::load_invoke_cp_cache_entry(int byte_no,
                                                bool is_invokevirtual,
                                                bool is_invokevfinal, /*unused*/
                                                bool is_invokedynamic) {
-  //__ create_breakpoint();
   // setup registers
   const Register cache = rscratch1;
   const Register index = r14;
@@ -2642,7 +2870,11 @@ void TemplateTable::getfield_or_static(int byte_no, bool is_static) {
   __ b(notFloat, Assembler::NE);
   // ftos
   __ lea(rscratch1, field);
-  __ vldr_f32(d0, Address(rscratch1));
+  if(hasFPU()) {
+    __ vldr_f32(d0, Address(rscratch1));
+  } else {
+    __ ldr(r0, Address(rscratch1));
+  }
   __ push(ftos);
   // Rewrite bytecode to be faster
   if (!is_static) {
@@ -2658,7 +2890,9 @@ void TemplateTable::getfield_or_static(int byte_no, bool is_static) {
   // dtos
   __ lea(rscratch1, field);
   __ atomic_ldrd(r0, r1, rscratch1);
-  __ vmov_f64(d0, r0, r1);
+  if(hasFPU()) {
+    __ vmov_f64(d0, r0, r1);
+  }
   __ push(dtos);
   // Rewrite bytecode to be faster
   if (!is_static) {
@@ -2908,7 +3142,11 @@ void TemplateTable::putfield_or_static(int byte_no, bool is_static) {
       pop_and_check_object(obj);
     }
     __ lea(rscratch1, field);
-    __ vstr_f32(d0, Address(rscratch1));
+    if(hasFPU()) {
+        __ vstr_f32(d0, Address(rscratch1));
+    } else {
+        __ str(r0, Address(rscratch1));
+    }
     if (!is_static) {
       patch_bytecode(Bytecodes::_fast_fputfield, bc, r1, true, byte_no);
     }
@@ -2928,7 +3166,9 @@ void TemplateTable::putfield_or_static(int byte_no, bool is_static) {
       pop_and_check_object(obj);
     }
     __ lea(rscratch1, field);
-    __ vmov_f64(r0, r1, d0);
+    if(hasFPU()) {
+        __ vmov_f64(r0, r1, d0);
+    }
     __ atomic_strd(r0, r1, rscratch1, r2, r3);
     if (!is_static) {
       patch_bytecode(Bytecodes::_fast_dputfield, bc, r1, true, byte_no);
@@ -2950,6 +3190,8 @@ void TemplateTable::putfield_or_static(int byte_no, bool is_static) {
     __ membar(MacroAssembler::StoreLoad);
     __ bind(notVolatile);
   }
+  //FIXME find a more elegant way!
+  __ get_dispatch();
 }
 
 void TemplateTable::putfield(int byte_no) {
@@ -2983,8 +3225,20 @@ void TemplateTable::jvmti_post_fast_field_mod()
     case Bytecodes::_fast_sputfield: // fall through
     case Bytecodes::_fast_cputfield: // fall through
     case Bytecodes::_fast_iputfield: __ push_i(r0); break;
-    case Bytecodes::_fast_dputfield: __ push_d(); break;
-    case Bytecodes::_fast_fputfield: __ push_f(); break;
+    case Bytecodes::_fast_dputfield:
+        if(hasFPU()) {
+            __ push_d();
+        } else {
+            __ push_l();
+        }
+        break;
+    case Bytecodes::_fast_fputfield:
+        if(hasFPU()) {
+            __ push_f();
+        } else {
+            __ push_i();
+        }
+        break;
     case Bytecodes::_fast_lputfield: __ push_l(r0); break;
 
     default:
@@ -3008,9 +3262,15 @@ void TemplateTable::jvmti_post_fast_field_mod()
     case Bytecodes::_fast_zputfield: // fall through
     case Bytecodes::_fast_sputfield: // fall through
     case Bytecodes::_fast_cputfield: // fall through
+    case Bytecodes::_fast_fputfield:
+        if(hasFPU()) {
+            __ pop_f(); break;
+        }
     case Bytecodes::_fast_iputfield: __ pop_i(r0); break;
-    case Bytecodes::_fast_dputfield: __ pop_d(); break;
-    case Bytecodes::_fast_fputfield: __ pop_f(); break;
+    case Bytecodes::_fast_dputfield:
+        if(hasFPU()) {
+            __ pop_d(); break;
+        }
     case Bytecodes::_fast_lputfield: __ pop_l(r0); break;
     }
     __ bind(L2);
@@ -3055,10 +3315,20 @@ void TemplateTable::fast_storefield(TosState state)
   case Bytecodes::_fast_aputfield:
     do_oop_store(_masm, field, r0, _bs->kind(), false);
     break;
+  case Bytecodes::_fast_dputfield:
+    if(hasFPU()) {
+        __ vmov_f64(r0, r1, d0);
+    }
   case Bytecodes::_fast_lputfield:
     __ lea(rscratch1, field);
     __ atomic_strd(r0, r1, rscratch1, r2, r3);
     break;
+  case Bytecodes::_fast_fputfield:
+    if(hasFPU()) {
+    __ lea(rscratch1, field);
+    __ vstr_f32(d0, Address(rscratch1));
+    break;
+    }
   case Bytecodes::_fast_iputfield:
     __ str(r0, field);
     break;
@@ -3072,15 +3342,6 @@ void TemplateTable::fast_storefield(TosState state)
     // fall through
   case Bytecodes::_fast_cputfield:
     __ strh(r0, field);
-    break;
-  case Bytecodes::_fast_fputfield:
-    __ lea(rscratch1, field);
-    __ vstr_f32(d0, Address(rscratch1));
-    break;
-  case Bytecodes::_fast_dputfield:
-    __ lea(rscratch1, field);
-    __ vmov_f64(r0, r1, d0);
-    __ atomic_strd(r0, r1, rscratch1, r2, r3);
     break;
   default:
     ShouldNotReachHere();
@@ -3140,10 +3401,23 @@ void TemplateTable::fast_accessfield(TosState state)
     __ load_heap_oop(r0, field);
     __ verify_oop(r0);
     break;
+  case Bytecodes::_fast_dgetfield:
+    if(hasFPU()) {
+    __ lea(rscratch1, field); // r0 <= field
+    __ atomic_ldrd(r0, r1, rscratch1);
+    __ vmov_f64(d0, r0, r1);
+    break;
+    }
   case Bytecodes::_fast_lgetfield:
     __ lea(rscratch1, field);
     __ atomic_ldrd(r0, r1, rscratch1);
     break;
+  case Bytecodes::_fast_fgetfield:
+    if(hasFPU()) {
+    __ lea(r0, field); // r0 <= field
+    __ vldr_f32(d0, Address(r0));
+      break;
+    }
   case Bytecodes::_fast_igetfield:
     __ ldr(r0, field);
     break;
@@ -3155,16 +3429,6 @@ void TemplateTable::fast_accessfield(TosState state)
     break;
   case Bytecodes::_fast_cgetfield:
     __ load_unsigned_short(r0, field);
-    break;
-  case Bytecodes::_fast_fgetfield:
-    __ lea(r0, field); // r0 <= field
-    __ vldr_f32(d0, Address(r0));
-    __ vmov_f32(rscratch1, d0);
-    break;
-  case Bytecodes::_fast_dgetfield:
-    __ lea(rscratch1, field); // r0 <= field
-    __ atomic_ldrd(r0, r1, rscratch1);
-    __ vmov_f64(d0, r0, r1);
     break;
   default:
     ShouldNotReachHere();
@@ -3194,16 +3458,18 @@ void TemplateTable::fast_xaccess(TosState state)
 
   Address field(r0, r1);
   switch (state) {
+  case ftos:
+    if(hasFPU()) {
+    __ lea(r0, field);
+    __ vldr_f32(d0, Address(r0));
+    break;
+    }
   case itos:
     __ ldr(r0, field);
     break;
   case atos:
     __ load_heap_oop(r0, field);
     __ verify_oop(r0);
-    break;
-  case ftos:
-    __ lea(r0, field);
-    __ vldr_f32(d0, Address(r0));
     break;
   default:
     ShouldNotReachHere();

@@ -49,6 +49,7 @@
 #include "gc_implementation/g1/g1CollectedHeap.inline.hpp"
 #include "gc_implementation/g1/g1SATBCardTableModRefBS.hpp"
 #include "gc_implementation/g1/heapRegion.hpp"
+#include "vm_version_aarch32.hpp"
 #endif
 
 #ifdef PRODUCT
@@ -1703,13 +1704,22 @@ void MacroAssembler::push_CPU_state() {
   // if fix this, update also RegisterSaved::save_live_registers and it's map
   push(0x1fff, sp); // integer registers except lr & sp & (aarch32 pc)
 
-  int nfloat = 16;
-  vstmdb_f64(sp, (1 << nfloat) - 1);
+  if(hasFPU()) {
+    const int nfloat = FPUStateSizeInWords / 2; // saved by pairs
+    vstmdb_f64(sp, (1 << nfloat) - 1);
+  } else {
+    sub(sp, sp, FPUStateSizeInWords * wordSize);
+  }
 }
 
 void MacroAssembler::pop_CPU_state() {
-  int nfloat = 16;
-  vldmia_f64(sp, (1 << nfloat) - 1);
+  if(hasFPU()) {
+    const int nfloat = FloatRegisterImpl::number_of_registers / 2;
+    vldmia_f64(sp, (1 << nfloat) - 1);
+  } else {
+    add(sp, sp, FPUStateSizeInWords * wordSize);
+  }
+
   pop(0x1fff, sp); // integer registers except lr & sp & (aarch32 pc)
   add(sp, sp, 4);
 }
@@ -2628,15 +2638,19 @@ int machine_state_regset = 0b0101111111111111;
 int machine_state_float_regset = 0b11;
 
 void MacroAssembler::save_machine_state() {
-  stmdb(sp, machine_state_regset);
-  vstmdb_f64(sp, machine_state_float_regset);
-  enter();
+    stmdb(sp, machine_state_regset);
+    if(hasFPU()) {
+        vstmdb_f64(sp, machine_state_float_regset);
+    }
+    enter();
 }
 
 void MacroAssembler::restore_machine_state() {
-  leave();
-  vldmia_f64(sp, machine_state_float_regset);
-  ldmia(sp, machine_state_regset);
+    leave();
+    if(hasFPU()) {
+        vldmia_f64(sp, machine_state_float_regset);
+    }
+    ldmia(sp, machine_state_regset);
 }
 
 void internal_internal_printf(const char *fmt, ...) {
@@ -3113,6 +3127,7 @@ void MacroAssembler::kernel_crc32(Register crc, Register buf, Register len,
 
   BIND(L_align_exit);
 
+  if(VM_Version::features() & FT_AdvSIMD) {
   if (UseNeon) {
       cmp(len, 32+12); // account for possible need for alignment
       b(L_cpu, Assembler::LT);
@@ -3201,6 +3216,7 @@ void MacroAssembler::kernel_crc32(Register crc, Register buf, Register len,
 
       add(len, len, 16);
   }
+  } // if FT_AdvSIMD
 
   BIND(L_cpu);
     subs(len, len, 8);

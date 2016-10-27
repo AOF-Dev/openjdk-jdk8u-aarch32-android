@@ -53,6 +53,7 @@
 
 #ifndef PRODUCT
 #include "oops/method.hpp"
+#include "vm_version_aarch32.hpp"
 #endif // !PRODUCT
 
 #define __ _masm->
@@ -298,8 +299,20 @@ address TemplateInterpreterGenerator::generate_result_handler_for(
   case T_INT    : /* nothing to do */    break;
   case T_LONG   : /* nothing to do */    break;
   case T_VOID   : /* nothing to do */    break;
-  case T_FLOAT  : /* nothing to do */    break;
-  case T_DOUBLE : /* nothing to do */    break;
+  case T_FLOAT  :
+#ifndef HARD_FLOAT_CC
+      if(hasFPU()) {
+          __ vmov_f32(d0, r0);
+      }
+#endif
+      break;
+  case T_DOUBLE :
+#ifndef HARD_FLOAT_CC
+      if(hasFPU()) {
+          __ vmov_f64(d0, r0, r1);
+      }
+#endif
+    break;
   case T_OBJECT :
     // retrieve result from frame
     __ reg_printf("In object result handler\n");
@@ -1972,9 +1985,15 @@ void TemplateInterpreterGenerator::set_vtos_entry_points(Template* t,
   assert(t->is_valid() && t->tos_in() == vtos, "illegal template");
   Label L;
   aep = __ pc();  __ push_ptr();  __ b(L);
-  fep = __ pc();  __ push_f();    __ b(L);
-  dep = __ pc();  __ push_d();    __ b(L);
+  dep = __ pc();
+  if(hasFPU()){
+    __ push_d(); __ b(L);
+  }
   lep = __ pc();  __ push_l();    __ b(L);
+  fep = __ pc();
+  if(hasFPU()){
+    __ push_f();    __ b(L);
+  }
   bep = cep = sep =
   iep = __ pc();  __ push_i();
   vep = __ pc();

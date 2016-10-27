@@ -580,9 +580,11 @@ public:
 
 #define should_not_reach_here() should_not_reach_here_line(__FILE__, __LINE__)
   void should_not_reach_here_line(const char *file, int line) {
+#ifdef ASSERT
     mov(rscratch1, line);
     reg_printf_important(file);
     reg_printf_important(": %d", rscratch1);
+#endif
     stop("should_not_reach_here");
   }
 

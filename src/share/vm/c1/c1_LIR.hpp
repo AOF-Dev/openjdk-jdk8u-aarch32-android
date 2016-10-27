@@ -706,18 +706,40 @@ class LIR_OprFact: public AllStatic {
 
 #ifdef __SOFTFP__
       case T_FLOAT:
-        res = (LIR_Opr)(intptr_t)((index << LIR_OprDesc::data_shift) |
-                                  LIR_OprDesc::float_type  |
-                                  LIR_OprDesc::cpu_register |
-                                  LIR_OprDesc::single_size |
-                                  LIR_OprDesc::virtual_mask);
+#ifdef AARCH32
+        if (hasFPU()) {
+            res = (LIR_Opr)(intptr_t)((index << LIR_OprDesc::data_shift) |
+                                      LIR_OprDesc::float_type           |
+                                      LIR_OprDesc::fpu_register         |
+                                      LIR_OprDesc::single_size          |
+                                      LIR_OprDesc::virtual_mask);
+        } else
+#endif // AARCH32
+        {
+            res = (LIR_Opr)(intptr_t)((index << LIR_OprDesc::data_shift) |
+                                      LIR_OprDesc::float_type  |
+                                      LIR_OprDesc::cpu_register |
+                                      LIR_OprDesc::single_size |
+                                      LIR_OprDesc::virtual_mask);
+        }
         break;
       case T_DOUBLE:
-        res = (LIR_Opr)(intptr_t)((index << LIR_OprDesc::data_shift) |
-                                  LIR_OprDesc::double_type |
-                                  LIR_OprDesc::cpu_register |
-                                  LIR_OprDesc::double_size |
-                                  LIR_OprDesc::virtual_mask);
+#ifdef AARCH32
+        if(hasFPU()) {
+            res = (LIR_Opr)(intptr_t)((index << LIR_OprDesc::data_shift) |
+                                                LIR_OprDesc::double_type           |
+                                                LIR_OprDesc::fpu_register          |
+                                                LIR_OprDesc::double_size           |
+                                                LIR_OprDesc::virtual_mask);
+        } else
+#endif
+        {
+            res = (LIR_Opr)(intptr_t)((index << LIR_OprDesc::data_shift) |
+                                      LIR_OprDesc::double_type |
+                                      LIR_OprDesc::cpu_register |
+                                      LIR_OprDesc::double_size |
+                                      LIR_OprDesc::virtual_mask);
+        }
         break;
 #else // __SOFTFP__
       case T_FLOAT:

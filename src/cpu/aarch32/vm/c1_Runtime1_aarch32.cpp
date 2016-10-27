@@ -50,6 +50,7 @@
 #include "vmreg_aarch32.inline.hpp"
 #if INCLUDE_ALL_GCS
 #include "gc_implementation/g1/g1SATBCardTableModRefBS.hpp"
+#include "vm_version_aarch32.hpp"
 #endif
 
 // Implementation of StubAssembler
@@ -211,7 +212,6 @@ StubFrame::~StubFrame() {
 
 #define __ sasm->
 
-const int float_regs_as_doubles_size_in_slots = pd_nof_fpu_regs_frame_map * 2;
 
 // Stack layout for saving/restoring  all the registers needed during a runtime
 // call (this includes deoptimization)
@@ -223,7 +223,7 @@ const int float_regs_as_doubles_size_in_slots = pd_nof_fpu_regs_frame_map * 2;
 
 enum reg_save_layout {
   reg_save_s0,
-  reg_save_s31 = reg_save_s0 + 31,
+  reg_save_s31 = reg_save_s0 + FrameMap::nof_fpu_regs - 1,
   reg_save_pad, // to align to doubleword to simplify conformance to APCS
   reg_save_r0,
   reg_save_r1,
@@ -276,9 +276,10 @@ static OopMap* generate_oop_map(StubAssembler* sasm, bool save_fpu_registers) {
   oop_map->set_callee_saved(VMRegImpl::stack2reg(reg_save_r10), r10->as_VMReg());
   oop_map->set_callee_saved(VMRegImpl::stack2reg(reg_save_r11), r11->as_VMReg());
   oop_map->set_callee_saved(VMRegImpl::stack2reg(reg_save_r12), r12->as_VMReg());
-
-  for (int i = 0; i < 32; ++i) {
+  if (hasFPU()) {
+  for (int i = 0; i < FrameMap::nof_fpu_regs; ++i) {
     oop_map->set_callee_saved(VMRegImpl::stack2reg(reg_save_s0 + i), as_FloatRegister(i)->as_VMReg());
+  }
   }
 
   return oop_map;
@@ -291,7 +292,7 @@ static OopMap* save_live_registers(StubAssembler* sasm,
   __ push(RegSet::range(r0, r12), sp);         // integer registers except lr & sp
   __ sub(sp, sp, 4);                           // align to 8 bytes
 
-  if (save_fpu_registers) {
+  if (save_fpu_registers && hasFPU()) {
     __ vstmdb_f64(sp, (1 << FrameMap::nof_fpu_regs / 2) - 1);
   } else {
     __ sub(sp, sp, FrameMap::nof_fpu_regs * 4);
@@ -301,7 +302,8 @@ static OopMap* save_live_registers(StubAssembler* sasm,
 }
 
 static void restore_live_registers(StubAssembler* sasm, bool restore_fpu_registers = true) {
-  if (restore_fpu_registers) {
+
+  if (restore_fpu_registers  && hasFPU()) {
     __ vldmia_f64(sp, (1 << FrameMap::nof_fpu_regs / 2) - 1);
   } else {
     __ add(sp, sp, FrameMap::nof_fpu_regs * 4);
@@ -313,7 +315,7 @@ static void restore_live_registers(StubAssembler* sasm, bool restore_fpu_registe
 
 static void restore_live_registers_except_r0(StubAssembler* sasm, bool restore_fpu_registers = true)  {
 
-  if (restore_fpu_registers) {
+  if (restore_fpu_registers  && hasFPU()) {
     __ vldmia_f64(sp, (1 << FrameMap::nof_fpu_regs / 2) - 1);
   } else {
     __ add(sp, sp, FrameMap::nof_fpu_regs * 4);
@@ -1313,4 +1315,22 @@ OopMapSet* Runtime1::generate_code_for(StubID id, StubAssembler* sasm) {
 
 #undef __
 
-const char *Runtime1::pd_name_for_address(address entry) { Unimplemented(); return 0; }
+const char *Runtime1::pd_name_for_address(address entry) {
+#ifdef __SOFTFP__
+#define FUNCTION_CASE(a, f) \
+  if ((intptr_t)a == CAST_FROM_FN_PTR(intptr_t, f))  return #f
+
+  FUNCTION_CASE(entry, SharedRuntime::i2f);
+  FUNCTION_CASE(entry, SharedRuntime::i2d);
+  FUNCTION_CASE(entry, SharedRuntime::f2d);
+  FUNCTION_CASE(entry, SharedRuntime::fcmpg);
+  FUNCTION_CASE(entry, SharedRuntime::fcmpl);
+  FUNCTION_CASE(entry, SharedRuntime::dcmpg);
+  FUNCTION_CASE(entry, SharedRuntime::dcmpl);
+  FUNCTION_CASE(entry, SharedRuntime::unordered_fcmple);
+  FUNCTION_CASE(entry, SharedRuntime::unordered_dcmple);
+#undef FUNCTION_CASE
+#endif
+
+  return "Unknown_Func_Ptr";
+}

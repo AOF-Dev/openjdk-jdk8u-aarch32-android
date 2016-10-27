@@ -62,8 +62,8 @@ enum {
 
   // Number of registers killed by calls
   pd_nof_caller_save_cpu_regs_frame_map = 8,
-  pd_nof_caller_save_fpu_regs_frame_map = 32,
 
+  pd_nof_caller_save_fpu_regs_frame_map = pd_nof_fpu_regs_frame_map,
   // The following two constants need to be defined since they are referenced
   // from c1_FrameMap.hpp, but actually they are never used, so can be set to
   // arbitrary values.
@@ -81,15 +81,14 @@ enum {
   pd_first_cpu_reg = 0,
   pd_last_cpu_reg = 7,
   pd_first_fpu_reg = pd_nof_cpu_regs_frame_map,
-  pd_last_fpu_reg = pd_first_fpu_reg + 31,
-
+  pd_last_fpu_reg = pd_first_fpu_reg + pd_nof_fpu_regs_frame_map - 1,
   // Register allocator specific register numbers corresponding to first/last
   // CPU/FPU callee-saved registers. These constants are used in
   // LinearScan::is_caller_save() only.
   pd_first_callee_saved_cpu_reg = 4,
   pd_last_callee_saved_cpu_reg = 11,
-  pd_first_callee_saved_fpu_reg = pd_first_fpu_reg + 16,
-  pd_last_callee_saved_fpu_reg = pd_first_fpu_reg + 31
+  pd_first_callee_saved_fpu_reg = pd_first_fpu_reg + pd_nof_fpu_regs_frame_map/2,
+  pd_last_callee_saved_fpu_reg = pd_first_fpu_reg + pd_nof_fpu_regs_frame_map - 1
 };
 
 // This flag must be in sync with how the floating point registers are stored

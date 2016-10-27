@@ -94,7 +94,16 @@ inline void LinearScan::pd_add_temps(LIR_Op* op) {
 }
 
 inline bool LinearScanWalker::pd_init_regs_for_alloc(Interval* cur) {
-  // The default logic is good enough for AArch32.
+#ifndef HARD_FLOAT_CC
+    BasicType type = cur->type();
+    if(!hasFPU()) {
+        if (type == T_FLOAT || type == T_DOUBLE) {
+            _first_reg = pd_first_cpu_reg;
+            _last_reg = FrameMap::last_cpu_reg();;
+            return true;
+        }
+    }
+#endif
   return false;
 }
 

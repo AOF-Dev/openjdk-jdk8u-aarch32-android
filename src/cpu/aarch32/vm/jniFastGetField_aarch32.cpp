@@ -114,11 +114,14 @@ address JNI_FastGetField::generate_fast_get_int_field0(BasicType type) {
   __ ldr(rscratch2, rscratch2);
   __ cmp(rcounter, rscratch2);
 
+#ifdef HARD_FLOAT_CC
   switch (type) {
     case T_FLOAT:   __ vmov_f32(d0, result, Assembler::EQ); break;
     case T_DOUBLE:  __ vmov_f64(d0, r0, r1, Assembler::EQ); break; // Change me if result changes
     default:                                                break;
   }
+#endif//HARD_FLOAT_CC
+
   __ add(sp, sp, nargs * wordSize, Assembler::EQ); // Pop args if we don't need them.
   __ b(lr, Assembler::EQ);
 

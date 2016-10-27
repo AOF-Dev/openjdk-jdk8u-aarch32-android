@@ -44,6 +44,7 @@
 #include "runtime/sharedRuntime.hpp"
 #include "runtime/stubRoutines.hpp"
 #include "vmreg_aarch32.inline.hpp"
+#include "vm_version_aarch32.hpp"
 
 #ifdef ASSERT
 #define __ gen()->lir(__FILE__, __LINE__)->
@@ -81,20 +82,44 @@ LIR_Opr LIRGenerator::syncTempOpr()     { return FrameMap::r0_opr; }
 LIR_Opr LIRGenerator::getThreadTemp()   { return LIR_OprFact::illegalOpr; }
 
 
+LIR_Opr LIRGenerator::java_result_register_for(ValueType* type, bool callee) {
+  LIR_Opr opr;
+  switch (type->tag()) {
+    case floatTag:
+        if(hasFPU()) {
+            opr = FrameMap::fpu0_float_opr;  break;;
+        }
+    case doubleTag:
+        if(hasFPU()) {
+            opr = FrameMap::fpu0_double_opr;  break;
+        }
+    default: opr = result_register_for(type, callee);
+  }
+  return opr;
+}
 LIR_Opr LIRGenerator::result_register_for(ValueType* type, bool callee) {
   LIR_Opr opr;
   switch (type->tag()) {
+    case floatTag:
+#ifdef HARD_FLOAT_CC
+        opr = FrameMap::fpu0_float_opr;  break;
+#endif
     case intTag:     opr = FrameMap::r0_opr;          break;
     case objectTag:  opr = FrameMap::r0_oop_opr;      break;
+    case doubleTag:
+#ifdef HARD_FLOAT_CC
+        opr = FrameMap::fpu0_double_opr;  break;
+#endif
     case longTag:    opr = FrameMap::long0_opr;        break;
-    case floatTag:   opr = FrameMap::fpu0_float_opr;  break;
-    case doubleTag:  opr = FrameMap::fpu0_double_opr;  break;
 
     case addressTag:
     default: ShouldNotReachHere(); return LIR_OprFact::illegalOpr;
   }
-
+#ifndef HARD_FLOAT_CC
+  assert(type->is_float_kind() || opr->type_field() == as_OprType(as_BasicType(type)), "type mismatch");
+#else
   assert(opr->type_field() == as_OprType(as_BasicType(type)), "type mismatch");
+#endif
   return opr;
 }
 
@@ -151,9 +176,17 @@ bool LIRGenerator::can_inline_as_constant(LIR_Const* c) const {
     return c->as_metadata() == (Metadata*) NULL;
 
   case T_FLOAT:
-    return Assembler::operand_valid_for_float_immediate(c->as_jfloat());
+    if( hasFPU()) {
+        return Assembler::operand_valid_for_float_immediate(c->as_jfloat());
+    } else {
+       return Assembler::operand_valid_for_add_sub_immediate(c->as_jint());
+    }
   case T_DOUBLE:
-    return Assembler::operand_valid_for_float_immediate(c->as_jdouble());
+    if( hasFPU()) {
+        return Assembler::operand_valid_for_float_immediate(c->as_jdouble());
+    } else {
+        return Assembler::operand_valid_for_add_sub_immediate(c->as_jlong());
+    }
   }
   return false;
 }
@@ -445,12 +478,24 @@ void LIRGenerator::do_MonitorExit(MonitorExit* x) {
 
 
 void LIRGenerator::do_NegateOp(NegateOp* x) {
-
+#ifdef __SOFTFP__
+  if(x->x()->type()->is_float_kind() && !(hasFPU())) {
+      address entry;
+      if (x->x()->type()->is_float()) {
+          entry = CAST_FROM_FN_PTR(address, SharedRuntime::fneg);
+      } else {
+          entry = CAST_FROM_FN_PTR(address, SharedRuntime::dneg);
+      }
+      LIR_Opr result = call_runtime(x->x(), entry, x->type(), NULL);
+      set_result(x, result);
+  } else
+#endif
+  {
   LIRItem from(x->x(), this);
   from.load_item();
   LIR_Opr result = rlock_result(x);
   __ negate (from.result(), result);
-
+  }
 }
 
 // for  _fadd, _fmul, _fsub, _fdiv, _frem
@@ -458,60 +503,77 @@ void LIRGenerator::do_NegateOp(NegateOp* x) {
 void LIRGenerator::do_ArithmeticOp_FPU(ArithmeticOp* x) {
 
   if (x->op() == Bytecodes::_frem || x->op() == Bytecodes::_drem) {
-    // float remainder is implemented as a direct call into the runtime
-    LIRItem right(x->x(), this);
-    LIRItem left(x->y(), this);
-
-    BasicTypeList signature(2);
-    if (x->op() == Bytecodes::_frem) {
-      signature.append(T_FLOAT);
-      signature.append(T_FLOAT);
-    } else {
-      signature.append(T_DOUBLE);
-      signature.append(T_DOUBLE);
-    }
-    CallingConvention* cc = frame_map()->c_calling_convention(&signature);
-
-    const LIR_Opr result_reg = result_register_for(x->type());
-    left.load_item_force(cc->at(1));
-    right.load_item();
-
-    __ move(right.result(), cc->at(0));
-
     address entry;
     if (x->op() == Bytecodes::_frem) {
       entry = CAST_FROM_FN_PTR(address, SharedRuntime::frem);
     } else {
       entry = CAST_FROM_FN_PTR(address, SharedRuntime::drem);
     }
-
-    LIR_Opr result = rlock_result(x);
-    __ call_runtime_leaf(entry, getThreadTemp(), result_reg, cc->args());
-    __ move(result_reg, result);
+    LIR_Opr result = call_runtime(x->x(), x->y(), entry, x->type(), NULL);
+    set_result(x, result);
 
     return;
   }
 
-  LIRItem left(x->x(),  this);
-  LIRItem right(x->y(), this);
-  LIRItem* left_arg  = &left;
-  LIRItem* right_arg = &right;
+  if(hasFPU()) {
+        LIRItem left(x->x(),  this);
+        LIRItem right(x->y(), this);
+        LIRItem* left_arg  = &left;
+        LIRItem* right_arg = &right;
 
-  // Always load right hand side.
-  right.load_item();
+        // Always load right hand side.
+        right.load_item();
 
-  if (!left.is_register())
-    left.load_item();
+        if (!left.is_register())
+          left.load_item();
 
-  LIR_Opr reg = rlock(x);
-  LIR_Opr tmp = LIR_OprFact::illegalOpr;
-  if (x->is_strictfp() && (x->op() == Bytecodes::_dmul || x->op() == Bytecodes::_ddiv)) {
-    tmp = new_register(T_DOUBLE);
+        LIR_Opr reg = rlock(x);
+        LIR_Opr tmp = LIR_OprFact::illegalOpr;
+        if (x->is_strictfp() && (x->op() == Bytecodes::_dmul || x->op() == Bytecodes::_ddiv)) {
+          tmp = new_register(T_DOUBLE);
+        }
+
+        arithmetic_op_fpu(x->op(), reg, left.result(), right.result(), NULL);
+
+        set_result(x, round_item(reg));
+  } else {
+#ifdef __SOFTFP__
+    address entry;
+
+    switch (x->op()) {
+      case Bytecodes::_fmul:
+        entry = CAST_FROM_FN_PTR(address, SharedRuntime::fmul);
+        break;
+      case Bytecodes::_dmul:
+        entry = CAST_FROM_FN_PTR(address, SharedRuntime::dmul);
+        break;
+      case Bytecodes::_fdiv:
+        entry = CAST_FROM_FN_PTR(address, SharedRuntime::fdiv);
+        break;
+      case Bytecodes::_ddiv:
+        entry = CAST_FROM_FN_PTR(address, SharedRuntime::ddiv);
+        break;
+      case Bytecodes::_fadd:
+        entry = CAST_FROM_FN_PTR(address, SharedRuntime::fadd);
+        break;
+      case Bytecodes::_dadd:
+        entry = CAST_FROM_FN_PTR(address, SharedRuntime::dadd);
+        break;
+      case Bytecodes::_fsub:
+        entry = CAST_FROM_FN_PTR(address, SharedRuntime::fsub);
+        break;
+      case Bytecodes::_dsub:
+        entry = CAST_FROM_FN_PTR(address, SharedRuntime::dsub);
+        break;
+      default:
+          ShouldNotReachHere();
+    }
+    LIR_Opr result = call_runtime(x->x(), x->y(),  entry,  x->type(), NULL);
+    set_result(x, result);
+#else
+    ShouldNotReachHere();// check your compiler settings
+#endif
   }
-
-  arithmetic_op_fpu(x->op(), reg, left.result(), right.result(), NULL);
-
-  set_result(x, round_item(reg));
 }
 
 // for  _ladd, _lmul, _lsub, _ldiv, _lrem
@@ -782,12 +844,40 @@ void LIRGenerator::do_CompareOp(CompareOp* x) {
   ValueTag tag = x->x()->type()->tag();
   left.load_item();
   right.load_item();
-  LIR_Opr reg = rlock_result(x);
 
   if (x->x()->type()->is_float_kind()) {
     Bytecodes::Code code = x->op();
-    __ fcmp2int(left.result(), right.result(), reg, (code == Bytecodes::_fcmpl || code == Bytecodes::_dcmpl));
+    if(hasFPU()) {
+        LIR_Opr reg = rlock_result(x);
+        __ fcmp2int(left.result(), right.result(), reg, (code == Bytecodes::_fcmpl || code == Bytecodes::_dcmpl));
+    } else {
+#ifdef __SOFTFP__
+        address entry;
+        switch (code) {
+        case Bytecodes::_fcmpl:
+          entry = CAST_FROM_FN_PTR(address, SharedRuntime::fcmpl);
+          break;
+        case Bytecodes::_fcmpg:
+          entry = CAST_FROM_FN_PTR(address, SharedRuntime::fcmpg);
+          break;
+        case Bytecodes::_dcmpl:
+          entry = CAST_FROM_FN_PTR(address, SharedRuntime::dcmpl);
+          break;
+        case Bytecodes::_dcmpg:
+          entry = CAST_FROM_FN_PTR(address, SharedRuntime::dcmpg);
+          break;
+        default:
+          ShouldNotReachHere();
+        }
+
+        LIR_Opr result = call_runtime(x->x(), x->y(),  entry,  x->type(), NULL);
+        set_result(x, result);
+#else
+        ShouldNotReachHere(); // check your compiler settings
+#endif
+    }
   } else if (x->x()->type()->tag() == longTag) {
+    LIR_Opr reg = rlock_result(x);
     __ lcmp2int(left.result(), right.result(), reg);
   } else {
     Unimplemented();
@@ -866,25 +956,29 @@ void LIRGenerator::do_CompareAndSwap(Intrinsic* x, ValueType* type) {
 
 void LIRGenerator::do_MathIntrinsic(Intrinsic* x) {
   switch (x->id()) {
+    default:
+        ShouldNotReachHere();
+        break;
     case vmIntrinsics::_dabs:
-    case vmIntrinsics::_dsqrt: {
-      assert(x->number_of_arguments() == 1, "wrong type");
-      LIRItem value(x->argument_at(0), this);
-      value.load_item();
-      LIR_Opr dst = rlock_result(x);
+    case vmIntrinsics::_dsqrt:
+        if(hasFPU()) {
+            assert(x->number_of_arguments() == 1, "wrong type");
+            LIRItem value(x->argument_at(0), this);
+            value.load_item();
+            LIR_Opr dst = rlock_result(x);
 
-      switch (x->id()) {
-      case vmIntrinsics::_dsqrt: {
-        __ sqrt(value.result(), dst, LIR_OprFact::illegalOpr);
-        break;
-      }
-      case vmIntrinsics::_dabs: {
-        __ abs(value.result(), dst, LIR_OprFact::illegalOpr);
-        break;
-      }
-      }
-      break;
-    }
+            switch (x->id()) {
+            case vmIntrinsics::_dsqrt: {
+              __ sqrt(value.result(), dst, LIR_OprFact::illegalOpr);
+              break;
+            }
+            case vmIntrinsics::_dabs: {
+              __ abs(value.result(), dst, LIR_OprFact::illegalOpr);
+              break;
+            }
+            }
+            break;
+      }// fall through for FPU less cores
     case vmIntrinsics::_dlog10: // fall through
     case vmIntrinsics::_dlog: // fall through
     case vmIntrinsics::_dsin: // fall through
@@ -895,6 +989,14 @@ void LIRGenerator::do_MathIntrinsic(Intrinsic* x) {
 
       address runtime_entry = NULL;
       switch (x->id()) {
+#ifdef __SOFTFP__
+      case vmIntrinsics::_dabs:
+        runtime_entry = CAST_FROM_FN_PTR(address, SharedRuntime::dabs);
+        break;
+      case vmIntrinsics::_dsqrt:
+        runtime_entry = CAST_FROM_FN_PTR(address, SharedRuntime::dsqrt);
+        break;
+#endif
       case vmIntrinsics::_dsin:
         runtime_entry = CAST_FROM_FN_PTR(address, SharedRuntime::dsin);
         break;
@@ -1044,15 +1146,43 @@ void LIRGenerator::do_update_CRC32(Intrinsic* x) {
 // _i2l, _i2f, _i2d, _l2i, _l2f, _l2d, _f2i, _f2l, _f2d, _d2i, _d2l, _d2f
 // _i2b, _i2c, _i2s
 void LIRGenerator::do_Convert(Convert* x) {
-  // insired by sparc port
+    address entry = NULL;
   switch (x->op()) {
+  case Bytecodes::_d2i:
+  case Bytecodes::_f2i:
+  case Bytecodes::_i2f:
+  case Bytecodes::_i2d:
+  case Bytecodes::_f2d:
+  case Bytecodes::_d2f:
+      if(hasFPU()) {
+          break;
+      }// fall through for FPU-less cores
   case Bytecodes::_d2l:
   case Bytecodes::_f2l:
   case Bytecodes::_l2d:
   case Bytecodes::_l2f: {
-    address entry;
 
     switch (x->op()) {
+#ifdef __SOFTFP__
+    case Bytecodes::_i2f:
+      entry = CAST_FROM_FN_PTR(address, SharedRuntime::i2f);
+      break;
+    case Bytecodes::_i2d:
+      entry = CAST_FROM_FN_PTR(address, SharedRuntime::i2d);
+      break;
+    case Bytecodes::_f2d:
+      entry = CAST_FROM_FN_PTR(address, SharedRuntime::f2d);
+      break;
+    case Bytecodes::_d2f:
+      entry = CAST_FROM_FN_PTR(address, SharedRuntime::d2f);
+      break;
+    case Bytecodes::_d2i:
+      entry = CAST_FROM_FN_PTR(address, SharedRuntime::d2i);
+      break;
+    case Bytecodes::_f2i:
+      entry = CAST_FROM_FN_PTR(address, SharedRuntime::f2i);
+      break;
+#endif
     case Bytecodes::_d2l:
       entry = CAST_FROM_FN_PTR(address, SharedRuntime::d2l);
       break;
@@ -1075,6 +1205,9 @@ void LIRGenerator::do_Convert(Convert* x) {
   break;
 
   default:
+    break;
+}
+    if(NULL == entry) {
     LIRItem value(x->value(), this);
     value.load_item();
 
@@ -1277,7 +1410,6 @@ void LIRGenerator::do_InstanceOf(InstanceOf* x) {
 void LIRGenerator::do_If(If* x) {
   assert(x->number_of_sux() == 2, "inconsistency");
   ValueTag tag = x->x()->type()->tag();
-  bool is_safepoint = x->is_safepoint();
 
   If::Condition cond = x->cond();
 
@@ -1317,15 +1449,41 @@ void LIRGenerator::do_If(If* x) {
 
   LIR_Opr left = xin->result();
   LIR_Opr right = yin->result();
+  LIR_Condition lir_c = lir_cond(cond);
 
-  __ cmp(lir_cond(cond), left, right);
+#ifdef __SOFTFP__
+  if(x->x()->type()->is_float_kind() && !(hasFPU())) {// FPU-less cores
+    address entry;
+    bool unordered_flag = x->unordered_is_true() != (lir_c == lir_cond_greater || lir_c == lir_cond_lessEqual);
+    if (x->x()->type()->is_float()) {
+      entry = CAST_FROM_FN_PTR(address, unordered_flag ? SharedRuntime::fcmpg : SharedRuntime::fcmpl);
+    } else if (x->x()->type()->is_double()) {
+      entry = CAST_FROM_FN_PTR(address, unordered_flag ? SharedRuntime::dcmpg : SharedRuntime::dcmpl);
+    } else {
+        ShouldNotReachHere();
+    }
+
+    LIR_Opr fcmp_res = call_runtime(x->x(), x->y(), entry, intType, NULL);
+    LIR_Opr zero = LIR_OprFact::intConst(0);
+    __ cmp(lir_c, fcmp_res, zero);
+  } else
+#endif
+  {
+  __ cmp(lir_c, left, right);
+  }
+
   // Generate branch profiling. Profiling code doesn't kill flags.
   profile_branch(x, cond);
   move_to_phi(x->state());
   if (x->x()->type()->is_float_kind()) {
-    __ branch(lir_cond(cond), right->type(), x->tsux(), x->usux());
-  } else {
-    __ branch(lir_cond(cond), right->type(), x->tsux());
+      if(hasFPU()) {
+        __ branch(lir_c, right->type(), x->tsux(), x->usux());
+      } else {
+        __ branch(lir_c, T_INT, x->tsux());
+      }
+  } else
+  {
+    __ branch(lir_c, right->type(), x->tsux());
   }
   assert(x->default_sux() == x->fsux(), "wrong destination above");
   __ jump(x->default_sux());

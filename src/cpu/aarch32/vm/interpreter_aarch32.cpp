@@ -48,6 +48,7 @@
 #include "runtime/timer.hpp"
 #include "runtime/vframeArray.hpp"
 #include "utilities/debug.hpp"
+#include "vm_version_aarch32.hpp"
 #ifdef COMPILER1
 #include "c1/c1_Runtime1.hpp"
 #endif
@@ -161,18 +162,28 @@ address InterpreterGenerator::generate_math_entry(AbstractInterpreter::MethodKin
 
   address entry_point = NULL;
   Register continuation = lr;
+  bool transcendental_entry = false;
+
   switch (kind) {
   case Interpreter::java_lang_math_abs:
     entry_point = __ pc();
-    __ vldr_f64(d0, Address(sp));
-    __ mov(sp, r4);
-    __ vabs_f64(d0, d0);
+      if(hasFPU()) {
+        __ vldr_f64(d0, Address(sp));
+        __ vabs_f64(d0, d0);
+      } else {
+        __ ldrd(r0, Address(sp));
+        transcendental_entry = true;
+      }
     break;
   case Interpreter::java_lang_math_sqrt:
     entry_point = __ pc();
-    __ vldr_f64(d0, Address(sp));
-    __ mov(sp, r4);
-    __ vsqrt_f64(d0, d0);
+    if(hasFPU()) {
+        __ vldr_f64(d0, Address(sp));
+        __ vsqrt_f64(d0, d0);
+    } else {
+        __ ldrd(r0, Address(sp));
+        transcendental_entry = true;
+    }
     break;
   case Interpreter::java_lang_math_sin :
   case Interpreter::java_lang_math_cos :
@@ -181,24 +192,40 @@ address InterpreterGenerator::generate_math_entry(AbstractInterpreter::MethodKin
   case Interpreter::java_lang_math_log10 :
   case Interpreter::java_lang_math_exp :
     entry_point = __ pc();
+    transcendental_entry = true;
+#ifndef HARD_FLOAT_CC
+    __ ldrd(r0, Address(sp));
+#else
     __ vldr_f64(d0, Address(sp));
-    __ mov(sp, r4);
-    __ mov(r4, lr);
-    continuation = r4;  // The first callee-saved register
-    generate_transcendental_entry(kind);
+#endif //HARD_FLOAT_CC
     break;
   case Interpreter::java_lang_math_pow :
     entry_point = __ pc();
+    transcendental_entry = true;
+#ifndef HARD_FLOAT_CC
+    __ ldrd(r0, Address(sp, 2*Interpreter::stackElementSize));
+    __ ldrd(r2, Address(sp));
+#else
     __ vldr_f64(d0, Address(sp, 2*Interpreter::stackElementSize));
     __ vldr_f64(d1, Address(sp));
-    __ mov(sp, r4);
-    __ mov(r4, lr);
-    continuation = r4;
-    generate_transcendental_entry(kind);
+#endif //HARD_FLOAT_CC
     break;
   default:
-    ;
+    ShouldNotReachHere();
   }
+
+   __ mov(sp, r4);
+  if(transcendental_entry) {
+        __ mov(r4, lr);
+        continuation = r4;
+        generate_transcendental_entry(kind);
+#ifndef HARD_FLOAT_CC
+        if(hasFPU()) {
+            __ vmov_f64(d0, r0, r1);
+        }
+#endif
+  }
+
   if (entry_point) {
     __ b(continuation);
   }
@@ -218,6 +245,14 @@ address InterpreterGenerator::generate_math_entry(AbstractInterpreter::MethodKin
 void InterpreterGenerator::generate_transcendental_entry(AbstractInterpreter::MethodKind kind) {
   address fn;
   switch (kind) {
+#ifdef __SOFTFP__
+  case  Interpreter::java_lang_math_abs:
+    fn = CAST_FROM_FN_PTR(address, SharedRuntime::dabs);
+    break;
+  case Interpreter::java_lang_math_sqrt:
+    fn = CAST_FROM_FN_PTR(address, SharedRuntime::dsqrt);
+    break;
+#endif //__SOFTFP__
   case Interpreter::java_lang_math_sin :
     fn = CAST_FROM_FN_PTR(address, SharedRuntime::dsin);
     break;

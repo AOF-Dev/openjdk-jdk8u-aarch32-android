@@ -202,7 +202,12 @@ LIR_Opr FrameMap::map_to_opr(BasicType type, VMRegPair* reg, bool) {
     opr = LIR_OprFact::address(new LIR_Address(sp_opr, st_off, type));
   } else if (r_1->is_Register()) {
     Register reg1 = r_1->as_Register();
-    if (type == T_LONG) {
+#ifdef HARD_FLOAT_CC
+    if (type == T_DOUBLE || type == T_FLOAT) {
+        ShouldNotReachHere();
+    } else
+#endif
+    if (type == T_LONG || type == T_DOUBLE) {
       assert(r_2->is_Register(), "wrong VMReg");
       Register reg2 = r_2->as_Register();
       opr = as_long_opr(reg1, reg2);
@@ -214,7 +219,6 @@ LIR_Opr FrameMap::map_to_opr(BasicType type, VMRegPair* reg, bool) {
       opr = as_opr(reg1);
     }
   } else if (r_1->is_FloatRegister()) {
-    assert(type == T_DOUBLE || type == T_FLOAT, "wrong type");
     int num = r_1->as_FloatRegister()->encoding();
     if (type == T_FLOAT) {
       opr = LIR_OprFact::single_fpu(num);

@@ -284,6 +284,10 @@ class LIRGenerator: public InstructionVisitor, public BlockClosure {
 
   static LIR_Opr result_register_for(ValueType* type, bool callee = false);
 
+#ifdef AARCH32
+  static LIR_Opr java_result_register_for(ValueType* type, bool callee = false);
+#endif
+
   ciObject* get_jobject_constant(Value value);
 
   LIRItemList* invoke_visit_arguments(Invoke* x);

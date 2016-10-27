@@ -85,4 +85,11 @@ class VM_Version : public Abstract_VM_Version {
     static bool is_determine_features_test_running() { return _is_determine_features_test_running; }
 };
 
+#ifdef HARD_FLOAT_CC
+inline const bool hasFPU(void) { return true; }
+#else
+inline bool hasFPU(void) { return (UseFPU); }
+#endif
+
+
 #endif // CPU_AARCH32_VM_VM_VERSION_AARCH32_HPP

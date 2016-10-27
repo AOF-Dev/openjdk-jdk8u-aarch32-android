@@ -39,6 +39,8 @@
 #include "runtime/biasedLocking.hpp"
 #include "runtime/sharedRuntime.hpp"
 #include "runtime/thread.inline.hpp"
+#include "vm_version_aarch32.hpp"
+#include "register_aarch32.hpp"
 
 
 // Implementation of InterpreterMacroAssembler
@@ -107,14 +109,20 @@ void InterpreterMacroAssembler::load_earlyret_value(TosState state) {
                mov(rscratch1, 0);
                str(rscratch1, oop_addr);
                verify_oop(r0, state);               break;
+    case dtos:
+        if(hasFPU()) {
+            vldr_f64(d0, val_addr);              break;
+        }//fall through  otherwise
     case ltos: ldrd(r0, val_addr);                  break;
+    case ftos:
+        if(hasFPU()) {
+            vldr_f32(d0, val_addr);              break;
+        } //fall through  otherwise
     case btos:                                   // fall through
     case ztos:                                   // fall through
     case ctos:                                   // fall through
     case stos:                                   // fall through
     case itos: ldr(r0, val_addr);                   break;
-    case ftos: vldr_f32(d0, val_addr);              break;
-    case dtos: vldr_f64(d0, val_addr);              break;
     case vtos: /* nothing to do */                  break;
     default  : ShouldNotReachHere();
   }
@@ -353,8 +361,20 @@ void InterpreterMacroAssembler::pop(TosState state) {
   case stos:
   case itos: pop_i();                   break;
   case ltos: pop_l();                   break;
-  case ftos: pop_f();                   break;
-  case dtos: pop_d();                   break;
+  case ftos:
+    if(hasFPU()) {
+        pop_f();
+    } else {
+        pop_i();
+    }
+    break;
+  case dtos:
+    if(hasFPU()) {
+        pop_d();
+    } else {
+        pop_l();
+    }
+    break;
   case vtos: /* nothing to do */        break;
   default:   ShouldNotReachHere();
   }
@@ -371,8 +391,20 @@ void InterpreterMacroAssembler::push(TosState state) {
   case stos:
   case itos: push_i();                  break;
   case ltos: push_l();                  break;
-  case ftos: push_f();                  break;
-  case dtos: push_d();                  break;
+  case ftos:
+    if(hasFPU()) {
+        push_f();
+    } else {
+        push_i();
+    }
+    break;
+  case dtos:
+    if(hasFPU()) {
+        push_d();
+    } else {
+        push_l();
+    }
+    break;
   case vtos: /* nothing to do */        break;
   default  : ShouldNotReachHere();
   }

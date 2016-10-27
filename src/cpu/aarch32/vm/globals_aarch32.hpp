@@ -96,7 +96,9 @@ define_pd_global(intx, InlineSmallCode,          1000);
   product(bool, UseNeon, false,                                         \
           "Use Neon for CRC32 computation")                             \
   product(bool, UseCRC32, false,                                        \
-          "Use CRC32 instructions for CRC32 computation")
+          "Use CRC32 instructions for CRC32 computation")               \
+  product(bool, UseFPU, true, "Enable FPU utilization at floating point ops." \
+      "Affects SoftFP mode only.")
 
 
 #endif // CPU_AARCH32_VM_GLOBALS_AARCH32_HPP

@@ -37,6 +37,8 @@
 #include "runtime/sharedRuntime.hpp"
 #include "runtime/vframeArray.hpp"
 #include "vmreg_aarch32.inline.hpp"
+#include "register_aarch32.hpp"
+#include "vm_version_aarch32.hpp"
 #ifdef COMPILER1
 #include "c1/c1_Runtime1.hpp"
 #endif
@@ -147,10 +149,11 @@ OopMap* RegisterSaver::save_live_registers(MacroAssembler* masm, int additional_
   oop_map->set_callee_saved(VMRegImpl::stack2reg(r10_off + additional_frame_slots), r10->as_VMReg());
   // r11 saved in frame header as rfp, not map it here
   // r11 & r14 have special meaning (can't hold oop), so not map them
-
-  for (int i = 0; i < 31; ++i) {
+  if(hasFPU()) {
+  for (int i = 0; i < FPUStateSizeInWords; ++i) {
     oop_map->set_callee_saved(VMRegImpl::stack2reg(fpu_state_off + i + additional_frame_slots),
     as_FloatRegister(i)->as_VMReg());
+  }
   }
 
   return oop_map;
@@ -170,9 +173,11 @@ void RegisterSaver::restore_result_registers(MacroAssembler* masm) {
   // restoration so only result registers need to be restored here.
 
 
-
+  if(hasFPU()) {
   // Restore fp result register
   __ vldr_f64(d0, Address(sp, offset_in_bytes(fpu_state_off)));
+  }
+
   // Restore integer result register
   __ ldr(r0, Address(sp, offset_in_bytes(r0_off)));
   __ ldr(r1, Address(sp, offset_in_bytes(r1_off)));
@@ -246,6 +251,16 @@ int SharedRuntime::java_calling_convention(const BasicType *sig_bt,
 
   for (int i = 0; i < total_args_passed; i++) {
     switch (sig_bt[i]) {
+    case T_FLOAT:
+        if(hasFPU()) {
+            if (fp_args < FP_ArgReg_N) {
+              regs[i].set1(FP_ArgReg[fp_args++]->as_VMReg());
+            } else {
+              regs[i].set1(VMRegImpl::stack2reg(stk_args));
+              stk_args += 1;
+            }
+            break;
+        } // fallthough for no-FPU system
     case T_BOOLEAN:
     case T_CHAR:
     case T_BYTE:
@@ -266,30 +281,24 @@ int SharedRuntime::java_calling_convention(const BasicType *sig_bt,
       assert(i != 0 && (sig_bt[i - 1] == T_LONG || sig_bt[i - 1] == T_DOUBLE), "expecting half");
       regs[i].set_bad();
       break;
+    case T_DOUBLE:
+        if(hasFPU()) {
+            assert(sig_bt[i + 1] == T_VOID, "expecting half");
+            fp_args = round_to(fp_args, 2);
+            if (fp_args < FP_ArgReg_N) {
+              regs[i].set2(FP_ArgReg[fp_args]->as_VMReg());
+              fp_args += 2;
+            } else {
+              regs[i].set2(VMRegImpl::stack2reg(stk_args));
+              stk_args += 2;
+            }
+            break;
+        } //fallthough for no-FPU system
     case T_LONG:
       assert(sig_bt[i + 1] == T_VOID, "expecting half");
       if (int_args + 1 < Argument::n_int_register_parameters_j) {
         regs[i].set_pair(INT_ArgReg[int_args + 1]->as_VMReg(), INT_ArgReg[int_args]->as_VMReg());
         int_args += 2;
-      } else {
-        regs[i].set2(VMRegImpl::stack2reg(stk_args));
-        stk_args += 2;
-      }
-      break;
-    case T_FLOAT:
-      if (fp_args < FP_ArgReg_N) {
-        regs[i].set1(FP_ArgReg[fp_args++]->as_VMReg());
-      } else {
-        regs[i].set1(VMRegImpl::stack2reg(stk_args));
-        stk_args += 1;
-      }
-      break;
-    case T_DOUBLE:
-      assert(sig_bt[i + 1] == T_VOID, "expecting half");
-      fp_args = round_to(fp_args, 2);
-      if (fp_args < FP_ArgReg_N) {
-        regs[i].set2(FP_ArgReg[fp_args]->as_VMReg());
-        fp_args += 2;
       } else {
         regs[i].set2(VMRegImpl::stack2reg(stk_args));
         stk_args += 2;
@@ -751,6 +760,7 @@ int SharedRuntime::c_calling_convention(const BasicType *sig_bt,
     static const Register INT_ArgReg[Argument::n_int_register_parameters_c] = {
       c_rarg0, c_rarg1, c_rarg2, c_rarg3
     };
+#ifdef HARD_FLOAT_CC
     const int FP_ArgReg_N = 16;
     static const FloatRegister FP_ArgReg[] = {
       f0, f1, f2, f3,
@@ -759,9 +769,10 @@ int SharedRuntime::c_calling_convention(const BasicType *sig_bt,
       f12, f13, f14, f15,
     };
     unsigned long fp_free_mask = (1 << FP_ArgReg_N) - 1;
+    uint fp_args = 0;
+#endif //HARD_FLOAT_CC
 
     uint int_args = 0;
-    uint fp_args = 0;
     uint stk_args = 0;
 
     for (int i = 0; i < total_args_passed; i++) {
@@ -775,6 +786,10 @@ int SharedRuntime::c_calling_convention(const BasicType *sig_bt,
       case T_ARRAY:
       case T_ADDRESS:
       case T_METADATA:
+#ifndef HARD_FLOAT_CC
+      // soft FP case
+      case T_FLOAT:
+#endif
         if (int_args < Argument::n_int_register_parameters_c) {
           regs[i].set1(INT_ArgReg[int_args++]->as_VMReg());
         } else {
@@ -782,6 +797,10 @@ int SharedRuntime::c_calling_convention(const BasicType *sig_bt,
           stk_args += 1;
         }
         break;
+#ifndef HARD_FLOAT_CC
+      // soft FP case
+      case  T_DOUBLE:
+#endif
       case T_LONG:
         assert(sig_bt[i + 1] == T_VOID, "expecting half");
         if (int_args + 1 < Argument::n_int_register_parameters_c) {
@@ -799,6 +818,7 @@ int SharedRuntime::c_calling_convention(const BasicType *sig_bt,
           int_args = Argument::n_int_register_parameters_c;
         }
         break;
+#ifdef HARD_FLOAT_CC
       case T_FLOAT:
         if (fp_free_mask & ((1 << FP_ArgReg_N)-1)) {
           unsigned index = __builtin_ctz(fp_free_mask);
@@ -821,6 +841,7 @@ int SharedRuntime::c_calling_convention(const BasicType *sig_bt,
           stk_args += 2;
         }
         break;
+#endif //HARD_FLOAT_CC
       case T_VOID: // Halves of longs and doubles
         assert(i != 0 && (sig_bt[i - 1] == T_LONG || sig_bt[i - 1] == T_DOUBLE), "expecting half");
         regs[i].set_bad();
@@ -931,24 +952,33 @@ static void object_move(MacroAssembler* masm,
 
 // A float arg may have to do float reg int reg conversion
 static void float_move(MacroAssembler* masm, VMRegPair src, VMRegPair dst) {
-  if (src.first()->is_stack()) {
-    if (dst.first()->is_stack()) {
-      // stack to stack
-      // Have no vfp scratch registers, so copy via gpr
-      __ ldr(rscratch1, Address(rfp, reg2offset_in(src.first())));
-      __ str(rscratch1, Address(sp, reg2offset_out(dst.first())));
+    if(hasFPU()) {
+        if (src.first()->is_stack()) {
+          if (dst.first()->is_stack()) {
+            // stack to stack
+            // Have no vfp scratch registers, so copy via gpr
+            __ ldr(rscratch1, Address(rfp, reg2offset_in(src.first())));
+            __ str(rscratch1, Address(sp, reg2offset_out(dst.first())));
+          } else {
+            // stack to reg
+            __ vldr_f32(dst.first()->as_FloatRegister(), Address(rfp, reg2offset_in(src.first())));
+          }
+        } else if (dst.first()->is_stack()) {
+          // reg to stack
+          __ vstr_f32(src.first()->as_FloatRegister(), Address(sp, reg2offset_out(dst.first())));
+        } else {
+#ifndef HARD_FLOAT_CC
+            if(dst.first()->is_Register()) {
+                __ vmov_f32(dst.first()->as_Register(), src.first()->as_FloatRegister());
+            } else
+#endif
+            if (dst.first() != src.first()) {
+                 __ vmov_f32(dst.first()->as_FloatRegister(), src.first()->as_FloatRegister());
+            }
+        }
     } else {
-      // stack to reg
-      __ vldr_f32(dst.first()->as_FloatRegister(), Address(rfp, reg2offset_in(src.first())));
+        move_int(masm, src, dst);
     }
-  } else if (dst.first()->is_stack()) {
-    // reg to stack
-    __ vstr_f32(src.first()->as_FloatRegister(), Address(sp, reg2offset_out(dst.first())));
-  } else {
-    if (dst.first() != src.first()) {
-      __ vmov_f32(dst.first()->as_FloatRegister(), src.first()->as_FloatRegister());
-    }
-  }
 }
 
 // A long move
@@ -983,23 +1013,32 @@ static void long_move(MacroAssembler* masm, VMRegPair src, VMRegPair dst) {
 
 // A double move
 static void double_move(MacroAssembler* masm, VMRegPair src, VMRegPair dst) {
-  if (src.first()->is_stack()) {
-    if (dst.first()->is_stack()) {
-      // stack to stack
-      // Have no vfp scratch registers, so copy via gpr
-      __ ldrd(rscratch1, rscratch2, Address(rfp, reg2offset_in(src.first())));
-      __ strd(rscratch1, rscratch2, Address(sp, reg2offset_out(dst.first())));
+  if(hasFPU()) {
+    if (src.first()->is_stack()) {
+      if (dst.first()->is_stack()) {
+        // stack to stack
+        // Have no vfp scratch registers, so copy via gpr
+        __ ldrd(rscratch1, rscratch2, Address(rfp, reg2offset_in(src.first())));
+        __ strd(rscratch1, rscratch2, Address(sp, reg2offset_out(dst.first())));
+      } else {
+        // stack to reg
+        __ vldr_f64(dst.first()->as_FloatRegister(), Address(rfp, reg2offset_in(src.first())));
+      }
+    } else if (dst.first()->is_stack()) {
+      // reg to stack
+      __ vstr_f64(src.first()->as_FloatRegister(), Address(sp, reg2offset_out(dst.first())));
     } else {
-      // stack to reg
-      __ vldr_f64(dst.first()->as_FloatRegister(), Address(rfp, reg2offset_in(src.first())));
-    }
-  } else if (dst.first()->is_stack()) {
-    // reg to stack
-    __ vstr_f64(src.first()->as_FloatRegister(), Address(sp, reg2offset_out(dst.first())));
+#ifndef HARD_FLOAT_CC
+        if(dst.first()->is_Register()) {
+            __ vmov_f64(dst.first()->as_Register(), dst.second()->as_Register(), src.first()->as_FloatRegister());
+        } else
+#endif
+        if (dst.first() != src.first()) {
+           __ vmov_f64(dst.first()->as_FloatRegister(), src.first()->as_FloatRegister());
+        }
+      }
   } else {
-    if (dst.first() != src.first()) {
-      __ vmov_f64(dst.first()->as_FloatRegister(), src.first()->as_FloatRegister());
-    }
+    long_move(masm, src, dst);
   }
 }
 
@@ -1008,17 +1047,21 @@ void SharedRuntime::save_native_result(MacroAssembler *masm, BasicType ret_type,
   // We always ignore the frame_slots arg and just use the space just below frame pointer
   // which by this time is free to use
   switch (ret_type) {
-  case T_FLOAT:
-    __ vstr_f32(f0, Address(rfp, -2 * wordSize));
-    break;
   case T_DOUBLE:
+#ifdef HARD_FLOAT_CC
     __ vstr_f64(d0, Address(rfp, -3 * wordSize));
     break;
+#endif//fall through otherwise
   case T_LONG:
     __ strd(r0, r1, Address(rfp, -3 * wordSize));
     break;
   case T_VOID:
     break;
+  case T_FLOAT:
+#ifdef HARD_FLOAT_CC
+    __ vstr_f32(f0, Address(rfp, -2 * wordSize));
+    break;
+#endif//fall through otherwise
   default:
     __ str(r0, Address(rfp, -2 * wordSize));
     break;
@@ -1029,17 +1072,21 @@ void SharedRuntime::restore_native_result(MacroAssembler *masm, BasicType ret_ty
   // We always ignore the frame_slots arg and just use the space just below frame pointer
   // which by this time is free to use
   switch (ret_type) {
-  case T_FLOAT:
-    __ vldr_f32(d0, Address(rfp, -2 * wordSize));
-    break;
   case T_DOUBLE:
+#ifdef HARD_FLOAT_CC
     __ vldr_f64(d0, Address(rfp, -3 * wordSize));
     break;
+#endif//fall through otherwise
   case T_LONG:
     __ ldrd(r0, r1, Address(rfp, -3 * wordSize));
     break;
   case T_VOID:
     break;
+  case T_FLOAT:
+#ifdef HARD_FLOAT_CC
+    __ vldr_f32(d0, Address(rfp, -2 * wordSize));
+    break;
+#endif//fall through otherwise
   default:
     __ ldr(r0, Address(rfp, -2 * wordSize));
     break;
@@ -1053,7 +1100,9 @@ static int save_args(MacroAssembler *masm, int arg_count, int first_arg, VMRegPa
     if (args[i].first()->is_Register()) {
       x = x + args[i].first()->as_Register();
       ++saved_slots;
-    } else if (args[i].first()->is_FloatRegister()) {
+    }
+#ifdef HARD_FLOAT_CC
+    else if (args[i].first()->is_FloatRegister()) {
       FloatRegister fr = args[i].first()->as_FloatRegister();
 
       if (args[i].second()->is_FloatRegister()) {
@@ -1067,6 +1116,7 @@ static int save_args(MacroAssembler *masm, int arg_count, int first_arg, VMRegPa
         ++saved_slots;
       }
     }
+#endif//HARD_FLOAT_CC
   }
   __ push(x, sp);
   return saved_slots;
@@ -1085,7 +1135,9 @@ static void restore_args(MacroAssembler *masm, int arg_count, int first_arg, VMR
   for ( int i = first_arg ; i < arg_count ; i++ ) {
     if (args[i].first()->is_Register()) {
       ;
-    } else if (args[i].first()->is_FloatRegister()) {
+    }
+#ifdef HARD_FLOAT_CC
+    else if (args[i].first()->is_FloatRegister()) {
       FloatRegister fr = args[i].first()->as_FloatRegister();
 
       if (args[i].second()->is_FloatRegister()) {
@@ -1097,6 +1149,7 @@ static void restore_args(MacroAssembler *masm, int arg_count, int first_arg, VMR
         __ increment(sp, wordSize);
       }
     }
+#endif//HARD_FLOAT_CC
   }
 }
 
@@ -1443,9 +1496,11 @@ nmethod* SharedRuntime::generate_native_wrapper(MacroAssembler* masm,
           case T_LONG: double_slots++; break;
           default:  ShouldNotReachHere();
         }
-      } else if (in_regs[i].first()->is_FloatRegister()) {
-        ShouldNotReachHere();
-      }
+      } else
+#ifdef HARD_FLOAT_CC
+          if (in_regs[i].first()->is_FloatRegister())
+#endif // HARD_FLOAT_CC
+            ShouldNotReachHere();
     }
     total_save_slots = double_slots * 2 + single_slots;
     // align the save area
@@ -1867,10 +1922,20 @@ nmethod* SharedRuntime::generate_native_wrapper(MacroAssembler* masm,
   case T_BYTE   : __ sxtb(r0, r0);           break;
   case T_SHORT  : __ sxth(r0, r0);           break;
   case T_INT    :                                    break;
-  case T_DOUBLE :
   case T_FLOAT  :
-    // Result is in d0 we'll save as needed
-    break;
+#ifndef HARD_FLOAT_CC
+      if(hasFPU()) {
+          __ vmov_f32(d0, r0);
+      }
+#endif
+      break;
+  case T_DOUBLE :
+#ifndef HARD_FLOAT_CC
+      if(hasFPU()) {
+          __ vmov_f64(d0, r0, r1);
+      }
+#endif
+      break;
   case T_ARRAY:                 // Really a handle
   case T_OBJECT:                // Really a handle
       break; // can't de-handlize until after safepoint check
@@ -2424,7 +2489,9 @@ void SharedRuntime::generate_deopt_blob() {
   __ sub(sp, sp, (frame_size_in_words - 2) * wordSize);
 
   // Restore frame locals after moving the frame
-  __ vstr_f64(d0, Address(sp, RegisterSaver::offset_in_bytes(RegisterSaver::fpu_state_off)));
+  if(hasFPU()) {
+    __ vstr_f64(d0, Address(sp, RegisterSaver::offset_in_bytes(RegisterSaver::fpu_state_off)));
+  }
   __ strd(r0, Address(sp, RegisterSaver::offset_in_bytes(RegisterSaver::r0_off)));
 
   // Call C code.  Need thread but NOT official VM entry
@@ -2452,7 +2519,9 @@ void SharedRuntime::generate_deopt_blob() {
   __ reset_last_Java_frame(true, true);
 
   // Collect return values
-  __ vldr_f64(d0, Address(sp, RegisterSaver::offset_in_bytes(RegisterSaver::fpu_state_off)));
+  if(hasFPU()) {
+    __ vldr_f64(d0, Address(sp, RegisterSaver::offset_in_bytes(RegisterSaver::fpu_state_off)));
+  }
   __ ldrd(r0, Address(sp, RegisterSaver::offset_in_bytes(RegisterSaver::r0_off)));
   // I think this is useless (throwing pc?)
   // __ ldr(r3, Address(sp, RegisterSaver::r3_offset_in_bytes()));

@@ -588,8 +588,7 @@ class InternalAddress: public Address {
 };
 
 
-const int FPUStateSizeInWords = 16 * 2;
-
+const int FPUStateSizeInWords = FloatRegisterImpl::number_of_registers;
 
 class Assembler : public AbstractAssembler {
   void emit_long(jint x) {

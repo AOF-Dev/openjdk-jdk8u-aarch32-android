@@ -41,6 +41,7 @@
 #include "runtime/stubRoutines.hpp"
 #include "runtime/thread.inline.hpp"
 #include "utilities/top.hpp"
+#include "vm_version_aarch32.hpp"
 #ifdef COMPILER2
 #include "opto/runtime.hpp"
 #endif
@@ -274,10 +275,17 @@ class StubGenerator: public StubCodeGenerator {
     __ b(is_object, Assembler::EQ);
     __ cmp(c_rarg3, T_LONG);
     __ b(is_long, Assembler::EQ);
-    __ cmp(c_rarg3, T_FLOAT);
-    __ b(is_float, Assembler::EQ);
+    if(hasFPU()) {
+        // soft FP fall through T_INT case
+        __ cmp(c_rarg3, T_FLOAT);
+        __ b(is_float, Assembler::EQ);
+    }
     __ cmp(c_rarg3, T_DOUBLE);
-    __ b(is_double, Assembler::EQ);
+    if(hasFPU()) {
+        __ b(is_double, Assembler::EQ);
+    } else {
+        __ b(is_long, Assembler::EQ);
+    }
 
     // handle T_INT case
     __ str(r0, Address(c_rarg2));
@@ -298,14 +306,15 @@ class StubGenerator: public StubCodeGenerator {
     __ strd(r0, r1, Address(c_rarg2, 0));
     __ b(exit, Assembler::AL);
 
-    __ BIND(is_float);
-    __ vstr_f32(f0, Address(c_rarg2, 0));
-    __ b(exit, Assembler::AL);
+    if(hasFPU()) {
+        __ BIND(is_float);
+        __ vstr_f32(f0, Address(c_rarg2, 0));
+        __ b(exit, Assembler::AL);
 
-    __ BIND(is_double);
-    __ vstr_f64(d0, Address(c_rarg2, 0));
-    __ b(exit, Assembler::AL);
-
+        __ BIND(is_double);
+        __ vstr_f64(d0, Address(c_rarg2, 0));
+        __ b(exit, Assembler::AL);
+    }
     return start;
   }
 
@@ -748,13 +757,10 @@ class StubGenerator: public StubCodeGenerator {
     // if destination is unaliged, copying by words is the only option
     __ tst(d, 3);
     __ b(small, Assembler::NE);
-#ifndef __SOFTFP__
-    if (UseSIMDForMemoryOps) {
+    if (UseSIMDForMemoryOps && (VM_Version::features() & FT_AdvSIMD)) {
       copy_memory_simd(s, d, count, tmp2, step, DoubleFloatRegSet::range(d0, d7), 64);
       copy_memory_simd(s, d, count, tmp2, step, DoubleFloatRegSet::range(d0, d1), 16);
-    } else
-#endif //__SOFTFP__
-    {
+    } else {
       const RegSet tmp_set = RegSet::range(r4, r7);
       const int tmp_set_size = 16;
       Label ldm_loop;
@@ -1122,8 +1128,8 @@ class StubGenerator: public StubCodeGenerator {
     *entry = __ pc();
 
     // Load *adr into c_rarg1, may fault.
-    __ mov(c_rarg2, c_rarg0);
     *fault_pc = __ pc();
+    __ mov(c_rarg2, c_rarg0);
     switch (size) {
       case 4:
         // int32_t

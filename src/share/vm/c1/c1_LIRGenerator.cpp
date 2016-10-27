@@ -1197,7 +1197,11 @@ void LIRGenerator::do_Return(Return* x) {
   if (x->type()->is_void()) {
     __ return_op(LIR_OprFact::illegalOpr);
   } else {
+#ifdef AARCH32
+    LIR_Opr reg = java_result_register_for(x->type(), /*callee=*/true);
+#else
     LIR_Opr reg = result_register_for(x->type(), /*callee=*/true);
+#endif
     LIRItem result(x->result(), this);
 
     result.load_item_force(reg);
@@ -2919,7 +2923,11 @@ void LIRGenerator::do_Invoke(Invoke* x) {
   // setup result register
   LIR_Opr result_register = LIR_OprFact::illegalOpr;
   if (x->type() != voidType) {
+#ifdef AARCH32
+    result_register = java_result_register_for(x->type());
+#else
     result_register = result_register_for(x->type());
+#endif
   }
 
   CodeEmitInfo* info = state_for(x, x->state());

@@ -524,7 +524,7 @@ void LIR_Assembler::const2reg(LIR_Opr src, LIR_Opr dest, LIR_PatchCode patch_cod
   switch (c->type()) {
     case T_INT: {
       assert(patch_code == lir_patch_none, "no patching handled here");
-      __ mov(dest->as_register(), c->as_jint());
+      __ mov(dest->as_register(), c->as_jint_bits());
       break;
     }
 
@@ -536,8 +536,8 @@ void LIR_Assembler::const2reg(LIR_Opr src, LIR_Opr dest, LIR_PatchCode patch_cod
 
     case T_LONG: {
       assert(patch_code == lir_patch_none, "no patching handled here");
-      __ mov(dest->as_register_lo(), c->as_jint_lo());
-      __ mov(dest->as_register_hi(), c->as_jint_hi());
+      __ mov(dest->as_register_lo(), c->as_jint_lo_bits());
+      __ mov(dest->as_register_hi(), c->as_jint_hi_bits());
       break;
     }
 
@@ -560,30 +560,33 @@ void LIR_Assembler::const2reg(LIR_Opr src, LIR_Opr dest, LIR_PatchCode patch_cod
     }
 
     case T_FLOAT: {
-#ifdef __ARM_PCS_VFP
-        if (__ operand_valid_for_float_immediate(c->as_jfloat())) {
-            __ vmov_f32(dest->as_float_reg(), c->as_jfloat());
+        if(dest->is_single_fpu()) {
+            if (__ operand_valid_for_float_immediate(c->as_jfloat())) {
+                __ vmov_f32(dest->as_float_reg(), c->as_jfloat());
+            } else {
+                __ lea(rscratch1, InternalAddress(float_constant(c->as_jfloat())));
+                __ vldr_f32(dest->as_float_reg(), Address(rscratch1));
+            }
         } else {
-            __ lea(rscratch1, InternalAddress(float_constant(c->as_jfloat())));
-            __ vldr_f32(dest->as_float_reg(), Address(rscratch1));
+            assert(patch_code == lir_patch_none, "no patching handled here");
+            __ mov(dest->as_register(), c->as_jint_bits());
         }
-#else
-#error "unimplemented"
-#endif
       break;
     }
 
     case T_DOUBLE: {
-#ifdef __ARM_PCS_VFP
-        if (__ operand_valid_for_double_immediate(c->as_jdouble())) {
-            __ vmov_f64(dest->as_double_reg(), c->as_jdouble());
+        if(dest->is_double_fpu()) {
+            if (__ operand_valid_for_double_immediate(c->as_jdouble())) {
+                __ vmov_f64(dest->as_double_reg(), c->as_jdouble());
+            } else {
+                __ lea(rscratch1, InternalAddress(double_constant(c->as_jdouble())));
+                __ vldr_f64(dest->as_double_reg(), Address(rscratch1));
+            }
         } else {
-            __ lea(rscratch1, InternalAddress(double_constant(c->as_jdouble())));
-            __ vldr_f64(dest->as_double_reg(), Address(rscratch1));
+            assert(patch_code == lir_patch_none, "no patching handled here");
+            __ mov(dest->as_register_lo(), c->as_jint_lo_bits());
+            __ mov(dest->as_register_hi(), c->as_jint_hi_bits());
         }
-#else
-#error "unimplemented"
-#endif
       break;
     }
 
@@ -705,36 +708,42 @@ void LIR_Assembler::reg2reg(LIR_Opr src, LIR_Opr dest) {
       move_regs(src->as_register_lo(), dest->as_register());
       return;
     }
-    assert(src->is_single_cpu(), "must match");
-    if (src->type() == T_OBJECT) {
-      __ verify_oop(src->as_register());
+    if(src->is_single_fpu()) {
+        __ vmov_f32(dest->as_register(), src->as_float_reg());
+    } else {
+        assert(src->is_single_cpu(), "must match");
+        if (src->type() == T_OBJECT) {
+          __ verify_oop(src->as_register());
+        }
+        move_regs(src->as_register(), dest->as_register());
     }
-    move_regs(src->as_register(), dest->as_register());
-
   } else if (dest->is_double_cpu()) {
-    if (src->type() == T_OBJECT || src->type() == T_ARRAY) {
-      // Surprising to me but we can see move of a long to t_object
-      __ verify_oop(src->as_register());
-      move_regs(src->as_register(), dest->as_register_lo());
-      __ mov(dest->as_register_hi(), 0);
-      return;
-    }
-    assert(src->is_double_cpu(), "must match");
-    Register f_lo = src->as_register_lo();
-    Register f_hi = src->as_register_hi();
-    Register t_lo = dest->as_register_lo();
-    Register t_hi = dest->as_register_hi();
-    assert(f_hi != f_lo, "must be different");
-    assert(t_hi != t_lo, "must be different");
-    check_register_collision(t_lo, &f_hi);
-    move_regs(f_lo, t_lo);
-    move_regs(f_hi, t_hi);
+      if(src->is_double_fpu()) {
+        __ vmov_f64(dest->as_register_lo(), dest->as_register_hi(), src->as_double_reg());
+      } else {
+        assert(src->is_double_cpu(), "must match");
+        Register f_lo = src->as_register_lo();
+        Register f_hi = src->as_register_hi();
+        Register t_lo = dest->as_register_lo();
+        Register t_hi = dest->as_register_hi();
+        assert(f_hi != f_lo, "must be different");
+        assert(t_hi != t_lo, "must be different");
+        check_register_collision(t_lo, &f_hi);
+        move_regs(f_lo, t_lo);
+        move_regs(f_hi, t_hi);
+      }
   } else if (dest->is_single_fpu()) {
-    __ vmov_f32(dest->as_float_reg(), src->as_float_reg());
-
+      if(src->is_single_cpu()) {
+        __ vmov_f32(dest->as_float_reg(), src->as_register());
+      } else {
+        __ vmov_f32(dest->as_float_reg(), src->as_float_reg());
+      }
   } else if (dest->is_double_fpu()) {
-    __ vmov_f64(dest->as_double_reg(), src->as_double_reg());
-
+      if(src->is_double_cpu()) {
+        __ vmov_f64(dest->as_double_reg(), src->as_register_lo(), src->as_register_hi());
+      } else {
+        __ vmov_f64(dest->as_double_reg(), src->as_double_reg());
+      }
   } else {
     ShouldNotReachHere();
   }
@@ -752,21 +761,12 @@ void LIR_Assembler::reg2stack(LIR_Opr src, LIR_Opr dest, BasicType type, bool po
   } else if (src->is_double_cpu()) {
     Address dest_addr_LO = frame_map()->address_for_slot(dest->double_stack_ix(), lo_word_offset_in_bytes);
     __ strd(src->as_register_lo(), src->as_register_hi(), dest_addr_LO);
-
   } else if (src->is_single_fpu()) {
     Address dest_addr = frame_map()->address_for_slot(dest->single_stack_ix());
-#ifdef __ARM_PCS_VFP
     __ vstr_f32(src->as_float_reg(), dest_addr.safe_for(Address::IDT_FLOAT, _masm, rscratch1));
-#else
-#error "unimplemented"
-#endif
   } else if (src->is_double_fpu()) {
     Address dest_addr = frame_map()->address_for_slot(dest->double_stack_ix());
-#ifdef __ARM_PCS_VFP
     __ vstr_f64(src->as_double_reg(), dest_addr.safe_for(Address::IDT_DOUBLE, _masm, rscratch1));
-#else
-#error "unimplemented"
-#endif
   } else {
     ShouldNotReachHere();
   }
@@ -795,29 +795,13 @@ void LIR_Assembler::reg2mem(LIR_Opr src, LIR_Opr dest, BasicType type, LIR_Patch
 
   int null_check_here = code_offset();
   switch (type) {
-    case T_FLOAT: {
-#ifdef __ARM_PCS_VFP
-      Address addr = as_Address(to_addr, Address::IDT_FLOAT);
-      null_check_here = code_offset();
-      __ vstr_f32(src->as_float_reg(), addr);
-#else
-#error "unimplemented"
-#endif
-      break;
-    }
-
-    case T_DOUBLE: {
-#ifdef __ARM_PCS_VFP
-      Address addr = as_Address(to_addr, Address::IDT_DOUBLE);
-      null_check_here = code_offset();
-      __ vstr_f64(src->as_double_reg(), addr);
-#else
-#error "unimplemented"
-#endif
-
-      break;
-    }
-
+    case T_FLOAT:
+        if(src->is_single_fpu()) {
+            Address addr = as_Address(to_addr, Address::IDT_FLOAT);
+            null_check_here = code_offset();
+            __ vstr_f32(src->as_float_reg(), addr);
+            break;
+        } // fall through at FPUless system
     case T_ARRAY:   // fall through
     case T_OBJECT:  // fall through
     case T_ADDRESS: // fall though
@@ -836,6 +820,13 @@ void LIR_Assembler::reg2mem(LIR_Opr src, LIR_Opr dest, BasicType type, LIR_Patch
 //      __ str(src->as_register(), as_Address(to_addr));
       break;
 
+    case T_DOUBLE:
+        if(src->is_double_fpu()) {
+            Address addr = as_Address(to_addr, Address::IDT_DOUBLE);
+            null_check_here = code_offset();
+            __ vstr_f64(src->as_double_reg(), addr);
+            break;
+        } // fall through at FPUless system
     case T_LONG: {
       Address addr = as_Address_lo(to_addr, Address::IDT_LONG);
       null_check_here = code_offset();
@@ -882,21 +873,12 @@ void LIR_Assembler::stack2reg(LIR_Opr src, LIR_Opr dest, BasicType type) {
   } else if (dest->is_double_cpu()) {
     Address src_addr_LO = frame_map()->address_for_slot(src->double_stack_ix(), lo_word_offset_in_bytes);
     __ ldrd(dest->as_register_lo(), dest->as_register_hi(), src_addr_LO);
-
   } else if (dest->is_single_fpu()) {
-#ifdef __ARM_PCS_VFP
     Address src_addr = frame_map()->address_for_slot(src->single_stack_ix());
     __ vldr_f32(dest->as_float_reg(), src_addr.safe_for(Address::IDT_FLOAT, _masm, rscratch1));
-#else
-#error "unimplemented"
-#endif
   } else if (dest->is_double_fpu()) {
-#ifdef __ARM_PCS_VFP
     Address src_addr = frame_map()->address_for_slot(src->double_stack_ix());
     __ vldr_f64(dest->as_double_reg(), src_addr.safe_for(Address::IDT_DOUBLE, _masm, rscratch1));
-#else
-#error "unimplemented"
-#endif
   } else {
     ShouldNotReachHere();
   }
@@ -944,28 +926,13 @@ void LIR_Assembler::mem2reg(LIR_Opr src, LIR_Opr dest, BasicType type, LIR_Patch
   int null_check_here = code_offset();
 
   switch (type) {
-    case T_FLOAT: {
-#ifdef __ARM_PCS_VFP
-    Address addr = as_Address(from_addr, Address::IDT_FLOAT);
-    null_check_here = code_offset();
-    __ vldr_f32(dest->as_float_reg(), addr);
-#else
-#error "unimplemented"
-#endif
-      break;
-    }
-
-    case T_DOUBLE: {
-#ifdef __ARM_PCS_VFP
-    Address addr = as_Address(from_addr, Address::IDT_DOUBLE);
-    null_check_here = code_offset();
-    __ vldr_f64(dest->as_double_reg(), addr);
-#else
-#error "unimplemented"
-#endif
-      break;
-    }
-
+    case T_FLOAT:
+        if(dest->is_single_fpu()){
+            Address addr = as_Address(from_addr, Address::IDT_FLOAT);
+            null_check_here = code_offset();
+            __ vldr_f32(dest->as_float_reg(), addr);
+              break;
+        }  // fall through at FPUless systems
     case T_ARRAY:   // fall through
     case T_OBJECT:  // fall through
     case T_ADDRESS: // fall through
@@ -983,7 +950,13 @@ void LIR_Assembler::mem2reg(LIR_Opr src, LIR_Opr dest, BasicType type, LIR_Patch
       ShouldNotReachHere();
 //      __ ldr(dest->as_register(), as_Address(from_addr));
       break;
-
+    case T_DOUBLE:
+        if(dest->is_double_fpu()){
+            Address addr = as_Address(from_addr, Address::IDT_DOUBLE);
+            null_check_here = code_offset();
+            __ vldr_f64(dest->as_double_reg(), addr);
+              break;
+        } // fall through at FPUless systems
     case T_LONG: {
       Address addr = as_Address_lo(from_addr, Address::IDT_LONG);
       null_check_here = code_offset();
@@ -1668,6 +1641,10 @@ void LIR_Assembler::arith_op(LIR_Code code, LIR_Opr left, LIR_Opr right, LIR_Opr
   assert(info == NULL, "should never be used, idiv/irem and ldiv/lrem not handled by this method");
 
   if (left->is_single_cpu()) {
+    assert(left->type() != T_FLOAT, "expect integer type");
+    assert(right->type() != T_FLOAT, "expect integer type");
+    assert(dest->type() != T_FLOAT, "expect integer type");
+
     Register lreg = left->as_register();
     Register dreg = as_reg(dest);
 
@@ -1717,6 +1694,10 @@ void LIR_Assembler::arith_op(LIR_Code code, LIR_Opr left, LIR_Opr right, LIR_Opr
     }
 
   } else if (left->is_double_cpu()) {
+    assert(left->type() != T_DOUBLE, "expect integer type");
+    assert(right->type() != T_DOUBLE, "expect integer type");
+    assert(dest->type() != T_DOUBLE, "expect integer type");
+
     Register lreg_lo = left->as_register_lo();
     Register lreg_hi = left->as_register_hi();
 
@@ -1891,6 +1872,10 @@ void LIR_Assembler::arithmetic_idiv(LIR_Code code, LIR_Opr left, LIR_Opr right, 
 
 void LIR_Assembler::comp_op(LIR_Condition condition, LIR_Opr opr1, LIR_Opr opr2, LIR_Op2* op) {
   if (opr1->is_single_cpu()) {
+
+    assert(opr1->type() != T_FLOAT, "expect integer type");// softfp guard
+    assert(opr2->type() != T_FLOAT, "expect integer type");
+
     Register reg1 = as_reg(opr1);
     if (opr2->is_single_cpu()) {
       // cpu register - cpu register
@@ -2880,9 +2865,13 @@ void LIR_Assembler::align_backward_branch_target() {
 
 void LIR_Assembler::negate(LIR_Opr left, LIR_Opr dest) {
   if (left->is_single_cpu()) {
+    assert(left->type() != T_FLOAT, "expect integer type");
+    assert(dest->type() != T_FLOAT, "expect integer type");
     assert(dest->is_single_cpu(), "expect single result reg");
     __ neg(dest->as_register(), left->as_register());
   } else if (left->is_double_cpu()) {
+    assert(left->type() != T_DOUBLE, "expect integer type");
+    assert(dest->type() != T_DOUBLE, "expect integer type");
     assert(dest->is_double_cpu(), "expect double result reg");
     const Register l_lo = left->as_register_lo();
     Register l_hi = left->as_register_hi();
@@ -2892,10 +2881,12 @@ void LIR_Assembler::negate(LIR_Opr left, LIR_Opr dest) {
   } else if (left->is_single_fpu()) {
     assert(dest->is_single_fpu(), "expect single float result reg");
     __ vneg_f32(dest->as_float_reg(), left->as_float_reg());
-  } else {
+  } else if (left->is_double_fpu()) {
     assert(left->is_double_fpu(), "expect double float operand reg");
     assert(dest->is_double_fpu(), "expect double float result reg");
     __ vneg_f64(dest->as_double_reg(), left->as_double_reg());
+  } else {
+      ShouldNotReachHere();
   }
 }
 
@@ -2931,7 +2922,9 @@ void LIR_Assembler::volatile_move_op(LIR_Opr src, LIR_Opr dest, BasicType type, 
       const LIR_Opr long_tmp = FrameMap::long1_opr;
       __ lea(rscratch1, as_Address_lo(dest->as_address_ptr(), Address::IDT_LEA));
 
-      if (type == T_DOUBLE) {
+
+      if (src->is_double_fpu()) {
+        assert(type == T_DOUBLE, "invalid register allocation");
         // long0 reserved as temp by LinearScan::pd_add_temps
         __ vmov_f64(long_val->as_register_lo(), long_val->as_register_hi(), src->as_double_reg());
       } else {
@@ -2948,7 +2941,7 @@ void LIR_Assembler::volatile_move_op(LIR_Opr src, LIR_Opr dest, BasicType type, 
       null_check_offset = __ offset();
       __ atomic_ldrd(long_val->as_register_lo(), long_val->as_register_hi(), rscratch1);
 
-      if (type == T_DOUBLE) {
+      if (dest->is_double_fpu()) {
         __ vmov_f64(dest->as_double_reg(), long_val->as_register_lo(), long_val->as_register_hi());
       } else {
         assert(type != T_LONG || dest->is_same_register(long_val), "T_LONG dest should be in long0 (by LIRGenerator)");
