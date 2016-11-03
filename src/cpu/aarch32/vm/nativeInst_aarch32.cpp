@@ -106,8 +106,16 @@ void NativeCall::insert(address code_pos, address entry) {
 }
 
 bool NativeCall::is_call_before(address return_address) {
-  return is_at(return_address - NativeImmCall::instruction_size) ||
-    is_at(return_address - NativeCall::instruction_size);
+  if (NativeTrampolineCall::is_at(return_address - NativeCall::instruction_size)) {
+    return true;
+  } else if (NativeMovConstReg::is_at(return_address - NativeCall::instruction_size)) {
+    NativeMovConstReg *nm = NativeMovConstReg::from(return_address - NativeCall::instruction_size);
+    address next_instr = nm->next_instruction_address();
+    return NativeRegCall::is_at(next_instr) && NativeRegCall::from(next_instr)->destination() == nm->destination();
+  } else if (NativeImmCall::is_at(return_address - NativeBranchType::instruction_size)) {
+    return true;
+  }
+  return false;
 }
 
 address NativeCall::next_instruction_address() const {

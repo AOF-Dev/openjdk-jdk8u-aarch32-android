@@ -304,20 +304,6 @@ inline NativeCall* nativeCall_at(address address) {
   return NativeCall::from(address);
 }
 
-inline NativeCall* nativeCall_before(address return_address) {
-  address call_addr = NULL;
-  if (NativeCall::is_at(return_address - NativeBranchType::instruction_size)) {
-    call_addr = return_address - NativeBranchType::instruction_size;
-  } else if (NativeCall::is_at(return_address - NativeCall::instruction_size)) {
-    call_addr = return_address - NativeCall::instruction_size;
-  } else {
-    ShouldNotReachHere();
-  }
-
-  return NativeCall::from(call_addr);
-}
-
-
 // An interface for accessing/manipulating native moves of the form:
 //      mov[b/w/l/q] [reg + offset], reg   (instruction_code_reg2mem)
 //      mov[b/w/l/q] reg, [reg+offset]     (instruction_code_mem2reg
@@ -505,5 +491,28 @@ inline bool NativeInstruction::is_imm_call() const      { return NativeImmCall::
 inline bool NativeInstruction::is_reg_call() const      { return NativeRegCall::is_at(addr()); }
 inline bool NativeInstruction::is_imm_jump() const      { return NativeImmJump::is_at(addr()); }
 inline bool NativeInstruction::is_reg_jump() const      { return NativeRegJump::is_at(addr()); }
+
+inline NativeCall* nativeCall_before(address return_address) {
+  address call_addr = NULL;
+  if (NativeTrampolineCall::is_at(return_address - NativeCall::instruction_size)) {
+    call_addr = return_address - NativeCall::instruction_size;
+  } else if (NativeMovConstReg::is_at(return_address - NativeCall::instruction_size)) {
+    NativeMovConstReg *nm = NativeMovConstReg::from(return_address - NativeCall::instruction_size);
+    address next_instr = nm->next_instruction_address();
+    if (NativeRegCall::is_at(next_instr) &&
+            NativeRegCall::from(next_instr)->destination() == nm->destination()) {
+      call_addr = return_address - NativeCall::instruction_size;
+    }
+  }
+  if (!call_addr) {
+    if (NativeImmCall::is_at(return_address - NativeBranchType::instruction_size)) {
+      call_addr = return_address - NativeBranchType::instruction_size;
+    } else {
+      ShouldNotReachHere();
+    }
+  }
+
+  return NativeCall::from(call_addr);
+}
 
 #endif // CPU_AARCH32_VM_NATIVEINST_AARCH32_HPP
