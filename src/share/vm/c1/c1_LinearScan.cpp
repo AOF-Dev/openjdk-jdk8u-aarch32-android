@@ -32,7 +32,6 @@
 #include "c1/c1_LinearScan.hpp"
 #include "c1/c1_ValueStack.hpp"
 #include "utilities/bitMap.inline.hpp"
-#include "vm_version_aarch32.hpp"
 #ifdef TARGET_ARCH_x86
 # include "vmreg_x86.inline.hpp"
 #endif
@@ -50,6 +49,7 @@
 #endif
 #ifdef TARGET_ARCH_aarch32
 # include "vmreg_aarch32.inline.hpp"
+# include "vm_version_aarch32.hpp"
 #endif
 
 
