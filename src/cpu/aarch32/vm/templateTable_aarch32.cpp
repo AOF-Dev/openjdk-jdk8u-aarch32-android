@@ -3258,14 +3258,14 @@ void TemplateTable::jvmti_post_fast_field_mod()
 
     switch (bytecode()) {             // restore tos values
     case Bytecodes::_fast_aputfield: __ pop_ptr(r0); break;
-    case Bytecodes::_fast_bputfield: // fall through
-    case Bytecodes::_fast_zputfield: // fall through
-    case Bytecodes::_fast_sputfield: // fall through
-    case Bytecodes::_fast_cputfield: // fall through
     case Bytecodes::_fast_fputfield:
         if(hasFPU()) {
             __ pop_f(); break;
         }
+    case Bytecodes::_fast_bputfield: // fall through
+    case Bytecodes::_fast_zputfield: // fall through
+    case Bytecodes::_fast_sputfield: // fall through
+    case Bytecodes::_fast_cputfield: // fall through
     case Bytecodes::_fast_iputfield: __ pop_i(r0); break;
     case Bytecodes::_fast_dputfield:
         if(hasFPU()) {
