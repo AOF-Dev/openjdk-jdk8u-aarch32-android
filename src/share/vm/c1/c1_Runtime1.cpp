@@ -957,8 +957,7 @@ JRT_ENTRY(void, Runtime1::patch_code(JavaThread* thread, Runtime1::StubID stub_i
       NativeGeneralJump* jump = nativeGeneralJump_at(caller_frame.pc());
       address instr_pc = jump->jump_destination();
       NativeInstruction* ni = nativeInstruction_at(instr_pc);
-      if (NOT_AARCH32(ni->is_jump())
-          AARCH32_ONLY(!ni->is_patched_already())) {
+      if (ni->is_jump()) {
         // the jump has not been patched yet
         // The jump destination is slow case and therefore not part of the stubs
         // (stubs are only for StaticCalls)
@@ -1049,7 +1048,7 @@ JRT_ENTRY(void, Runtime1::patch_code(JavaThread* thread, Runtime1::StubID stub_i
           ShouldNotReachHere();
         }
 
-#if defined(SPARC) || defined(PPC) || defined(AARCH32)
+#if defined(SPARC) || defined(PPC)
         if (load_klass_or_mirror_patch_id ||
             stub_id == Runtime1::load_appendix_patching_id) {
           // Update the location in the nmethod with the proper
@@ -1134,14 +1133,12 @@ JRT_ENTRY(void, Runtime1::patch_code(JavaThread* thread, Runtime1::StubID stub_i
             nmethod* nm = CodeCache::find_nmethod(instr_pc);
             assert(nm != NULL, "invalid nmethod_pc");
 
-#if !defined(AARCH32)
             // The old patch site is now a move instruction so update
             // the reloc info so that it will get updated during
             // future GCs.
             RelocIterator iter(nm, (address)instr_pc, (address)(instr_pc + 1));
             relocInfo::change_reloc_info_for_address(&iter, (address) instr_pc,
                                                      relocInfo::none, rtype);
-#endif
 #ifdef SPARC
             // Sparc takes two relocations for an metadata so update the second one.
             address instr_pc2 = instr_pc + NativeMovConstReg::add_offset;
@@ -1157,6 +1154,15 @@ JRT_ENTRY(void, Runtime1::patch_code(JavaThread* thread, Runtime1::StubID stub_i
           }
 #endif
           }
+#ifdef AARCH32
+          // AArch32 have (disabled) relocation for offset, should enable it back
+          if (stub_id == Runtime1::access_field_patching_id) {
+            nmethod* nm = CodeCache::find_nmethod(instr_pc);
+            RelocIterator iter(nm, (address)instr_pc, (address)(instr_pc + 1));
+            relocInfo::change_reloc_info_for_address(&iter, (address) instr_pc,
+                                                     relocInfo::none, relocInfo::section_word_type);
+          }
+#endif
 
         } else {
           ICache::invalidate_range(copy_buff, *byte_count);

@@ -274,59 +274,92 @@ void PatchingStub::emit_code(LIR_Assembler* ce) {
   if (CommentedAssembly) {
     __ block_comment(" patch template");
   }
+  address start = __ pc();
   if (_id == load_klass_id) {
     // produce a copy of the load klass instruction for use by the being initialized case
-#ifdef ASSERT
-    address start = __ pc();
-#endif
-    Metadata* o = NULL;
-    __ mov_metadata(_obj, o);
-    __ nop(); // added to call site by LIR_Assembler::patching_epilog
+    int metadata_index = -1;
+    CodeSection* cs = __ code_section();
+    RelocIterator iter(cs, (address)_pc_start, (address)_pc_start+1);
+    while (iter.next()) {
+      if (iter.type() == relocInfo::metadata_type) {
+        metadata_Relocation* r = iter.metadata_reloc();
+        assert(metadata_index == -1, "uninitalized yet");
+        metadata_index = r->metadata_index();
+        break;
+      }
+    }
+    assert(metadata_index != -1, "initialized");
+    __ relocate(metadata_Relocation::spec(metadata_index));
+    __ patchable_load(_obj, __ pc());
+    while ((intx) __ pc() - (intx) start < NativeCall::instruction_size) {
+      __ nop();
+    }
 #ifdef ASSERT
     for (int i = 0; i < _bytes_to_copy; i++) {
-      address ptr = (address)(_pc_start + i);
-      int a_byte = (*ptr) & 0xFF;
-      assert(a_byte == *start++, "should be the same code");
+      assert(*(_pc_start + i) == *(start + i), "should be the same code");
     }
 #endif
   } else if (_id == load_mirror_id || _id == load_appendix_id) {
     // produce a copy of the load mirror instruction for use by the being
     // initialized case
-#ifdef ASSERT
-    address start = __ pc();
-#endif
-    jobject o = NULL;
-    __ movoop(_obj, o, true);
-    __ nop(); // added to call site by LIR_Assembler::patching_epilog
+    int oop_index = -1;
+    CodeSection* cs = __ code_section();
+    RelocIterator iter(cs, (address)_pc_start, (address)_pc_start+1);
+    while (iter.next()) {
+      if (iter.type() == relocInfo::oop_type) {
+        oop_Relocation* r = iter.oop_reloc();
+        assert(oop_index == -1, "uninitalized yet");
+        oop_index = r->oop_index();
+        break;
+      }
+    }
+    assert(oop_index != -1, "initialized");
+    __ relocate(oop_Relocation::spec(oop_index));
+    __ patchable_load(_obj, __ pc());
+    while ((intx) __ pc() - (intx) start < NativeCall::instruction_size) {
+      __ nop();
+    }
 #ifdef ASSERT
     for (int i = 0; i < _bytes_to_copy; i++) {
-      address ptr = (address)(_pc_start + i);
-      int a_byte = (*ptr) & 0xFF;
-      assert(a_byte == *start++, "should be the same code");
+      assert(*(_pc_start + i) == *(start + i), "should be the same code");
+    }
+#endif
+  } else if (_id == access_field_id) {
+    // make a copy the code which is going to be patched.
+    address const_addr = (address) -1;
+    CodeSection* cs = __ code_section();
+    RelocIterator iter(cs, (address)_pc_start, (address)_pc_start+1);
+    while (iter.next()) {
+      if (iter.type() == relocInfo::section_word_type) {
+        section_word_Relocation* r = iter.section_word_reloc();
+        assert(const_addr == (address) -1, "uninitalized yet");
+        const_addr = r->target();
+        break;
+      }
+    }
+    assert(const_addr != (address) -1, "initialized");
+    __ relocate(section_word_Relocation::spec(const_addr, CodeBuffer::SECT_CONSTS));
+    __ patchable_load(rscratch1, const_addr);
+    while ((intx) __ pc() - (intx) start < NativeCall::instruction_size) {
+      __ nop();
+    }
+#ifdef ASSERT
+    intptr_t* from = (intptr_t*) start;
+    intptr_t* to = (intptr_t*) _pc_start;
+    assert(from[0] == to[0], "should be same (nop)");
+    assert(from[1] == to[1], "should be same (barrier)");
+    assert(NativeFarLdr::from((address) (from + 2))->data_addr()
+        == NativeFarLdr::from((address) (to + 2))->data_addr(),
+        "should load from one addr)");
+    for (int i = 4 * NativeInstruction::arm_insn_sz; i < _bytes_to_copy; i++) {
+      assert(*(_pc_start + i) == *(start + i), "should be the same code");
     }
 #endif
   } else {
-    // make a copy the code which is going to be patched.
-    assert(_bytes_to_copy % BytesPerWord == 0, "all instructions are 4byte");
-    assert(((unsigned long) _pc_start) % BytesPerWord == 0, "patch offset should be aligned");
-    const int words_to_copy = _bytes_to_copy / BytesPerWord;
-    for (int i = 0; i < words_to_copy; i++) {
-      int *ptr = ((int *) _pc_start) + i;
-      __ emit_int32(*ptr);
-      *ptr = 0xe320f000; // make the site look like a nop
-    }
+    ShouldNotReachHere();
   }
 
   int bytes_to_skip = _bytes_to_copy;
-
-  // this switch will be patched by NativeGeneralJump::replace_mt_safe,
-  // it inteded to distinguish enters from by being_initialized_entry and
-  // from call site
-  int switch_offset = __ offset();
-  Label patching_switch;
-  __ b(patching_switch);
-  __ bind(patching_switch);
-  bytes_to_skip += __ offset() - switch_offset;
 
   if (_id == load_mirror_id) {
     int offset = __ offset();
@@ -370,10 +403,10 @@ void PatchingStub::emit_code(LIR_Assembler* ce) {
   address target = NULL;
   relocInfo::relocType reloc_type = relocInfo::none;
   switch (_id) {
-    case access_field_id:  target = Runtime1::entry_for(Runtime1::access_field_patching_id); break;
+    case access_field_id:  target = Runtime1::entry_for(Runtime1::access_field_patching_id); reloc_type = relocInfo::section_word_type; break;
     case load_klass_id:    target = Runtime1::entry_for(Runtime1::load_klass_patching_id); reloc_type = relocInfo::metadata_type; break;
     case load_mirror_id:   target = Runtime1::entry_for(Runtime1::load_mirror_patching_id); reloc_type = relocInfo::oop_type; break;
-    case load_appendix_id:      target = Runtime1::entry_for(Runtime1::load_appendix_patching_id); reloc_type = relocInfo::oop_type; break;
+    case load_appendix_id: target = Runtime1::entry_for(Runtime1::load_appendix_patching_id); reloc_type = relocInfo::oop_type; break;
     default: ShouldNotReachHere();
   }
   __ bind(call_patch);
@@ -396,11 +429,9 @@ void PatchingStub::emit_code(LIR_Assembler* ce) {
     __ nop();
   }
 
-  if (_id == load_klass_id || _id == load_mirror_id || _id == load_appendix_id) {
-    CodeSection* cs = __ code_section();
-    RelocIterator iter(cs, (address)_pc_start, (address)(_pc_start + 1));
-    relocInfo::change_reloc_info_for_address(&iter, (address) _pc_start, reloc_type, relocInfo::none);
-  }
+  CodeSection* cs = __ code_section();
+  RelocIterator iter(cs, (address)_pc_start, (address)_pc_start+1);
+  relocInfo::change_reloc_info_for_address(&iter, (address)_pc_start, reloc_type, relocInfo::none);
 }
 
 

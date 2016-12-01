@@ -131,16 +131,6 @@ address LIR_Assembler::double_constant(double d) {
   }
 }
 
-address LIR_Assembler::int_constant(jlong n) {
-  address const_addr = __ long_constant(n);
-  if (const_addr == NULL) {
-    bailout("const section overflow");
-    return __ code()->consts()->start();
-  } else {
-    return const_addr;
-  }
-}
-
 void LIR_Assembler::set_24bit_FPU() { Unimplemented(); }
 
 void LIR_Assembler::reset_FPU() { Unimplemented(); }
@@ -341,9 +331,9 @@ void LIR_Assembler::deoptimize_trap(CodeEmitInfo *info) {
 }
 
 void LIR_Assembler::jobject2reg_with_patching(Register reg, CodeEmitInfo *info) {
-  jobject o = NULL;
   PatchingStub* patch = new PatchingStub(_masm, patching_id(info));
-  __ movoop(reg, o, true);
+  __ relocate(oop_Relocation::spec(__ oop_recorder()->allocate_oop_index(NULL)));
+  __ patchable_load(reg, pc());
   patching_epilog(patch, lir_patch_normal, reg, info);
 }
 
@@ -786,7 +776,10 @@ void LIR_Assembler::reg2mem(LIR_Opr src, LIR_Opr dest, BasicType type, LIR_Patch
     assert(to_addr->disp() != 0, "must have");
 
     patch = new PatchingStub(_masm, PatchingStub::access_field_id);
-    __ mov(rscratch1, (address) to_addr->disp());
+    address const_addr = __ address_constant(0);
+    if (!const_addr) BAILOUT("patchable offset");
+    __ relocate(section_word_Relocation::spec(const_addr, CodeBuffer::SECT_CONSTS));
+    __ patchable_load(rscratch1, const_addr);
     patching_epilog(patch, patch_code, to_addr->base()->as_register(), info);
 
     to_addr = new LIR_Address(to_addr->base(), FrameMap::rscratch1_opr, to_addr->type());
@@ -884,11 +877,10 @@ void LIR_Assembler::stack2reg(LIR_Opr src, LIR_Opr dest, BasicType type) {
   }
 }
 
-
 void LIR_Assembler::klass2reg_with_patching(Register reg, CodeEmitInfo* info) {
-  Metadata* o = NULL;
   PatchingStub* patch = new PatchingStub(_masm, PatchingStub::load_klass_id);
-  __ mov_metadata(reg, o);
+  __ relocate(metadata_Relocation::spec(__ oop_recorder()->allocate_metadata_index(NULL)));
+  __ patchable_load(reg, pc());
   patching_epilog(patch, lir_patch_normal, reg, info);
 }
 
@@ -917,7 +909,10 @@ void LIR_Assembler::mem2reg(LIR_Opr src, LIR_Opr dest, BasicType type, LIR_Patch
     assert(from_addr->disp() != 0, "must have");
 
     patch = new PatchingStub(_masm, PatchingStub::access_field_id);
-    __ mov(rscratch1, (address) from_addr->disp());
+    address const_addr = __ address_constant(0);
+    if (!const_addr) BAILOUT("patchable offset");
+    __ relocate(section_word_Relocation::spec(const_addr, CodeBuffer::SECT_CONSTS));
+    __ patchable_load(rscratch1, const_addr);
     patching_epilog(patch, patch_code, from_addr->base()->as_register(), info);
 
     from_addr = new LIR_Address(from_addr->base(), FrameMap::rscratch1_opr, from_addr->type());

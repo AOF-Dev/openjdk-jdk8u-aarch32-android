@@ -46,8 +46,6 @@
   address float_constant(float f);
   address double_constant(double d);
 
-  address int_constant(jlong n);
-
   Address as_Address(LIR_Address* addr, Register tmp, Address::InsnDataType type);
   Address as_Address_hi(LIR_Address* addr, Address::InsnDataType type);
   Address as_Address_lo(LIR_Address* addr, Address::InsnDataType type);

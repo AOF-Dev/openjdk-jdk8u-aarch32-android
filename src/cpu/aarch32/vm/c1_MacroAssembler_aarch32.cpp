@@ -449,6 +449,12 @@ void C1_MacroAssembler::remove_frame(int frame_size_in_bytes) {
 void C1_MacroAssembler::verified_entry() {
 }
 
+void C1_MacroAssembler::patchable_load(Register reg, address addr) {
+  nop();
+  membar(Assembler::LoadLoad);
+  far_load(reg, addr);
+}
+
 #ifndef PRODUCT
 
 void C1_MacroAssembler::verify_stack_oop(int stack_offset) {

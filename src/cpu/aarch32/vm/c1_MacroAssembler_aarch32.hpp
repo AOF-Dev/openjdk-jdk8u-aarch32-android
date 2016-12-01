@@ -110,4 +110,6 @@ void zero_memory(Register addr, Register len, Register t1);
 
   void invalidate_registers(bool inv_r0, bool inv_r2, bool inv_r3) PRODUCT_RETURN;
 
+  void patchable_load(Register reg, address addr);
+
 #endif // CPU_AARCH32_VM_C1_MACROASSEMBLER_AARCH32_HPP

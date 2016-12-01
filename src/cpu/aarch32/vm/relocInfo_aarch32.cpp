@@ -32,22 +32,36 @@
 #include "runtime/safepoint.hpp"
 
 void Relocation::pd_set_data_value(address x, intptr_t o, bool verify_only) {
-  int bytes;
 
-  NativeInstruction *ni = NativeInstruction::from(addr());
-  if (ni->is_mov_const_reg()) {
+  if (NativeFarLdr::is_at(addr())) {
+    NativeFarLdr *nal = NativeFarLdr::from(addr());
+    address const_addr = NULL;
+    switch(type()) {
+    case relocInfo::oop_type:
+      const_addr = (address)code()->oop_addr_at(((oop_Relocation *)this)->oop_index());
+      assert(*(address*)const_addr == x, "error in memory relocation");
+      break;
+    case relocInfo::section_word_type:
+      const_addr = ((section_word_Relocation*)this)->target();
+      assert(const_addr == x, "error in memory relocation");
+      break;
+    default:
+      ShouldNotReachHere();
+    }
+    assert(const_addr, "should not be NULL");
+    if (verify_only) {
+      assert(nal->data_addr() == (intptr_t*) const_addr, "instructions must match");
+      return;
+    }
+    nal->set_data_addr((intptr_t*) const_addr);
+  } else {
     NativeMovConstReg *nm = NativeMovConstReg::from(addr());
     if (verify_only) {
       assert(nm->data() == (intptr_t) x, "instructions must match");
       return;
     }
     nm->set_data((intptr_t) x);
-    bytes = nm->next_instruction_address() - nm->addr();
-  } else {
-    ShouldNotReachHere();
   }
-
-  ICache::invalidate_range(addr(), bytes);
 }
 
 address Relocation::pd_call_destination(address orig_addr) {
@@ -125,4 +139,9 @@ void poll_return_Relocation::fix_relocation_after_move(const CodeBuffer* src, Co
 }
 
 void metadata_Relocation::pd_fix_value(address x) {
+  if (NativeFarLdr::is_at(addr())) {
+    NativeFarLdr *nal = NativeFarLdr::from(addr());
+    address const_addr = (address)code()->metadata_addr_at(((metadata_Relocation *)this)->metadata_index());
+    nal->set_data_addr((intptr_t*) const_addr);
+  }
 }

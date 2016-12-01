@@ -209,7 +209,7 @@ address MacroAssembler::target_addr_for_insn(address insn_addr, unsigned insn) {
     ShouldNotReachHere();
   }
   //Correct offset for PC
-  offset -= 8;
+  offset += 8;
   return address(((uint32_t)insn_addr + offset));
 }
 
@@ -2049,12 +2049,12 @@ void MacroAssembler::movoop(Register dst, jobject obj, bool immediate) {
     oop_index = oop_recorder()->find_index(obj);
     assert(Universe::heap()->is_in_reserved(JNIHandles::resolve(obj)), "should be real oop");
   }
-  RelocationHolder rspec = oop_Relocation::spec(oop_index);
   if (! immediate) {
-    address dummy = address(uintptr_t(pc()) & -wordSize); // A nearby aligned address
-    ldr_constant(dst, Address(dummy, rspec));
-  } else
+    far_load_oop(dst, oop_index);
+  } else {
+    RelocationHolder rspec = oop_Relocation::spec(oop_index);
     mov(dst, Address((address)obj, rspec));
+  }
 }
 
 // Move a metadata address into a register.
@@ -2067,6 +2067,32 @@ void MacroAssembler::mov_metadata(Register dst, Metadata* obj) {
   }
   RelocationHolder rspec = metadata_Relocation::spec(oop_index);
   mov(dst, Address((address)obj, rspec));
+}
+
+void MacroAssembler::far_load(Register dst, address addr) {
+  address far_load_addr = pc();
+  add(dst, r15_pc, 0);
+  ldr(dst, Address(dst));
+
+  NativeFarLdr* far_load = (NativeFarLdr*) far_load_addr;
+  far_load->set_data_addr((intptr_t*) addr);
+}
+
+void MacroAssembler::far_load_oop(Register dst, int oop_index) {
+    relocate(oop_Relocation::spec(oop_index));
+    // can't provide meaningful addr, give far_load addr itself
+    far_load(dst, pc());
+}
+
+void MacroAssembler::far_load_metadata(Register dst, int metadata_index) {
+    relocate(metadata_Relocation::spec(metadata_index));
+    // can't provide meaningful addr, give far_load addr itself
+    far_load(dst, pc());
+}
+
+void MacroAssembler::far_load_const(Register dst, address const_addr) {
+    relocate(section_word_Relocation::spec(const_addr, CodeBuffer::SECT_CONSTS));
+    far_load(dst, const_addr);
 }
 
 Address MacroAssembler::constant_oop_address(jobject obj) {

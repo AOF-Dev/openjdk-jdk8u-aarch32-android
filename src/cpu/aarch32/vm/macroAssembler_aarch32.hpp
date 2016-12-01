@@ -28,6 +28,7 @@
 #define CPU_AARCH32_VM_MACROASSEMBLER_AARCH32_HPP
 
 #include "asm/assembler.hpp"
+#include "nativeInst_aarch32.hpp"
 
 // MacroAssembler extends Assembler by frequently used macros.
 //
@@ -661,22 +662,31 @@ public:
   static int far_branch_size() {
     // TODO performance issue: always generate real far jumps
     if (far_branches()) {
-      return 3 * 4;  // movw, movt, br
+      if (VM_Version::features() & (FT_ARMV7 | FT_ARMV6T2))  {
+        return 3 * NativeInstruction::arm_insn_sz;  // movw, movt, br
+      } else {
+        return 5 * NativeInstruction::arm_insn_sz;  // mov, 3 orr, br
+      }
     } else {
-      return 4;
+      return NativeInstruction::arm_insn_sz; // br
     }
   }
 
   // Emit the CompiledIC call idiom
   void ic_call(address entry);
 
-public:
   // Data
   void mov_metadata(Register dst, Metadata* obj);
   Address allocate_metadata_address(Metadata* obj);
   Address constant_oop_address(jobject obj);
 
   void movoop(Register dst, jobject obj, bool immediate = false);
+
+  void far_load(Register dst, address addr);
+  void far_load_oop(Register dst, int oop_index);
+  void far_load_metadata(Register dst, int metadata_index);
+  void far_load_const(Register dst, address const);
+
 
   // CRC32 code for java.util.zip.CRC32::updateBytes() instrinsic.
   void kernel_crc32(Register crc, Register buf, Register len,

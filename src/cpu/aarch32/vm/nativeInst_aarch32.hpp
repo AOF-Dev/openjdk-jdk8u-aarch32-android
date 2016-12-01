@@ -57,6 +57,7 @@ class NativeInstruction VALUE_OBJ_CLASS_SPEC {
   enum { arm_insn_sz = 4 };
 
   inline bool is_nop();
+  inline bool is_barrer();
   inline bool is_illegal();
   inline bool is_return();
   inline bool is_jump_or_nop();
@@ -69,7 +70,6 @@ class NativeInstruction VALUE_OBJ_CLASS_SPEC {
   bool is_movt(Register dst, unsigned imm, Assembler::Condition cond = Assembler::C_DFLT);
   bool is_movw(Register dst, unsigned imm, Assembler::Condition cond = Assembler::C_DFLT);
   bool is_ldr(Register dst, Address addr, Assembler::Condition cond = Assembler::C_DFLT);
-  bool is_patched_already() const;
 
   inline bool is_jump() const;
   inline bool is_call() const;
@@ -154,25 +154,45 @@ class NativeBranchType: public NativeInstruction {
   }
 };
 
+class NativeFarLdr: public NativeInstruction {
+ private:
+   static address skip_patching_prolog(address addr);
+ public:
+   static bool is_at(address addr);
+   static NativeFarLdr* from(address addr);
+   intptr_t *data_addr();
+   void set_data_addr(intptr_t *data_addr);
+   address next_instruction_address() const;
+};
+
 class NativeMovConstReg: public NativeInstruction {
+  friend class Relocation;
+  friend class NativeMovRegMem;
+  friend class NativeGeneralJump;
+  friend class NativeFarLdr;
+
  protected:
+  static bool is_ldr_literal_at(address instr, Register from = r15_pc);
+  static bool is_far_ldr_literal_at(address instr);
   static bool is_movw_movt_at(address instr);
-  static bool is_ldr_literal_at(address instr);
   static bool is_mov_n_three_orr_at(address instr);
  public:
   enum {
-    movw_movt_pair_sz = 2 * arm_insn_sz,
+    ldr_sz             = 1 * arm_insn_sz,
+    far_ldr_sz         = 2 * arm_insn_sz,
+    movw_movt_pair_sz  = 2 * arm_insn_sz,
     mov_n_three_orr_sz = 4 * arm_insn_sz,
-    ldr_sz = arm_insn_sz,
-    max_instruction_size = mov_n_three_orr_sz,
-    min_instruction_size = ldr_sz,
+    min_instruction_size = 1 * arm_insn_sz,
+    max_instruction_size = 4 * arm_insn_sz,
   };
 
   address next_instruction_address() const  {
-    if (is_movw_movt_at(addr())) {
-      return addr() + movw_movt_pair_sz;
-    } else if (is_ldr_literal_at(addr())) {
+    if (is_ldr_literal_at(addr())) {
       return addr() + ldr_sz;
+    } else if (is_far_ldr_literal_at(addr())) {
+      return NativeFarLdr::from(addr())->next_instruction_address();;
+    } else if (is_movw_movt_at(addr())) {
+      return addr() + movw_movt_pair_sz;
     } else if (is_mov_n_three_orr_at(addr())) {
       return addr() + mov_n_three_orr_sz;
     }
@@ -451,6 +471,11 @@ inline bool NativeInstruction::is_nop()         {
   return (as_uint() & 0x0fffffff) == 0x0320f000;
 }
 
+inline bool NativeInstruction::is_barrer()         {
+  return (as_uint() == 0xf57ff05b /* dmb ish */ ||
+            as_uint() == 0xee070fba /* mcr 15, 0, r0, cr7, cr10, {5}) */);
+}
+
 inline bool NativeInstruction::is_jump_or_nop() {
   return is_nop() || is_jump();
 }
@@ -493,26 +518,23 @@ inline bool NativeInstruction::is_imm_jump() const      { return NativeImmJump::
 inline bool NativeInstruction::is_reg_jump() const      { return NativeRegJump::is_at(addr()); }
 
 inline NativeCall* nativeCall_before(address return_address) {
-  address call_addr = NULL;
   if (NativeTrampolineCall::is_at(return_address - NativeCall::instruction_size)) {
-    call_addr = return_address - NativeCall::instruction_size;
-  } else if (NativeMovConstReg::is_at(return_address - NativeCall::instruction_size)) {
+    return NativeCall::from(return_address - NativeCall::instruction_size);
+  }
+  if (NativeMovConstReg::is_at(return_address - NativeCall::instruction_size)) {
     NativeMovConstReg *nm = NativeMovConstReg::from(return_address - NativeCall::instruction_size);
     address next_instr = nm->next_instruction_address();
     if (NativeRegCall::is_at(next_instr) &&
             NativeRegCall::from(next_instr)->destination() == nm->destination()) {
-      call_addr = return_address - NativeCall::instruction_size;
+      return NativeCall::from(return_address - NativeCall::instruction_size);
     }
   }
-  if (!call_addr) {
-    if (NativeImmCall::is_at(return_address - NativeBranchType::instruction_size)) {
-      call_addr = return_address - NativeBranchType::instruction_size;
-    } else {
-      ShouldNotReachHere();
-    }
+  if (NativeImmCall::is_at(return_address - NativeBranchType::instruction_size)) {
+    return NativeCall::from(return_address - NativeBranchType::instruction_size);
   }
 
-  return NativeCall::from(call_addr);
+  ShouldNotReachHere();
+  return NULL;
 }
 
 #endif // CPU_AARCH32_VM_NATIVEINST_AARCH32_HPP

@@ -40,7 +40,6 @@
 
 // LIRAssembler fills patching site with nops up to NativeCall::instruction_size
 int NativeCall::instruction_size = 5 * arm_insn_sz;
-#define patching_copy_buff_len (NativeCall::instruction_size)
 
 NativeInstruction* NativeInstruction::from(address addr) {
   return (NativeInstruction*) addr;
@@ -229,6 +228,76 @@ NativeRegCall* NativeRegCall::from(address addr) {
 
 //-------------------------------------------------------------------
 
+address NativeFarLdr::skip_patching_prolog(address addr) {
+  if (NativeInstruction::from(addr)->is_nop() &&
+      NativeInstruction::from(addr + arm_insn_sz)->is_barrer()) {
+    return addr+2*arm_insn_sz;
+  }
+  return addr;
+}
+
+bool NativeFarLdr::is_at(address addr) {
+  addr = skip_patching_prolog(addr);
+  unsigned add_condidate = as_uint(addr);
+  if (((Instruction_aarch32::extract(add_condidate, 27, 21)  != 0b0010100) /*add*/ &&
+        (Instruction_aarch32::extract(add_condidate, 27, 21) != 0b0010010) /*sub*/) ||
+      (Instruction_aarch32::extract(add_condidate, 19, 16) != (unsigned) r15_pc->encoding())) {
+    return false;
+  }
+  Register dest = as_Register(Instruction_aarch32::extract(add_condidate, 15, 12));
+  return NativeMovConstReg::is_ldr_literal_at(addr + arm_insn_sz, dest);
+}
+
+NativeFarLdr* NativeFarLdr::from(address addr) {
+  assert(is_at(addr), "");
+  return (NativeFarLdr*) addr;
+}
+
+intptr_t* NativeFarLdr::data_addr() {
+  address self = skip_patching_prolog(addr());
+  off_t offset = 8;
+  off_t add_off = Assembler::decode_imm12(as_uint(self) & 0xfff);
+  if (Instruction_aarch32::extract(as_uint(self), 24, 21) == 0x4) {
+    offset += add_off;
+  } else {
+    offset -= add_off;
+  }
+  off_t ldr_off = as_uint(self + arm_insn_sz) & 0xfff;
+  if (Instruction_aarch32::extract(as_uint(self), 23, 23)) {
+    offset += ldr_off;
+  } else {
+    offset -= ldr_off;
+  }
+
+  return (intptr_t*)(self + offset);
+}
+
+void NativeFarLdr::set_data_addr(intptr_t *data_addr) {
+  address self = skip_patching_prolog(addr());
+  off_t offset = (address)data_addr - (self + 8);
+  bool minus = false;
+  if (offset < 0) {
+    offset = -offset;
+    minus = true;
+  }
+  guarantee((0 <= offset) && (offset <= 0xffffff), "offset too large");
+  set_uint_at(self - addr(), (as_uint(self) & ~0xc00fff) |
+    (minus ? 0x400000u /*sub*/ : 0x800000u /*add*/) |
+    Assembler::encode_imm12(offset & 0xff000));
+
+  set_uint_at(self - addr() + arm_insn_sz,
+      (as_uint(self + arm_insn_sz) & ~0x800fff) |
+      (minus ? 0x000000 : 0x800000) |
+      (offset & 0xfff));
+  ICache::invalidate_range(self, 2*arm_insn_sz);
+}
+
+address NativeFarLdr::next_instruction_address() const {
+  return skip_patching_prolog(addr()) + NativeMovConstReg::far_ldr_sz;
+}
+
+//-------------------------------------------------------------------
+
 void NativeMovConstReg::verify() {
   if (!is_mov_const_reg()) {
     fatal("not a mov const reg");
@@ -236,13 +305,21 @@ void NativeMovConstReg::verify() {
 }
 
 intptr_t NativeMovConstReg::data() const {
+  if (NativeFarLdr::is_at(addr())) {
+    return *NativeFarLdr::from(addr())->data_addr();
+  }
   return (intptr_t) MacroAssembler::target_addr_for_insn(addr());
 }
 
 void NativeMovConstReg::set_data(intptr_t x) {
-  MacroAssembler::pd_patch_instruction(addr(), (address)x);
-  ICache::invalidate_range(addr(), max_instruction_size);
-};
+  if (NativeFarLdr::is_at(addr())) {
+    *NativeFarLdr::from(addr())->data_addr() = x;
+    // Fences should be provided by calling code!
+  } else {
+    MacroAssembler::pd_patch_instruction(addr(), (address)x);
+    ICache::invalidate_range(addr(), max_instruction_size);
+  }
+}
 
 void NativeMovConstReg::print() {
   tty->print_cr(PTR_FORMAT ": mov reg, " INTPTR_FORMAT,
@@ -258,16 +335,24 @@ NativeMovConstReg* NativeMovConstReg::from(address addr) {
   return (NativeMovConstReg*) addr;
 }
 
+bool NativeMovConstReg::is_ldr_literal_at(address addr, Register from) {
+  unsigned insn = as_uint(addr);
+  if (from == noreg) {
+    return (Instruction_aarch32::extract(insn, 27, 20) & 0b11100101) == 0b01000001;
+  }
+  unsigned reg = from->encoding();
+  return (Instruction_aarch32::extract(insn, 27, 16) & 0b111001011111) == (0b010000010000 | reg);
+}
+
+bool NativeMovConstReg::is_far_ldr_literal_at(address addr) {
+  return NativeFarLdr::is_at(addr);
+}
+
 bool NativeMovConstReg::is_movw_movt_at(address addr) {
   unsigned insn = as_uint(addr);
   unsigned insn2 = as_uint(addr + arm_insn_sz);
   return Instruction_aarch32::extract(insn,  27, 20) == 0b00110000 && //mov
          Instruction_aarch32::extract(insn2, 27, 20) == 0b00110100;   //movt
-}
-
-bool NativeMovConstReg::is_ldr_literal_at(address addr) {
-  unsigned insn = as_uint(addr);
-  return (Instruction_aarch32::extract(insn, 27, 16) & 0b111001011111) == 0b010000011111;
 }
 
 bool NativeMovConstReg::is_mov_n_three_orr_at(address addr) {
@@ -279,38 +364,28 @@ bool NativeMovConstReg::is_mov_n_three_orr_at(address addr) {
 
 bool NativeMovConstReg::is_at(address addr) {
   return is_ldr_literal_at(addr) ||
+          is_far_ldr_literal_at(addr) ||
           is_movw_movt_at(addr) ||
           is_mov_n_three_orr_at(addr);
 }
 
 //-------------------------------------------------------------------
-// TODO review
 address NativeMovRegMem::instruction_address() const {
   return addr();
 }
 
 int NativeMovRegMem::offset() const  {
-  address pc = addr();
-  unsigned insn = *(unsigned*)pc;
-  if (Instruction_aarch32::extract(insn, 28, 24) == 0b10000) {
-    address addr = MacroAssembler::target_addr_for_insn(pc);
-    return *addr;
-  } else {
-    return (int)(intptr_t)MacroAssembler::target_addr_for_insn(addr());
-  }
+  assert(NativeMovConstReg::is_at(addr()), "no others");
+  return NativeMovConstReg::from(addr())->data();
 }
 
 void NativeMovRegMem::set_offset(int x) {
-  address pc = addr();
-  // FIXME seems not very roboust
-  MacroAssembler::pd_patch_instruction(pc, (address)intptr_t(x));
-  ICache::invalidate_range(addr(), instruction_size);
+  assert(NativeMovConstReg::is_at(addr()), "no others");
+  NativeMovConstReg::from(addr())->set_data(x);
 }
 
 void NativeMovRegMem::verify() {
-#ifdef ASSERT
-  address dest = MacroAssembler::target_addr_for_insn(addr());
-#endif
+  assert(NativeMovConstReg::is_at(addr()), "no others");
 }
 
 //--------------------------------------------------------------------------------
@@ -564,6 +639,7 @@ void NativeGeneralJump::verify() {  }
 
 void NativeGeneralJump::insert_unconditional(address code_pos, address entry) {
   NativeGeneralJump* n_jump = (NativeGeneralJump*)code_pos;
+  assert(n_jump->is_nop() || n_jump->is_imm_jump(), "not overwrite whats not supposed");
 
   CodeBuffer cb(code_pos, instruction_size);
   MacroAssembler a(&cb);
@@ -575,28 +651,20 @@ void NativeGeneralJump::insert_unconditional(address code_pos, address entry) {
 
 // MT-safe patching of a long jump instruction.
 void NativeGeneralJump::replace_mt_safe(address instr_addr, address code_buffer) {
-  const address patching_switch_addr = code_buffer + patching_copy_buff_len;
-  NativeImmJump* patching_switch = NativeImmJump::from(patching_switch_addr);
-  assert(!NativeInstruction::from(instr_addr)->is_patched_already(), "not patched yet");
-  assert(patching_switch->destination() == patching_switch_addr + NativeInstruction::arm_insn_sz,
-         "switch should be branch to next instr at this point");
-  patching_switch->set_destination(instr_addr + patching_copy_buff_len);
-  ICache::invalidate_word(patching_switch_addr);
+  if (NativeFarLdr::is_at(instr_addr+2*arm_insn_sz)) {
+    assert(NativeInstruction::from(code_buffer)->is_nop(), "code_buffer image");
+    assert(NativeImmJump::is_at(instr_addr), "instr_image image");
+    // first 'b' prevents NativeFarLdr to recognize patching_prolog, skip it manually
+    address load_instr = instr_addr+2*arm_insn_sz;
 
-  NativeImmJump* nj = NativeImmJump::from(instr_addr); // checking that it is a jump
-  nj->set_destination(code_buffer);
-  ICache::invalidate_word(instr_addr);
+    NativeFarLdr::from(load_instr)->set_data_addr(NativeFarLdr::from(code_buffer)->data_addr());
 
-  assert(NativeInstruction::from(instr_addr)->is_patched_already(), "should patched already");
-}
+    WRITE_MEM_BARRIER;
+    *(uintptr_t*)instr_addr = *(uintptr_t*)code_buffer;
+    ICache::invalidate_word(instr_addr);
 
-bool NativeInstruction::is_patched_already() const {
-  if (NativeImmJump::is_at(addr())) {
-    address maybe_copy_buff = NativeImmJump::from(addr())->destination();
-    address maybe_patching_switch = maybe_copy_buff + patching_copy_buff_len;
-    if (NativeImmJump::is_at(maybe_patching_switch)) {
-      return NativeImmJump::from(maybe_patching_switch)->destination() == addr() + patching_copy_buff_len;
-    }
+    assert(NativeFarLdr::is_at(instr_addr), "now valid constant loading");
+  } else {
+    ShouldNotReachHere();
   }
-  return false;
 }
