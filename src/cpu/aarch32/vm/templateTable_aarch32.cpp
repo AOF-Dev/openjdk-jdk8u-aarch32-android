@@ -1592,7 +1592,7 @@ void TemplateTable::dop2(Operation op)
       __ vmov_f64(r0, r1, d0);
       __ vmov_f64(r2, r3, d1);
       #endif
-      __ mov(rscratch1, (address)fmod);
+      __ mov(rscratch1, (address)(double (*)(double, double))fmod);
       __ bl(rscratch1);
       #ifndef HARD_FLOAT_CC
       __ vmov_f64(d0, r0, r1);
