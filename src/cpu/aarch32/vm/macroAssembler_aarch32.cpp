@@ -625,12 +625,15 @@ void MacroAssembler::trampoline_call(Address entry, CodeBuffer *cbuf) {
     // Have make trampline such way: destination address should be raw 4 byte value,
     // so it's patching could be done atomically.
     relocate(entry.rspec());
+    address start = pc();
     add(lr, r15_pc, NativeCall::instruction_size - 2 * NativeInstruction::arm_insn_sz);
     ldr(r15_pc, Address(r15_pc, 4));
     emit_int32((uintptr_t) entry.target());
     // possibly pad the call to the NativeCall size to make patching happy
-    for (int i = NativeCall::instruction_size; i > 3 * NativeInstruction::arm_insn_sz; i -= NativeInstruction::arm_insn_sz)
+    while (pc() - start < NativeCall::instruction_size) {
       nop();
+    }
+    assert(pc() - start == NativeCall::instruction_size, "fix NativeTrampolineCall::instruction_size!");
   } else {
     bl(entry);
   }

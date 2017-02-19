@@ -231,11 +231,9 @@ inline NativeMovConstReg* nativeMovConstReg_at(address address) {
   return NativeMovConstReg::from(address);
 }
 
-class NativeTrampolineCall: public NativeBranchType {
+class NativeTrampolineCall: public NativeInstruction {
  public:
-  enum {
-    instruction_size = 3 * arm_insn_sz
-  };
+  // NativeTrampolineCall size is always equal to NativeCall::instruction_size
   address destination() const;
   void set_destination(address dest);
   void set_destination_mt_safe(address dest, bool assert_lock = true);
@@ -272,7 +270,6 @@ class NativeCall: public NativeInstruction {
 
   static int instruction_size;
 #ifdef ASSERT
-  StaticAssert<(int) NativeTrampolineCall::instruction_size <= (int) max_instruction_size> dummy1;
   StaticAssert<NativeMovConstReg::movw_movt_pair_sz
       + NativeRegCall::instruction_size <= (int) max_instruction_size> dummy2;
   StaticAssert<NativeMovConstReg::mov_n_three_orr_sz

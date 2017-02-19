@@ -176,7 +176,7 @@ void NativeTrampolineCall::set_destination_mt_safe(address dest, bool assert_loc
 }
 
 bool NativeTrampolineCall::is_at(address addr) {
-  return (as_uint(addr    ) & ~0xffu) == 0xe28fe000  // add     lr, pc, #disp
+  return (as_uint(addr    ) & ~0xffu) == 0xe28fe000 // add     lr, pc, #disp
        && as_uint(addr + 4)          == 0xe51ff004; // ldr     pc, [pc, -4]
 }
 
