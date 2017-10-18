@@ -50,14 +50,14 @@ void Relocation::pd_set_data_value(address x, intptr_t o, bool verify_only) {
     }
     assert(const_addr, "should not be NULL");
     if (verify_only) {
-      assert(nal->data_addr() == (intptr_t*) const_addr, "instructions must match");
+      guarantee(nal->data_addr() == (intptr_t*) const_addr, "instructions must match");
       return;
     }
     nal->set_data_addr((intptr_t*) const_addr);
   } else {
     NativeMovConstReg *nm = NativeMovConstReg::from(addr());
     if (verify_only) {
-      assert(nm->data() == (intptr_t) x, "instructions must match");
+      guarantee(nm->data() == (intptr_t) x, "instructions must match");
       return;
     }
     nm->set_data((intptr_t) x);
