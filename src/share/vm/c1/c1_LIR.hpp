@@ -708,8 +708,8 @@ class LIR_OprFact: public AllStatic {
       case T_FLOAT:
 #ifdef AARCH32
         if (hasFPU()) {
-            res = (LIR_Opr)(intptr_t)((index << LIR_OprDesc::data_shift) |
-                                      LIR_OprDesc::float_type           |
+        res = (LIR_Opr)(intptr_t)((index << LIR_OprDesc::data_shift) |
+                                  LIR_OprDesc::float_type  |
                                       LIR_OprDesc::fpu_register         |
                                       LIR_OprDesc::single_size          |
                                       LIR_OprDesc::virtual_mask);
@@ -718,16 +718,16 @@ class LIR_OprFact: public AllStatic {
         {
             res = (LIR_Opr)(intptr_t)((index << LIR_OprDesc::data_shift) |
                                       LIR_OprDesc::float_type  |
-                                      LIR_OprDesc::cpu_register |
-                                      LIR_OprDesc::single_size |
-                                      LIR_OprDesc::virtual_mask);
+                                  LIR_OprDesc::cpu_register |
+                                  LIR_OprDesc::single_size |
+                                  LIR_OprDesc::virtual_mask);
         }
         break;
       case T_DOUBLE:
 #ifdef AARCH32
         if(hasFPU()) {
-            res = (LIR_Opr)(intptr_t)((index << LIR_OprDesc::data_shift) |
-                                                LIR_OprDesc::double_type           |
+        res = (LIR_Opr)(intptr_t)((index << LIR_OprDesc::data_shift) |
+                                  LIR_OprDesc::double_type |
                                                 LIR_OprDesc::fpu_register          |
                                                 LIR_OprDesc::double_size           |
                                                 LIR_OprDesc::virtual_mask);
@@ -736,9 +736,9 @@ class LIR_OprFact: public AllStatic {
         {
             res = (LIR_Opr)(intptr_t)((index << LIR_OprDesc::data_shift) |
                                       LIR_OprDesc::double_type |
-                                      LIR_OprDesc::cpu_register |
-                                      LIR_OprDesc::double_size |
-                                      LIR_OprDesc::virtual_mask);
+                                  LIR_OprDesc::cpu_register |
+                                  LIR_OprDesc::double_size |
+                                  LIR_OprDesc::virtual_mask);
         }
         break;
 #else // __SOFTFP__
@@ -2175,7 +2175,7 @@ class LIR_List: public CompilationResourceObj {
   void   pack64(LIR_Opr src, LIR_Opr dst) { append(new LIR_Op1(lir_pack64,   src, dst, T_LONG, lir_patch_none, NULL)); }
   void unpack64(LIR_Opr src, LIR_Opr dst) { append(new LIR_Op1(lir_unpack64, src, dst, T_LONG, lir_patch_none, NULL)); }
 
-  void null_check(LIR_Opr opr, CodeEmitInfo* info)         { append(new LIR_Op1(lir_null_check, opr, info)); }
+  void null_check(LIR_Opr opr, CodeEmitInfo* info, bool deoptimize_on_null = false);
   void throw_exception(LIR_Opr exceptionPC, LIR_Opr exceptionOop, CodeEmitInfo* info) {
     append(new LIR_Op2(lir_throw, exceptionPC, exceptionOop, LIR_OprFact::illegalOpr, info));
   }
