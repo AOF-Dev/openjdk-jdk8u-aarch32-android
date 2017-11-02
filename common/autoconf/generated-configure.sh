@@ -3672,7 +3672,7 @@ fi
 
 
 #
-# Copyright (c) 2011, 2012, Oracle and/or its affiliates. All rights reserved.
+# Copyright (c) 2011, 2015, Oracle and/or its affiliates. All rights reserved.
 # DO NOT ALTER OR REMOVE COPYRIGHT NOTICES OR THIS FILE HEADER.
 #
 # This code is free software; you can redistribute it and/or modify it
@@ -3880,7 +3880,7 @@ fi
 #CUSTOM_AUTOCONF_INCLUDE
 
 # Do not change or remove the following line, it is needed for consistency checks:
-DATE_WHEN_GENERATED=1476265373
+DATE_WHEN_GENERATED=1500922661
 
 ###############################################################################
 #
@@ -7992,10 +7992,10 @@ $as_echo "$with_jvm_variants" >&6; }
 
 
   INCLUDE_SA=true
-  if test "x$JVM_VARIANT_ZERO" = xtrue; then
+  if test "x$JVM_VARIANT_ZERO" = xtrue ; then
     INCLUDE_SA=false
   fi
-  if test "x$JVM_VARIANT_ZEROSHARK" = xtrue; then
+  if test "x$JVM_VARIANT_ZEROSHARK" = xtrue ; then
     INCLUDE_SA=false
   fi
   if test "x$OPENJDK_TARGET_CPU" = xppc64; then
