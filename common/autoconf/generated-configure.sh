@@ -3837,7 +3837,7 @@ fi
 
 
 # TOOLCHAIN_C_COMPILER_CHECK_ARGUMENTS([ARGUMENT], [RUN-IF-TRUE],
-#                                   [RUN-IF-FALSE])
+#                                      [RUN-IF-FALSE])
 # ------------------------------------------------------------
 # Check that the C compiler supports an argument
 
@@ -3912,7 +3912,7 @@ fi
 #CUSTOM_AUTOCONF_INCLUDE
 
 # Do not change or remove the following line, it is needed for consistency checks:
-DATE_WHEN_GENERATED=1500960571
+DATE_WHEN_GENERATED=1501170108
 
 ###############################################################################
 #
@@ -8024,10 +8024,10 @@ $as_echo "$with_jvm_variants" >&6; }
 
 
   INCLUDE_SA=true
-  if test "x$JVM_VARIANT_ZERO" = xtrue; then
+  if test "x$JVM_VARIANT_ZERO" = xtrue ; then
     INCLUDE_SA=false
   fi
-  if test "x$JVM_VARIANT_ZEROSHARK" = xtrue; then
+  if test "x$JVM_VARIANT_ZEROSHARK" = xtrue ; then
     INCLUDE_SA=false
   fi
   if test "x$OPENJDK_TARGET_CPU" = xppc64; then
