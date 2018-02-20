@@ -30,6 +30,7 @@
 #include "code/vtableStubs.hpp"
 #include "interp_masm_aarch32.hpp"
 #include "memory/resourceArea.hpp"
+#include "oops/compiledICHolder.hpp"
 #include "oops/instanceKlass.hpp"
 #include "oops/klassVtable.hpp"
 #include "runtime/sharedRuntime.hpp"
@@ -136,53 +137,65 @@ VtableStub* VtableStubs::create_itable_stub(int itable_index) {
 #endif
 
   // Entry arguments:
-  //  rscratch2: Interface
+  //  rscratch2: CompiledICHolder
   //  j_rarg0: Receiver
 
   // Free registers (non-args) are r0 (interface), rmethod
-
-  // get receiver (need to skip return address on top of stack)
-
-  assert(VtableStub::receiver_location() == j_rarg0->as_VMReg(), "receiver expected in j_rarg0");
-  // get receiver klass (also an implicit null-check)
-  address npe_addr = __ pc();
 
   // Most registers are in use; we'll use r0, rmethod, rscratch1, r4
   // IMPORTANT: r4 is used as a temp register, if it's changed callee-save
   // the code should be fixed
   // TODO: put an assert here to ensure r4 is caller-save
-  __ load_klass(rscratch1, j_rarg0);
+  const Register recv_klass_reg     = rscratch1;
+  const Register holder_klass_reg   = rscratch2; // declaring interface klass (DECC)
+  const Register resolved_klass_reg = rmethod; // resolved interface klass (REFC)
+  const Register temp_reg           = r4;
 
-  Label throw_icce;
+  __ ldr(resolved_klass_reg, Address(rscratch2, CompiledICHolder::holder_klass_offset()));
+  __ ldr(holder_klass_reg,   Address(rscratch2, CompiledICHolder::holder_metadata_offset()));
 
-  // Get Method* and entrypoint for compiler
+  Label L_no_such_interface;
+
+  // get receiver klass (also an implicit null-check)
+  address npe_addr = __ pc();
+  assert(VtableStub::receiver_location() == j_rarg0->as_VMReg(), "receiver expected in j_rarg0");
+  __ load_klass(recv_klass_reg, j_rarg0);
+
+  // Receiver subtype check against REFC.
+  // Destroys recv_klass_reg value.
+  __ lookup_interface_method(// inputs: rec. class, interface
+                             recv_klass_reg, resolved_klass_reg, noreg,
+                             // outputs:  scan temp. reg1, scan temp. reg2
+                             recv_klass_reg, temp_reg,
+                             L_no_such_interface,
+                             /*return_method=*/false);
+
+  // Get selected method from declaring class and itable index
+  __ load_klass(recv_klass_reg, j_rarg0); // restore recv_klass_reg
   __ lookup_interface_method(// inputs: rec. class, interface, itable index
-                             rscratch1, rscratch2, itable_index,
+                             recv_klass_reg, holder_klass_reg, itable_index,
                              // outputs: method, scan temp. reg
-                             rmethod, r4,
-                             throw_icce);
-
-  // method (rmethod): Method*
+                             rmethod, temp_reg,
+                             L_no_such_interface);
+  // rmethod: Method*
   // j_rarg0: receiver
 
 #ifdef ASSERT
   if (DebugVtables) {
     Label L2;
     __ cbz(rmethod, L2);
-    __ ldr(rscratch1, Address(rmethod, Method::from_compiled_offset()));
-    __ cbnz(rscratch1, L2);
+    __ ldr(recv_klass_reg, Address(rmethod, Method::from_compiled_offset()));
+    __ cbnz(recv_klass_reg, L2);
     __ stop("compiler entrypoint is null");
     __ bind(L2);
   }
 #endif // ASSERT
 
-  // rmethod: Method*
-  // j_rarg0: receiver
   address ame_addr = __ pc();
-  __ ldr(rscratch1, Address(rmethod, Method::from_compiled_offset()));
-  __ b(rscratch1);
+  __ ldr(recv_klass_reg, Address(rmethod, Method::from_compiled_offset()));
+  __ b(recv_klass_reg);
 
-  __ bind(throw_icce);
+  __ bind(L_no_such_interface);
   __ far_jump(RuntimeAddress(StubRoutines::throw_IncompatibleClassChangeError_entry()));
 
   __ flush();
@@ -207,7 +220,7 @@ int VtableStub::pd_code_size_limit(bool is_vtable_stub) {
   if (is_vtable_stub)
     size += 26;
   else
-    size += 92;
+    size += 160;
   return size;
 
   // In order to tune these parameters, run the JVM with VM options
