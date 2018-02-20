@@ -2867,9 +2867,9 @@ bool os::Linux::libnuma_init() {
       set_numa_tonode_memory(CAST_TO_FN_PTR(numa_tonode_memory_func_t,
                                             libnuma_dlsym(handle, "numa_tonode_memory")));
       set_numa_interleave_memory(CAST_TO_FN_PTR(numa_interleave_memory_func_t,
-                                            libnuma_dlsym(handle, "numa_interleave_memory")));
+                                                libnuma_dlsym(handle, "numa_interleave_memory")));
       set_numa_set_bind_policy(CAST_TO_FN_PTR(numa_set_bind_policy_func_t,
-                                            libnuma_dlsym(handle, "numa_set_bind_policy")));
+                                              libnuma_dlsym(handle, "numa_set_bind_policy")));
       set_numa_bitmask_isbitset(CAST_TO_FN_PTR(numa_bitmask_isbitset_func_t,
                                                libnuma_dlsym(handle, "numa_bitmask_isbitset")));
       set_numa_distance(CAST_TO_FN_PTR(numa_distance_func_t,
