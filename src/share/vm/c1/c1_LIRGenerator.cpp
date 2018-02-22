@@ -3193,6 +3193,7 @@ void LIRGenerator::profile_arguments(ProfileCall* x) {
     int bci = x->bci_of_invoke();
     ciMethodData* md = x->method()->method_data_or_null();
     ciProfileData* data = md->bci_to_data(bci);
+    if (data != NULL) {
     if ((data->is_CallTypeData() && data->as_CallTypeData()->has_arguments()) ||
         (data->is_VirtualCallTypeData() && data->as_VirtualCallTypeData()->has_arguments())) {
       ByteSize extra = data->is_CallTypeData() ? CallTypeData::args_data_offset() : VirtualCallTypeData::args_data_offset();
@@ -3239,6 +3240,7 @@ void LIRGenerator::profile_arguments(ProfileCall* x) {
 #endif
     }
   }
+}
 }
 
 // profile parameters on entry to an inlined method
@@ -3327,6 +3329,7 @@ void LIRGenerator::do_ProfileReturnType(ProfileReturnType* x) {
   int bci = x->bci_of_invoke();
   ciMethodData* md = x->method()->method_data_or_null();
   ciProfileData* data = md->bci_to_data(bci);
+  if (data != NULL) {
   assert(data->is_CallTypeData() || data->is_VirtualCallTypeData(), "wrong profile data type");
   ciReturnTypeEntry* ret = data->is_CallTypeData() ? ((ciCallTypeData*)data)->ret() : ((ciVirtualCallTypeData*)data)->ret();
   LIR_Opr mdp = LIR_OprFact::illegalOpr;
@@ -3346,6 +3349,7 @@ void LIRGenerator::do_ProfileReturnType(ProfileReturnType* x) {
   if (exact != NULL) {
     md->set_return_type(bci, exact);
   }
+}
 }
 
 void LIRGenerator::do_ProfileInvoke(ProfileInvoke* x) {
