@@ -1,5 +1,5 @@
 #
-# Copyright (c) 1999, 2015, Oracle and/or its affiliates. All rights reserved.
+# Copyright (c) 1999, 2018, Oracle and/or its affiliates. All rights reserved.
 # DO NOT ALTER OR REMOVE COPYRIGHT NOTICES OR THIS FILE HEADER.
 #
 # This code is free software; you can redistribute it and/or modify it
@@ -177,7 +177,7 @@ ARCHFLAG/ia64    =
 ARCHFLAG/sparc   = -m32 -mcpu=v9
 ARCHFLAG/sparcv9 = -m64 -mcpu=v9
 ARCHFLAG/zero    = $(ZERO_ARCHFLAG)
-ARCHFLAG/ppc64   = -m64
+ARCHFLAG/ppc64   =  -m64
 ARCHFLAG/aarch32 =
 
 CFLAGS     += $(ARCHFLAG)
@@ -303,6 +303,8 @@ else
 endif
 
 LFLAGS += $(LDFLAGS_HASH_STYLE)
+
+LDFLAGS_NO_EXEC_STACK="-Wl,-z,noexecstack"
 
 # Use $(MAPFLAG:FILENAME=real_file_name) to specify a map file.
 MAPFLAG = -Xlinker --version-script=FILENAME
