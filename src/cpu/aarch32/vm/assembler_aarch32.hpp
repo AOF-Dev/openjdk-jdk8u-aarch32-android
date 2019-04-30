@@ -264,28 +264,7 @@ public:
 
 #define starti Instruction_aarch32 do_not_use(this); set_current(&do_not_use)
 
-// abs methods which cannot overflow and so are well-defined across
-// the entire domain of integer types.
-static inline unsigned int uabs(unsigned int n) {
-  union {
-    unsigned int result;
-    int value;
-  };
-  result = n;
-  if (value < 0) result = -result;
-  return result;
-}
-static inline unsigned long uabs(unsigned long n) {
-  union {
-    unsigned long result;
-    long value;
-  };
-  result = n;
-  if (value < 0) result = -result;
-  return result;
-}
-static inline unsigned long uabs(long n) { return uabs((unsigned long)n); }
-static inline unsigned long uabs(int n) { return uabs((unsigned int)n); }
+static inline unsigned long uabs(long n) { return uabs((jlong)n); }
 
 #define S_DFLT ::lsl()
 #define C_DFLT AL
