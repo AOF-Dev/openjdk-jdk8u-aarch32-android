@@ -2076,11 +2076,7 @@ nmethod* SharedRuntime::generate_native_wrapper(MacroAssembler* masm,
 
   // Unpack oop result
   if (ret_type == T_OBJECT || ret_type == T_ARRAY) {
-      Label L;
-      __ cbz(r0, L);
-      __ ldr(r0, Address(r0, 0));
-      __ bind(L);
-      __ verify_oop(r0);
+    __ resolve_jobject(r0, rthread, rscratch1);
   }
 
   if (!is_critical_native) {

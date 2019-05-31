@@ -84,6 +84,9 @@ address JNI_FastGetField::generate_fast_get_int_field0(BasicType type) {
   // performing __ ldr(robj, ...
   __ eor(robj, c_rarg1, rcounter);
   __ eor(robj, robj, rcounter);
+
+  __ clear_jweak_tag(robj);
+
   __ ldr(robj, Address(robj, 0)); // *obj
 
   assert(count < LIST_CAPACITY, "LIST_CAPACITY too small");

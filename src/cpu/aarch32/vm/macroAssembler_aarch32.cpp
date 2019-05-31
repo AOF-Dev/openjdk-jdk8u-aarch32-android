@@ -1834,36 +1834,39 @@ void MacroAssembler::store_heap_oop_null(Address dst) {
   str(rscratch1, dst);
 }
 
+void MacroAssembler::resolve_jobject(Register value,
+                                     Register thread,
+                                     Register tmp) {
+     Label done, not_weak;
+    cbz(value, done);           // Use NULL as-is.
+    STATIC_ASSERT(JNIHandles::weak_tag_mask == 1u);
+    tbz(value, 0, not_weak);    // Test for jweak tag.
+    // Resolve jweak.
+    ldr(value, Address(value, -JNIHandles::weak_tag_value));
+    verify_oop(value);
+#if INCLUDE_ALL_GCS
+    if (UseG1GC) {
+      g1_write_barrier_pre(noreg /* obj */,
+                              value /* pre_val */,
+                              thread /* thread */,
+                              tmp   /* tmp */,
+                              true /* tosca_live */,
+                              true /* expand_call */);
+    }
+#endif // INCLUDE_ALL_GCS
+    b(done);
+    bind(not_weak);
+    // Resolve (untagged) jobject.
+    ldr(value, Address(value, 0));
+    verify_oop(value);
+    bind(done);
+}
 
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
+void MacroAssembler::clear_jweak_tag(Register possibly_jweak) {
+  // If mask changes we need to ensure that the inverse is still encodable as an immediate
+  STATIC_ASSERT(JNIHandles::weak_tag_mask == 1);
+  bfc(possibly_jweak, 0, 1);
+}
 
 
 #if INCLUDE_ALL_GCS

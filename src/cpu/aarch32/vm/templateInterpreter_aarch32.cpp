@@ -1126,9 +1126,7 @@ address InterpreterGenerator::generate_native_entry(bool synchronized) {
     __ reg_printf("It's an oop.\n");
     // retrieve result
     __ pop(ltos);
-    __ cbz(r0, store_result);
-    __ ldr(r0, Address(r0));
-    __ bind(store_result);
+    __ resolve_jobject(r0, rthread, rscratch1);
     __ str(r0, Address(rfp, frame::interpreter_frame_oop_temp_offset*wordSize));
     // keep stack depth as expected by pushing oop which will eventually be discarded
     __ push(ltos);
