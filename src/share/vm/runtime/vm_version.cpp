@@ -92,7 +92,6 @@ void Abstract_VM_Version::initialize() {
   char* vm_major_ver = vm_version;
   assert(isdigit(vm_major_ver[0]),"wrong vm major version number");
   char* vm_minor_ver = strchr(vm_major_ver, '.');
-  fprintf(stderr, "vm_version=%s\n", vm_version);
   assert(vm_minor_ver != NULL && isdigit(vm_minor_ver[1]),"wrong vm minor version number");
   vm_minor_ver[0] = '\0'; // terminate vm_major_ver
   vm_minor_ver += 1;
