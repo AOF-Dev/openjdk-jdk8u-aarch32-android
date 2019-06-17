@@ -33,8 +33,8 @@
 
 #define __ masm->
 
-#define BUFFER_SIZE_ARMV7 30*wordSize
-#define BUFFER_SIZE_ARMV6 50*wordSize
+#define BUFFER_SIZE_ARMV7 31*wordSize
+#define BUFFER_SIZE_ARMV6 51*wordSize
 
 // Instead of issuing a LoadLoad barrier we create an address
 // dependency between loads; this might be more efficient.
