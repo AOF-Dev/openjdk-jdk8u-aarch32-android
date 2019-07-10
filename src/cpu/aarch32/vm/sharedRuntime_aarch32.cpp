@@ -2053,7 +2053,7 @@ nmethod* SharedRuntime::generate_native_wrapper(MacroAssembler* masm,
 
     // Atomic swap old header if oop still contains the stack lock
     Label succeed;
-    __ cmpxchgptr(lock_reg, old_hdr, obj_reg, rscratch1, succeed, &slow_path_unlock);
+    __ cmpxchgptr(lock_reg, old_hdr, obj_reg, rscratch2, succeed, &slow_path_unlock);
     __ bind(succeed);
 
     // slow path re-enters here
