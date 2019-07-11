@@ -837,6 +837,7 @@ int SharedRuntime::c_calling_convention(const BasicType *sig_bt,
           regs[i].set2(FP_ArgReg[fp_args]->as_VMReg());
           fp_args += 2;
         } else {
+          fp_free_mask = 0; // make future float allocations on stack too
           regs[i].set2(VMRegImpl::stack2reg(stk_args));
           stk_args += 2;
         }

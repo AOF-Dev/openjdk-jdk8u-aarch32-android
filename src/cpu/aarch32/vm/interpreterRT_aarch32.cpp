@@ -123,6 +123,9 @@ void InterpreterRuntime::SignatureHandlerGenerator::pass_double() {
         _fp_arg_mask &= ~((3 << _next_double_dex*2) | ((1 << _next_double_dex+16)));
         __ vldr_f64(as_DoubleFloatRegister(_next_double_dex++), src);
     } else {
+        // make future floats allocate on stack too
+        _fp_arg_mask &= ~((1 << Argument::n_float_register_parameters_c*2)-1);
+
         __ ldrd(r0, temp(), src);
         _stack_offset = (_stack_offset + 7) & ~7;
         __ strd(r0, temp(), Address(to(), _stack_offset));
@@ -295,6 +298,7 @@ class SlowSignatureHandler : public NativeSignatureIterator {
       _fp_args[index*2] = low_obj;
       _fp_args[index*2 + 1] = high_obj;
     } else {
+      *_fp_identifiers &= ~0xffff; // make future floats allocate on stack too
       _to = (intptr_t*)(((intptr_t)_to + 7) & ~7); // Align to eight bytes
       *_to++ = low_obj;
       *_to++ = high_obj;
