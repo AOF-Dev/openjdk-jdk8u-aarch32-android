@@ -217,8 +217,6 @@ void VM_Version::initialize() {
 
   get_processor_features();
 
-  //FIXME: turning off CriticalJNINatives flag while it is not implemented
-  FLAG_SET_DEFAULT(CriticalJNINatives, false);
 #ifndef HARD_FLOAT_CC
   if( !(VM_Version::features() & (FT_VFPV2 | FT_VFPV3)) ) {
       if(FLAG_IS_CMDLINE(UseFPU)) {

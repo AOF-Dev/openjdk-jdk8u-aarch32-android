@@ -1150,10 +1150,10 @@ static void restore_args(MacroAssembler *masm, int arg_count, int first_arg, VMR
 
       if (args[i].second()->is_FloatRegister()) {
     assert(args[i].is_single_phys_reg(), "doubles should be 2 consequents float regs");
-    __ vstr_f64(fr, Address(sp));
+    __ vldr_f64(fr, Address(sp));
         __ increment(sp, 2 * wordSize);
       } else {
-    __ vstr_f32(fr, Address(sp));
+    __ vldr_f32(fr, Address(sp));
         __ increment(sp, wordSize);
       }
     }
@@ -1173,13 +1173,107 @@ static void check_needs_gc_for_critical_native(MacroAssembler* masm,
                                                int arg_save_area,
                                                OopMapSet* oop_maps,
                                                VMRegPair* in_regs,
-                                               BasicType* in_sig_bt) { Unimplemented(); }
+                                               BasicType* in_sig_bt) {
+  __ block_comment("check GC_locker::needs_gc");
+  Label cont;
+  __ lea(rscratch1, ExternalAddress((address)GC_locker::needs_gc_address()));
+  __ ldr(rscratch1, Address(rscratch1));
+  __ cmp(rscratch1, false);
+  __ b(cont, Assembler::EQ);
+
+  // Save down any incoming oops and call into the runtime to halt for a GC
+
+  OopMap* map = new OopMap(stack_slots * 2, 0 /* arg_slots*/);
+
+  save_args(masm, total_in_args, 0, in_regs);
+
+  address the_pc = __ pc();
+  oop_maps->add_gc_map( __ offset(), map);
+  __ set_last_Java_frame(sp, noreg, the_pc, rscratch1);
+
+  __ block_comment("block_for_jni_critical");
+  __ call_VM_leaf(CAST_FROM_FN_PTR(address, SharedRuntime::block_for_jni_critical), rthread);
+
+  __ reset_last_Java_frame(true, true);
+
+  restore_args(masm, total_in_args, 0, in_regs);
+
+  __ bind(cont);
+#ifdef ASSERT
+  if (StressCriticalJNINatives) {
+    // Stress register saving
+    OopMap* map = new OopMap(stack_slots * 2, 0 /* arg_slots*/);
+    save_args(masm, total_in_args, 0, in_regs);
+
+    // Destroy argument registers.
+    for (int i = 0; i < total_in_args; i++) {
+      if (in_regs[i].first()->is_Register()) {
+        Register reg = in_regs[i].first()->as_Register();
+        __ neg(reg, reg);
+        if (in_regs[i].second()->is_Register()) {
+          reg = in_regs[i].second()->as_Register();
+          __ neg(reg, reg);
+        }
+      } else if (in_regs[i].first()->is_FloatRegister()) {
+        FloatRegister freg = in_regs[i].first()->as_FloatRegister();
+        __ vneg_f32(freg, freg);
+        if (in_regs[i].second()->is_FloatRegister()) {
+          FloatRegister freg = in_regs[i].second()->as_FloatRegister();
+          __ vneg_f32(freg, freg);
+        }
+      }
+    }
+
+    restore_args(masm, total_in_args, 0, in_regs);
+  }
+#endif
+}
 
 // Unpack an array argument into a pointer to the body and the length
 // if the array is non-null, otherwise pass 0 for both.
-static void unpack_array_argument(MacroAssembler* masm, VMRegPair reg, BasicType in_elem_type, VMRegPair body_arg, VMRegPair length_arg) { Unimplemented(); }
+static void unpack_array_argument(MacroAssembler* masm, VMRegPair reg, BasicType in_elem_type, VMRegPair body_arg, VMRegPair length_arg, Register tmp_reg) {
+  assert(!body_arg.first()->is_Register() || body_arg.first()->as_Register() != tmp_reg,
+         "possible collision");
+  assert(!length_arg.first()->is_Register() || length_arg.first()->as_Register() != tmp_reg,
+         "possible collision");
 
+  __ block_comment("unpack_array_argument {");
 
+  // Pass the length, ptr pair
+  Label is_null, done;
+  VMRegPair tmp;
+  tmp.set_ptr(tmp_reg->as_VMReg());
+  if (reg.first()->is_stack()) {
+    // Load the arg up from the stack
+    move_int(masm, reg, tmp);
+    reg = tmp;
+  }
+  __ cbz(reg.first()->as_Register(), is_null);
+  __ lea(tmp_reg, Address(reg.first()->as_Register(), arrayOopDesc::base_offset_in_bytes(in_elem_type)));
+  move_int(masm, tmp, body_arg);
+  // load the length relative to the body.
+  __ ldr(tmp_reg, Address(tmp_reg, arrayOopDesc::length_offset_in_bytes() -
+                           arrayOopDesc::base_offset_in_bytes(in_elem_type)));
+  move_int(masm, tmp, length_arg);
+  __ b(done);
+  __ bind(is_null);
+  // Pass zeros
+  __ movptr(tmp_reg, 0);
+  move_int(masm, tmp, body_arg);
+  move_int(masm, tmp, length_arg);
+  __ bind(done);
+
+  __ block_comment("} unpack_array_argument");
+
+}
+
+// Different signatures may require very different orders for the move
+// to avoid clobbering other arguments.  There's no simple way to
+// order them safely.  Compute a safe order for issuing stores and
+// break any cycles in those stores.  This code is fairly general but
+// it's not necessary on the other platforms so we keep it in the
+// platform dependent code instead of moving it into a shared file.
+// (See bugs 7013347 & 7145024.)
 class ComputeMoveOrder: public StackObj {
   class MoveOperation: public ResourceObj {
     friend class ComputeMoveOrder;
@@ -1192,7 +1286,9 @@ class ComputeMoveOrder: public StackObj {
     MoveOperation*  _next;
     MoveOperation*  _prev;
 
-    static int get_id(VMRegPair r) { Unimplemented(); return 0; }
+    static int get_id(VMRegPair r) {
+      return r.first()->value();
+    }
 
    public:
     MoveOperation(int src_index, VMRegPair src, int dst_index, VMRegPair dst):
@@ -1202,24 +1298,48 @@ class ComputeMoveOrder: public StackObj {
     , _dst_index(dst_index)
     , _next(NULL)
     , _prev(NULL)
-    , _processed(false) { Unimplemented(); }
+    , _processed(false) {
+    }
 
-    VMRegPair src() const              { Unimplemented(); return _src; }
-    int src_id() const                 { Unimplemented(); return 0; }
-    int src_index() const              { Unimplemented(); return 0; }
-    VMRegPair dst() const              { Unimplemented(); return _src; }
-    void set_dst(int i, VMRegPair dst) { Unimplemented(); }
-    int dst_index() const              { Unimplemented(); return 0; }
-    int dst_id() const                 { Unimplemented(); return 0; }
-    MoveOperation* next() const        { Unimplemented(); return 0; }
-    MoveOperation* prev() const        { Unimplemented(); return 0; }
-    void set_processed()               { Unimplemented(); }
-    bool is_processed() const          { Unimplemented(); return 0; }
+    VMRegPair src() const              { return _src; }
+    int src_id() const                 { return get_id(src()); }
+    int src_index() const              { return _src_index; }
+    VMRegPair dst() const              { return _dst; }
+    void set_dst(int i, VMRegPair dst) { _dst_index = i, _dst = dst; }
+    int dst_index() const              { return _dst_index; }
+    int dst_id() const                 { return get_id(dst()); }
+    MoveOperation* next() const       { return _next; }
+    MoveOperation* prev() const       { return _prev; }
+    void set_processed()               { _processed = true; }
+    bool is_processed() const          { return _processed; }
 
     // insert
-    void break_cycle(VMRegPair temp_register) { Unimplemented(); }
+    void break_cycle(VMRegPair temp_register) {
+      // create a new store following the last store
+      // to move from the temp_register to the original
+      MoveOperation* new_store = new MoveOperation(-1, temp_register, dst_index(), dst());
 
-    void link(GrowableArray<MoveOperation*>& killer) { Unimplemented(); }
+      // break the cycle of links and insert new_store at the end
+      // break the reverse link.
+      MoveOperation* p = prev();
+      assert(p->next() == this, "must be");
+      _prev = NULL;
+      p->_next = new_store;
+      new_store->_prev = p;
+
+      // change the original store to save it's value in the temp.
+      set_dst(-1, temp_register);
+    }
+
+    void link(GrowableArray<MoveOperation*>& killer) {
+      // link this store in front the store that it depends on
+      MoveOperation* n = killer.at_grow(src_id(), NULL);
+      if (n != NULL) {
+        assert(_next == NULL && n->_prev == NULL, "shouldn't have been set yet");
+        _next = n;
+        n->_prev = this;
+      }
+    }
   };
 
  private:
@@ -1227,14 +1347,97 @@ class ComputeMoveOrder: public StackObj {
 
  public:
   ComputeMoveOrder(int total_in_args, VMRegPair* in_regs, int total_c_args, VMRegPair* out_regs,
-                    BasicType* in_sig_bt, GrowableArray<int>& arg_order, VMRegPair tmp_vmreg) { Unimplemented(); }
+                    BasicType* in_sig_bt, GrowableArray<int>& arg_order, VMRegPair tmp_vmreg) {
+    // Move operations where the dest is the stack can all be
+    // scheduled first since they can't interfere with the other moves.
+    for (int i = total_in_args - 1, c_arg = total_c_args - 1; i >= 0; i--, c_arg--) {
+      if (in_sig_bt[i] == T_ARRAY) {
+        c_arg--;
+        if (out_regs[c_arg].first()->is_stack() &&
+            out_regs[c_arg + 1].first()->is_stack()) {
+          arg_order.push(i);
+          arg_order.push(c_arg);
+        } else {
+          if (out_regs[c_arg].first()->is_stack() ||
+              in_regs[i].first() == out_regs[c_arg].first()) {
+            add_edge(i, in_regs[i].first(), c_arg, out_regs[c_arg + 1]);
+          } else {
+            add_edge(i, in_regs[i].first(), c_arg, out_regs[c_arg]);
+          }
+        }
+      } else if (in_sig_bt[i] == T_VOID) {
+        arg_order.push(i);
+        arg_order.push(c_arg);
+      } else {
+        if (out_regs[c_arg].first()->is_stack() ||
+            in_regs[i].first() == out_regs[c_arg].first()) {
+          arg_order.push(i);
+          arg_order.push(c_arg);
+        } else {
+          add_edge(i, in_regs[i].first(), c_arg, out_regs[c_arg]);
+        }
+      }
+    }
+    // Break any cycles in the register moves and emit the in the
+    // proper order.
+    GrowableArray<MoveOperation*>* stores = get_store_order(tmp_vmreg);
+    for (int i = 0; i < stores->length(); i++) {
+      arg_order.push(stores->at(i)->src_index());
+      arg_order.push(stores->at(i)->dst_index());
+    }
+ }
 
   // Collected all the move operations
-  void add_edge(int src_index, VMRegPair src, int dst_index, VMRegPair dst) { Unimplemented(); }
+  void add_edge(int src_index, VMRegPair src, int dst_index, VMRegPair dst) {
+    if (src.first() == dst.first()) return;
+    edges.append(new MoveOperation(src_index, src, dst_index, dst));
+  }
 
   // Walk the edges breaking cycles between moves.  The result list
   // can be walked in order to produce the proper set of loads
-  GrowableArray<MoveOperation*>* get_store_order(VMRegPair temp_register) { Unimplemented(); return 0; }
+  GrowableArray<MoveOperation*>* get_store_order(VMRegPair temp_register) {
+    // Record which moves kill which values
+    GrowableArray<MoveOperation*> killer;
+    for (int i = 0; i < edges.length(); i++) {
+      MoveOperation* s = edges.at(i);
+      assert(killer.at_grow(s->dst_id(), NULL) == NULL, "only one killer");
+      killer.at_put_grow(s->dst_id(), s, NULL);
+    }
+    assert(killer.at_grow(MoveOperation::get_id(temp_register), NULL) == NULL,
+           "make sure temp isn't in the registers that are killed");
+
+    // create links between loads and stores
+    for (int i = 0; i < edges.length(); i++) {
+      edges.at(i)->link(killer);
+    }
+
+    // at this point, all the move operations are chained together
+    // in a doubly linked list.  Processing it backwards finds
+    // the beginning of the chain, forwards finds the end.  If there's
+    // a cycle it can be broken at any point,  so pick an edge and walk
+    // backward until the list ends or we end where we started.
+    GrowableArray<MoveOperation*>* stores = new GrowableArray<MoveOperation*>();
+    for (int e = 0; e < edges.length(); e++) {
+      MoveOperation* s = edges.at(e);
+      if (!s->is_processed()) {
+        MoveOperation* start = s;
+        // search for the beginning of the chain or cycle
+        while (start->prev() != NULL && start->prev() != s) {
+          start = start->prev();
+        }
+        if (start->prev() == s) {
+          start->break_cycle(temp_register);
+        }
+        // walk the chain forward inserting to store list
+        while (start != NULL) {
+          stores->append(start);
+          start->set_processed();
+          start = start->next();
+        }
+      }
+    }
+    return stores;
+  }
 };
 
 
@@ -1506,9 +1709,16 @@ nmethod* SharedRuntime::generate_native_wrapper(MacroAssembler* masm,
         }
       } else
 #ifdef HARD_FLOAT_CC
-          if (in_regs[i].first()->is_FloatRegister())
+      if (in_regs[i].first()->is_FloatRegister()) {
+          switch (in_sig_bt[i]) {
+              case T_FLOAT:  single_slots++; break;
+              case T_DOUBLE: double_slots++; break;
+              default:  ShouldNotReachHere();
+          }
+      }
+#else
+      ShouldNotReachHere();
 #endif // HARD_FLOAT_CC
-            ShouldNotReachHere();
     }
     total_save_slots = double_slots * 2 + single_slots;
     // align the save area
@@ -1733,7 +1943,7 @@ nmethod* SharedRuntime::generate_native_wrapper(MacroAssembler* masm,
     switch (in_sig_bt[i]) {
       case T_ARRAY:
         if (is_critical_native) {
-          unpack_array_argument(masm, in_regs[i], in_elem_bt[i], out_regs[c_arg + 1], out_regs[c_arg]);
+          unpack_array_argument(masm, in_regs[i], in_elem_bt[i], out_regs[c_arg + 1], out_regs[c_arg], rscratch2);
           c_arg++;
 #ifdef ASSERT
           if (out_regs[c_arg].first()->is_Register()) {
