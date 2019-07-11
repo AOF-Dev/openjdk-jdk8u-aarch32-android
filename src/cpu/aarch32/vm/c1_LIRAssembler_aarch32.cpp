@@ -1664,13 +1664,13 @@ void LIR_Assembler::arith_op(LIR_Code code, LIR_Opr left, LIR_Opr right, LIR_Opr
       // cpu register - constant
       jint c = right->as_constant_ptr()->as_jint();
 
-      assert(code == lir_add || code == lir_sub, "mismatched arithmetic op");
-      if (c == 0 && dreg == lreg) {
+      assert(code == lir_add || code == lir_sub || code == lir_mul, "mismatched arithmetic op");
+      if (dreg == lreg && ( code != lir_mul && c == 0 || code == lir_mul && c == 1 ) ) {
         COMMENT("effective nop elided");
         return;
       }
 
-      if (Assembler::operand_valid_for_add_sub_immediate(c)) {
+      if (code != lir_mul && Assembler::operand_valid_for_add_sub_immediate(c)) {
         switch (code) {
         case lir_add: __ add(dreg, lreg, c); break;
         case lir_sub: __ sub(dreg, lreg, c); break;
@@ -1681,6 +1681,7 @@ void LIR_Assembler::arith_op(LIR_Code code, LIR_Opr left, LIR_Opr right, LIR_Opr
         switch (code) {
         case lir_add: __ add(dreg, lreg, rscratch1); break;
         case lir_sub: __ sub(dreg, lreg, rscratch1); break;
+        case lir_mul: __ mul(dreg, lreg, rscratch1); break;
         default: ShouldNotReachHere();
         }
       }
