@@ -804,18 +804,16 @@ int SharedRuntime::c_calling_convention(const BasicType *sig_bt,
       case T_LONG:
         assert(sig_bt[i + 1] == T_VOID, "expecting half");
         if (int_args + 1 < Argument::n_int_register_parameters_c) {
-          if ((int_args % 2) != 0) {
-            ++int_args;
-          }
-          regs[i].set2(INT_ArgReg[int_args]->as_VMReg());
-          int_args += 2;
+            // c2 requires aligned reg pair
+            int_args = round_to(int_args, 2);
+            regs[i].set2(INT_ArgReg[int_args]->as_VMReg());
+            int_args += 2;
         } else {
-          if (stk_args % 2 != 0) {
-            ++stk_args;
-          }
-          regs[i].set2(VMRegImpl::stack2reg(stk_args));
-          stk_args += 2;
-          int_args = Argument::n_int_register_parameters_c;
+            stk_args = round_to(stk_args, 2);
+            regs[i].set2(VMRegImpl::stack2reg(stk_args));
+            stk_args += 2;
+            // close "arg at reg" branch
+            int_args = Argument::n_int_register_parameters_c;
         }
         break;
 #ifdef HARD_FLOAT_CC
@@ -832,12 +830,14 @@ int SharedRuntime::c_calling_convention(const BasicType *sig_bt,
         break;
       case T_DOUBLE:
         assert(sig_bt[i + 1] == T_VOID, "expecting half");
+        assert(!(fp_args & 1), "must be aligned");
         if (fp_args + 1 < FP_ArgReg_N) {
           fp_free_mask &= ~(3 << fp_args);
           regs[i].set2(FP_ArgReg[fp_args]->as_VMReg());
           fp_args += 2;
         } else {
           fp_free_mask = 0; // make future float allocations on stack too
+          stk_args = round_to(stk_args, 2);
           regs[i].set2(VMRegImpl::stack2reg(stk_args));
           stk_args += 2;
         }
