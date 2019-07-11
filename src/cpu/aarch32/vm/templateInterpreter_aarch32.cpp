@@ -365,7 +365,7 @@ void InterpreterGenerator::generate_counter_incr(
       // Increment counter in the MDO
       const Address mdo_invocation_counter(r0, in_bytes(MethodData::invocation_counter_offset()) +
                                            in_bytes(InvocationCounter::counter_offset()));
-      __ increment_mask_and_jump(mdo_invocation_counter, increment, mask, rscratch1, false, Assembler::EQ, overflow);
+      __ increment_mask_and_jump(mdo_invocation_counter, increment, mask, rscratch1, rscratch2, false, Assembler::EQ, overflow);
       __ b(done);
     }
     __ bind(no_mdo);
@@ -374,7 +374,7 @@ void InterpreterGenerator::generate_counter_incr(
                   MethodCounters::invocation_counter_offset() +
                   InvocationCounter::counter_offset());
     __ get_method_counters(rmethod, rscratch2, done);
-    __ increment_mask_and_jump(invocation_counter, increment, mask, rscratch1, false, Assembler::EQ, overflow);
+    __ increment_mask_and_jump(invocation_counter, increment, mask, rscratch1, rscratch2, false, Assembler::EQ, overflow);
     __ bind(done);
   } else {
     const Address backedge_counter(rscratch2,
@@ -2019,9 +2019,11 @@ address TemplateInterpreterGenerator::generate_trace_code(TosState state) {
 
   __ push(state);
   // Save all registers on stack, so omit SP and PC
-  __ push(RegSet::range(r0, r12) + lr, sp);
-  __ mov(c_rarg2, r0);  // Pass itos
-  __ mov(c_rarg3, r1);  // Pass ltos/dtos high part
+  const RegSet push_set = RegSet::range(r0, r12) + lr;
+  const int push_set_cnt = __builtin_popcount(push_set.bits());
+  __ push(push_set, sp);
+  __ ldr(c_rarg2, Address(sp, push_set_cnt*wordSize));      // Pass top of stack
+  __ ldr(c_rarg3, Address(sp, (push_set_cnt+1)*wordSize));  // Pass top of stack high part/2nd stack word
   __ call_VM(noreg,
              CAST_FROM_FN_PTR(address, SharedRuntime::trace_bytecode),
              c_rarg1, c_rarg2, c_rarg3);

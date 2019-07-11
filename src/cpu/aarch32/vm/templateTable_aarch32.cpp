@@ -1140,7 +1140,7 @@ void TemplateTable::aastore() {
 
   // Have a NULL in r0, r3=array, r2=index.  Store NULL at ary[idx]
   __ bind(is_null);
-  __ profile_null_seen(r2);
+  __ profile_null_seen(r1);
 
   __ lea(r1, Address(r3, r2, lsl(2)));
   // Store a NULL
@@ -2078,14 +2078,14 @@ void TemplateTable::branch(bool is_jsr, bool is_wide)
         const Address mdo_backedge_counter(r1, in_bytes(MethodData::backedge_counter_offset()) +
                                            in_bytes(InvocationCounter::counter_offset()));
         __ increment_mask_and_jump(mdo_backedge_counter, increment, mask,
-                                   r0, false, Assembler::EQ, &backedge_counter_overflow);
+                                   r0, rscratch2, false, Assembler::EQ, &backedge_counter_overflow);
         __ b(dispatch);
       }
       __ bind(no_mdo);
       // Increment backedge counter in MethodCounters*
       __ ldr(rscratch1, Address(rmethod, Method::method_counters_offset()));
       __ increment_mask_and_jump(Address(rscratch1, be_offset), increment, mask,
-                                 r0, false, Assembler::EQ, &backedge_counter_overflow);
+                                 r0, rscratch2, false, Assembler::EQ, &backedge_counter_overflow);
     } else {
       // increment counter
       __ ldr(rscratch2, Address(rmethod, Method::method_counters_offset()));

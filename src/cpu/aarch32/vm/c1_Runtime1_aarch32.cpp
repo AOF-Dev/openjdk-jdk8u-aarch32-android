@@ -783,9 +783,9 @@ OopMapSet* Runtime1::generate_code_for(StubID id, StubAssembler* sasm) {
         __ enter();
         OopMap* map = save_live_registers(sasm);
         // Retrieve bci
-        __ ldr(bci, Address(rfp, 2*BytesPerWord));
+        __ ldr(bci, Address(rfp, 1*BytesPerWord));
         // And a pointer to the Method*
-        __ ldr(method, Address(rfp, 3*BytesPerWord));
+        __ ldr(method, Address(rfp, 2*BytesPerWord));
         int call_offset = __ call_RT(noreg, noreg, CAST_FROM_FN_PTR(address, counter_overflow), bci, method);
         oop_maps = new OopMapSet();
         oop_maps->add_gc_map(call_offset, map);

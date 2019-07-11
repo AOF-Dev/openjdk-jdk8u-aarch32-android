@@ -1552,14 +1552,19 @@ void InterpreterMacroAssembler::notify_method_exit(
 // Jump if ((*counter_addr += increment) & mask) satisfies the condition.
 void InterpreterMacroAssembler::increment_mask_and_jump(Address counter_addr,
                                                         int increment, int mask,
-                                                        Register scratch, bool preloaded,
+                                                        Register scratch, Register scratch2, bool preloaded,
                                                         Condition cond, Label* where) {
   if (!preloaded) {
     ldr(scratch, counter_addr);
   }
   add(scratch, scratch, increment);
   str(scratch, counter_addr);
-  ands(scratch, scratch, mask);
+  if (Assembler::is_valid_for_imm12(mask))
+    ands(scratch, scratch, mask);
+  else {
+    mov(scratch2, mask);
+    ands(scratch, scratch, scratch2);
+  }
   b(*where, cond);
 }
 
