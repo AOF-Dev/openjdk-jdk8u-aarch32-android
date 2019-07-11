@@ -2272,9 +2272,10 @@ void LIR_Assembler::emit_arraycopy(LIR_OpArrayCopy* op) {
 
     // Save the arguments in case the generic arraycopy fails and we
     // have to fall back to the JNI stub
-    __ str(dst,     Address(sp, 0*BytesPerWord));
-    __ str(dst_pos, Address(sp, 1*BytesPerWord));
-    __ str(length,  Address(sp, 2*BytesPerWord));
+    // length must be stored at [sp] because it's also used as an argument to C function
+    __ str(length,  Address(sp, 0*BytesPerWord));
+    __ str(dst,     Address(sp, 1*BytesPerWord));
+    __ str(dst_pos, Address(sp, 2*BytesPerWord));
     __ str(src_pos, Address(sp, 3*BytesPerWord));
     __ str(src,     Address(sp, 4*BytesPerWord));
 
@@ -2292,8 +2293,8 @@ void LIR_Assembler::emit_arraycopy(LIR_OpArrayCopy* op) {
     assert_different_registers(c_rarg2, j_rarg3);
     __ mov(c_rarg2, j_rarg2);
     __ mov(c_rarg3, rscratch1);
-    __ str(length, Address(sp)); // the below C function follows C calling convention,
-                                 // so should put 5th arg to stack
+    // the below C function follows C calling convention,
+    // so should put 5th arg to stack but it's already there. see above
 
     if (copyfunc_addr == NULL) { // Use C version if stub was not generated
       __ mov(rscratch1, RuntimeAddress(C_entry));
@@ -2311,9 +2312,9 @@ void LIR_Assembler::emit_arraycopy(LIR_OpArrayCopy* op) {
 
     // Reload values from the stack so they are where the stub
     // expects them.
-    __ ldr(dst,     Address(sp, 0*BytesPerWord));
-    __ ldr(dst_pos, Address(sp, 1*BytesPerWord));
-    __ ldr(length,  Address(sp, 2*BytesPerWord));
+    __ ldr(length,  Address(sp, 0*BytesPerWord));
+    __ ldr(dst,     Address(sp, 1*BytesPerWord));
+    __ ldr(dst_pos, Address(sp, 2*BytesPerWord));
     __ ldr(src_pos, Address(sp, 3*BytesPerWord));
     __ ldr(src,     Address(sp, 4*BytesPerWord));
 
