@@ -1874,7 +1874,7 @@ void TemplateInterpreterGenerator::generate_throw_exception() {
     Label L_done;
     __ ldrb(rscratch1, Address(rbcp, 0));
     __ cmp(rscratch1, Bytecodes::_invokestatic);
-    __ b(L_done, Assembler::EQ);
+    __ b(L_done, Assembler::NE);
 
     // The member name argument must be restored if _invokestatic is re-executed after a PopFrame call.
     // Detect such a case in the InterpreterRuntime function and return the member name argument, or NULL.
