@@ -2537,6 +2537,9 @@ void LIR_Assembler::emit_arraycopy(LIR_OpArrayCopy* op) {
     __ bind(known_ok);
   }
 #endif
+  // skip array copy stub
+  // aarch32 stub has not checks for zero-length (while x86 has)
+  __ cbz(length, *stub->continuation());
 
   assert(dst_pos == r0, "assumed in the code below");
   __ mov(rscratch1, dst_pos); // save r0
