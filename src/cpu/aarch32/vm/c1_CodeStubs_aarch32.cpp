@@ -346,13 +346,20 @@ void PatchingStub::emit_code(LIR_Assembler* ce) {
 #ifdef ASSERT
     intptr_t* from = (intptr_t*) start;
     intptr_t* to = (intptr_t*) _pc_start;
-    assert(from[0] == to[0], "should be same (nop)");
-    assert(from[1] == to[1], "should be same (barrier)");
-    assert(NativeFarLdr::from((address) (from + 2))->data_addr()
-        == NativeFarLdr::from((address) (to + 2))->data_addr(),
+
+    assert(NativeFarLdr::from((address) (from))->data_addr()
+        == NativeFarLdr::from((address) (to))->data_addr(),
         "should load from one addr)");
-    for (int i = 4 * NativeInstruction::arm_insn_sz; i < _bytes_to_copy; i++) {
-      assert(*(_pc_start + i) == *(start + i), "should be the same code");
+
+    address next_from = NativeFarLdr::from(start)->next_instruction_address();
+    address next_to   = NativeFarLdr::from(_pc_start)->next_instruction_address();
+
+    assert(sizeof(*address) == sizeof(char), "Correct below");
+    address end       = from +  _bytes_to_copy;
+    while (next_from < end) {
+      assert(*next_from == *next_to, "should be the same code");
+      next_from++;
+      next_to++;
     }
 #endif
   } else {
