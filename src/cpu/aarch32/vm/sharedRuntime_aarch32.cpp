@@ -1100,6 +1100,10 @@ static int save_args(MacroAssembler *masm, int arg_count, int first_arg, VMRegPa
     if (args[i].first()->is_Register()) {
       x = x + args[i].first()->as_Register();
       ++saved_slots;
+      if (args[i].second()->is_valid()) {
+          x = x + args[i].second()->as_Register();
+          ++saved_slots;
+      }
     }
 #ifdef HARD_FLOAT_CC
     else if (args[i].first()->is_FloatRegister()) {
@@ -1127,6 +1131,9 @@ static void restore_args(MacroAssembler *masm, int arg_count, int first_arg, VMR
   for ( int i = first_arg ; i < arg_count ; i++ ) {
     if (args[i].first()->is_Register()) {
       x = x + args[i].first()->as_Register();
+      if (args[i].second()->is_valid()) {
+        x = x + args[i].second()->as_Register();
+      }
     } else {
       ;
     }
