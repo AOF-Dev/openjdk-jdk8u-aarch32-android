@@ -553,24 +553,15 @@ bool NativeInstruction::is_safepoint_poll() {
   //
   // We can rely on this instructions order until we have only C1
 
-    if (VM_Version::features() & (FT_ARMV7 | FT_ARMV6T2))  {
-      bool res = false;
-      unsigned paddr = (unsigned)os::get_polling_page();
+  const intptr_t paddr = (intptr_t)os::get_polling_page();
+  const Register scratch = rscratch1;
 
-      unsigned addr_lo = paddr & 0xffff;
-      unsigned addr_hi = paddr >> 16;
-
-      Register scratch = rscratch1;
-
-      res =        from(addr() - 0x8)->is_movw(scratch, addr_lo);
-      res = res && from(addr() - 0x4)->is_movt(scratch, addr_hi);
-      res = res && from(addr() - 0x0)->is_ldr(scratch, Address(scratch));
-
-      return res;
-  } else {
-    assert(false, "not implemented");
-    return false;
+  if (NativeInstruction::from(addr())->is_ldr(scratch, Address(scratch))) {
+    NativeMovConstReg* mov_const = NativeMovConstReg::before(addr());
+    return (mov_const->data() == paddr) && (mov_const->destination() == scratch);
   }
+
+  return false;
 }
 
 bool NativeInstruction::is_movt(Register dst, unsigned imm, Assembler::Condition cond) {

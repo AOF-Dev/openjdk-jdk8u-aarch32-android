@@ -227,10 +227,14 @@ int VtableStub::pd_code_size_limit(bool is_vtable_stub) {
   int size = DebugVtables ? 216 : 0; // FIXME
   if (CountCompiledCalls)
     size += 6 * 4; // FIXME. cannot measure, CountCalls does not work
-  if (is_vtable_stub)
+  if (is_vtable_stub) {
     size += 26;
-  else
+  } else {
     size += 160;
+    if (!(VM_Version::features() & (FT_ARMV7 | FT_ARMV6T2))) {
+      size += (NativeMovConstReg::mov_n_three_orr_sz - NativeMovConstReg::movw_movt_pair_sz);
+    }
+  }
   return size;
 
   // In order to tune these parameters, run the JVM with VM options

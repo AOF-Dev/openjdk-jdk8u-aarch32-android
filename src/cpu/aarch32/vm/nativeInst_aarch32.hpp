@@ -220,10 +220,23 @@ class NativeMovConstReg: public NativeInstruction {
 
   // Creation
   inline friend NativeMovConstReg* nativeMovConstReg_at(address address);
-  inline friend NativeMovConstReg* nativeMovConstReg_before(address address);
+
+  static NativeMovConstReg* before(address addr) {
+    address mov = NULL;
+    if (is_ldr_literal_at(addr - ldr_sz)) {
+      mov = addr - ldr_sz;
+    } else if (is_far_ldr_literal_at(addr - far_ldr_sz)) {
+      mov = addr - far_ldr_sz;
+    } else if (is_movw_movt_at(addr - movw_movt_pair_sz)) {
+      mov = addr - movw_movt_pair_sz;
+    } else if (is_mov_n_three_orr_at(addr - mov_n_three_orr_sz)) {
+      mov = addr - mov_n_three_orr_sz;
+    }
+    guarantee(mov, "Can't find NativeMovConstReg before");
+    return NativeMovConstReg::from(mov);
+  }
 
   static bool is_at(address instr);
-
   static NativeMovConstReg* from(address addr);
 };
 
