@@ -219,20 +219,19 @@ void MacroAssembler::serialize_memory(Register thread, Register tmp) {
 }
 
 
-void MacroAssembler::reset_last_Java_frame(bool clear_fp,
-                                           bool clear_pc) {
+void MacroAssembler::reset_last_Java_frame(bool clear_fp) {
   mov(rscratch1, 0);
   // we must set sp to zero to clear frame
   str(rscratch1, Address(rthread, JavaThread::last_Java_sp_offset()));
+
   // must clear fp, so that compiled frames are not confused; it is
   // possible that we need it only for debugging
   if (clear_fp) {
     str(rscratch1, Address(rthread, JavaThread::last_Java_fp_offset()));
   }
 
-  if (clear_pc) {
-    str(rscratch1, Address(rthread, JavaThread::last_Java_pc_offset()));
-  }
+  // Always clear the pc because it could have been set by make_walkable()
+  str(rscratch1, Address(rthread, JavaThread::last_Java_pc_offset()));
 }
 
 // Calls to C land
@@ -579,7 +578,7 @@ void MacroAssembler::call_VM_base(Register oop_result,
 
   // reset last Java frame
   // Only interpreter should have to clear fp
-  reset_last_Java_frame(true, true);
+  reset_last_Java_frame(true);
 
    // C++ interp handles this in the interpreter
   check_and_handle_popframe(java_thread);
