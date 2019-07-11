@@ -1106,6 +1106,11 @@ void LIRGenerator::do_update_CRC32(Intrinsic* x) {
       }
       LIR_Opr base_op = buf.result();
 
+      if (!is_updateBytes) { // long b raw address
+         base_op = new_register(T_INT);
+         __ convert(Bytecodes::_l2i, buf.result(), base_op);
+      }
+
       if (offset) {
         LIR_Opr tmp = new_pointer_register();
         __ add(base_op, LIR_OprFact::intConst(offset), tmp);
