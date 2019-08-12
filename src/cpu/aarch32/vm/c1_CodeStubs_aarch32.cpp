@@ -354,8 +354,8 @@ void PatchingStub::emit_code(LIR_Assembler* ce) {
     address next_from = NativeFarLdr::from(start)->next_instruction_address();
     address next_to   = NativeFarLdr::from(_pc_start)->next_instruction_address();
 
-    assert(sizeof(*address) == sizeof(char), "Correct below");
-    address end       = from +  _bytes_to_copy;
+    assert(sizeof(*start) == sizeof(char), "Correct below");
+    address end       = start +  _bytes_to_copy;
     while (next_from < end) {
       assert(*next_from == *next_to, "should be the same code");
       next_from++;
