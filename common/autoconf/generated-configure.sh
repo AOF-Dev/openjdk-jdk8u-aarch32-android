@@ -13731,6 +13731,11 @@ $as_echo "$OPENJDK_BUILD_OS-$OPENJDK_BUILD_CPU" >&6; }
       VAR_OS_API=posix
       VAR_OS_ENV=solaris
       ;;
+    *android*)
+      VAR_OS=linux
+      VAR_OS_API=posix
+      VAR_OS_ENV=linux
+      ;;
     *darwin*)
       VAR_OS=macosx
       VAR_OS_API=posix

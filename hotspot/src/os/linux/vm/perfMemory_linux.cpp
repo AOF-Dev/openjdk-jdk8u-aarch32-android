@@ -433,6 +433,58 @@ static bool is_file_secure(int fd, const char *filename) {
   return true;
 }
 
+#ifdef __ANDROID__
+// Copy from bionic libc of Android
+static int do_getpw_r(uid_t uid,
+                      struct passwd* dst, char* buf, size_t byte_count,
+                      struct passwd** result) {
+  
+  *result = NULL;
+
+  // Our implementation of getpwnam(3) and getpwuid(3) use thread-local
+  // storage, so we can call them as long as we copy everything out
+  // before returning.
+  const struct passwd* src = getpwuid(uid); // NOLINT: see above.
+
+  // POSIX allows failure to find a match to be considered a non-error.
+  // Reporting success (0) but with *result NULL is glibc's behavior.
+  if (src == NULL) {
+    return (errno == ENOENT) ? 0 : errno;
+  }
+
+  // Work out where our strings will go in 'buf', and whether we've got
+  // enough space.
+  size_t required_byte_count = 0;
+  dst->pw_name = buf;
+  required_byte_count += strlen(src->pw_name) + 1;
+  dst->pw_dir = buf + required_byte_count;
+  required_byte_count += strlen(src->pw_dir) + 1;
+  dst->pw_shell = buf + required_byte_count;
+  required_byte_count += strlen(src->pw_shell) + 1;
+  if (byte_count < required_byte_count) {
+    return ERANGE;
+  }
+
+  // Copy the strings.
+  snprintf(buf, byte_count, "%s%c%s%c%s", src->pw_name, 0, src->pw_dir, 0, src->pw_shell);
+
+  // pw_passwd is non-POSIX and unused (always NULL) in bionic.
+  // pw_gecos is non-POSIX and missing in bionic.
+  dst->pw_passwd = NULL;
+
+  // Copy the integral fields.
+  dst->pw_gid = src->pw_gid;
+  dst->pw_uid = src->pw_uid;
+
+  *result = dst;
+  return 0;
+}
+
+static inline int getpwuid_r(uid_t uid, struct passwd* pwd,
+               char* buf, size_t byte_count, struct passwd** result) {
+  return do_getpw_r(uid, pwd, buf, byte_count, result);
+}
+#endif
 
 // return the user name for the given user id
 //

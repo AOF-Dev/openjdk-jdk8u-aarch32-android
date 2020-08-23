@@ -33,7 +33,9 @@
 #error "The macro ARCHPROPNAME has not been defined"
 #endif
 #include <sys/utsname.h>        /* For os_name and os_version */
+#ifndef __ANDROID__
 #include <langinfo.h>           /* For nl_langinfo */
+#endif
 #include <stdlib.h>
 #include <string.h>
 #include <sys/types.h>
@@ -59,7 +61,11 @@
 #if !defined(_ALLBSD_SOURCE)
 #ifdef __linux__
   #ifndef CODESET
-  #define CODESET _NL_CTYPE_CODESET_NAME
+    #ifndef __ANDROID__
+      #define CODESET _NL_CTYPE_CODESET_NAME
+    #else
+      #define CODESET "UTF-8"
+    #endif
   #endif
 #else
 #ifdef ALT_CODESET_KEY
@@ -278,10 +284,15 @@ static int ParseLocale(JNIEnv* env, int cat, char ** std_language, char ** std_s
     if (std_encoding != NULL) {
         /* OK, not so reliable - nl_langinfo() gives wrong answers on
          * Euro locales, in particular. */
-        if (strcmp(p, "ISO8859-15") == 0)
+        if (strcmp(p, "ISO8859-15") == 0) {
             p = "ISO8859-15";
-        else
+        } else {
+            #ifndef __ANDROID__
             p = nl_langinfo(CODESET);
+            #else
+            p = "UTF-8";
+            #endif
+        }
 
         /* Convert the bare "646" used on Solaris to a proper IANA name */
         if (strcmp(p, "646") == 0)

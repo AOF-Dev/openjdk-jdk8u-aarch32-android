@@ -430,6 +430,7 @@ else
   LIBJLI_OUTPUT_DIR := $(INSTALL_LIBRARIES_HERE)/jli
 endif
 
+# libpthread.so not available on Android
 $(eval $(call SetupNativeCompilation,BUILD_LIBJLI, \
     LIBRARY := jli, \
     OUTPUT_DIR := $(LIBJLI_OUTPUT_DIR), \
@@ -445,7 +446,7 @@ $(eval $(call SetupNativeCompilation,BUILD_LIBJLI, \
     LDFLAGS_solaris := $(call SET_SHARED_LIBRARY_ORIGIN,/..), \
     LDFLAGS_macosx := -framework Cocoa -framework Security -framework ApplicationServices, \
     LDFLAGS_SUFFIX_solaris := $(LIBZ) $(LIBDL) -lc, \
-    LDFLAGS_SUFFIX_linux := $(LIBZ) $(LIBDL) -lc -lpthread, \
+    LDFLAGS_SUFFIX_linux := $(LIBZ) $(LIBDL) -lc, \
     LDFLAGS_SUFFIX_aix := $(LIBZ) $(LIBDL),\
     LDFLAGS_SUFFIX_macosx := $(LIBZ), \
     LDFLAGS_SUFFIX_windows := \

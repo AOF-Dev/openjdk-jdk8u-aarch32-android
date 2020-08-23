@@ -58,8 +58,11 @@ typedef struct {
 /*
  * Signal to unblock thread
  */
+#ifndef __ANDROID__
 static int sigWakeup = (__SIGRTMAX - 2);
-
+#else
+static int sigWakeup = (SIGRTMAX - 2);
+#endif
 /*
  * fdTable holds one entry per file descriptor, up to a certain
  * maximum.

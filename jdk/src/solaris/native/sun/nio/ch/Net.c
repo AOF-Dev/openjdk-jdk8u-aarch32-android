@@ -55,7 +55,7 @@
   #endif
 #endif
 
-#if defined(_ALLBSD_SOURCE) || defined(_AIX)
+#if defined(_ALLBSD_SOURCE) || defined(_AIX) || defined(__ANDROID__)
 
 #ifndef IP_BLOCK_SOURCE
 
@@ -229,6 +229,30 @@ Java_sun_nio_ch_Net_canJoin6WithIPv4Group0(JNIEnv* env, jclass cl)
 #endif
 }
 
+#ifdef __ANDROID__
+// See comment in Java_sun_nio_ch_Net_socket0
+static void get_set_sockopt(int fd, int opt)
+{
+    int result;
+    void *arg = (void *)&result;
+    socklen_t arglen = sizeof(result);
+    // Since this is android we know that the ProtocolFamily is UNSPEC,
+    // (mayNeedConversion == 1) so call NET_GetSockOpt vs. {get,set}sockopt
+    // and level is 1.
+    // see SocketOptionRegistry-android-{arm,x86}.java
+    int n = NET_GetSockOpt(fd, 1, opt, arg, (int*)&arglen);
+    // Just let the original behavior occur on error, since
+    // this is "special" initialization
+    if (n < 0) {
+        return;
+    }
+    n = NET_SetSockOpt(fd, 1, opt, arg, arglen);
+    if (n < 0) {
+        return;
+    }
+}
+#endif
+
 JNIEXPORT int JNICALL
 Java_sun_nio_ch_Net_socket0(JNIEnv *env, jclass cl, jboolean preferIPv6,
                             jboolean stream, jboolean reuse, jboolean ignored)
@@ -301,6 +325,22 @@ Java_sun_nio_ch_Net_socket0(JNIEnv *env, jclass cl, jboolean preferIPv6,
             return -1;
         }
     }
+#endif
+
+#ifdef __ANDROID__
+    // JDK-8001645 - JCK failures in java_api/nio/channel
+    // On some devices the initial value returned from
+    // getSocketOption for SO_SNDBUF and SO_RCVBUF can be
+    // greater than the configured system maximum. The jck tests
+    //   api/java_nio/channels/Asynchronous{ServerSocket,Socket}Channel/
+    //          Asynchronous{ServerSocket,Socket}Channel_NetworkChannel
+    // fail because of a test assumption that the initial value for these
+    // options should be less than the maximum value.
+    // In order to pass the test, read the value and then write it.
+    // The system behavior sets the value to the maximum value
+    // if the "hint" is greater than the maximum value.
+    get_set_sockopt(fd, SO_RCVBUF);
+    get_set_sockopt(fd, SO_SNDBUF);
 #endif
     return fd;
 }

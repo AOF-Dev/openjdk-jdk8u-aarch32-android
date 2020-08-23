@@ -35,12 +35,14 @@
 #include <dlfcn.h>
 #include <sys/time.h>
 
-#ifndef _ALLBSD_SOURCE
+#if !defined(_ALLBSD_SOURCE) && !defined(__ANDROID__)
 #include <values.h>
 #else
 #include <limits.h>
 #include <sys/param.h>
+#ifndef __ANDROID__
 #include <sys/sysctl.h>
+#endif
 #ifndef MAXINT
 #define MAXINT INT_MAX
 #endif

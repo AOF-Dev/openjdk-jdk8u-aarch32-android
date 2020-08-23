@@ -131,6 +131,7 @@ ifeq ($(OPENJDK_TARGET_OS), aix)
       UnixNativeDispatcher.c
 endif
 
+# libpthread.so not available on Android
 $(eval $(call SetupNativeCompilation,BUILD_LIBNIO, \
     LIBRARY := nio, \
     OUTPUT_DIR := $(INSTALL_LIBRARIES_HERE), \
@@ -143,7 +144,7 @@ $(eval $(call SetupNativeCompilation,BUILD_LIBNIO, \
     MAPFILE := $(BUILD_LIBNIO_MAPFILE), \
     LDFLAGS := $(LDFLAGS_JDKLIB) $(BUILD_LIBNIO_LDFLAGS) \
         $(call SET_SHARED_LIBRARY_ORIGIN), \
-    LDFLAGS_SUFFIX_linux := -ljava -lnet -lpthread $(LIBDL), \
+    LDFLAGS_SUFFIX_linux := -ljava -lnet $(LIBDL), \
     LDFLAGS_SUFFIX_aix := -ljava -lnet $(LIBDL),\
     LDFLAGS_SUFFIX_solaris := -ljvm -lsocket -lposix4 $(LIBDL) \
         -lsendfile -ljava -lnet -lc, \
@@ -178,7 +179,8 @@ ifeq ($(OPENJDK_TARGET_OS_API), posix)
     ifeq ($(OPENJDK_TARGET_CPU_ARCH), aarch32)
       SCTP_WERROR :=
     endif
-
+    
+    # libpthread.so not available on Android
     $(eval $(call SetupNativeCompilation,BUILD_LIBSCTP, \
         LIBRARY := sctp, \
         OUTPUT_DIR := $(INSTALL_LIBRARIES_HERE), \
@@ -195,7 +197,7 @@ ifeq ($(OPENJDK_TARGET_OS_API), posix)
         MAPFILE := $(JDK_TOPDIR)/make/mapfiles/libsctp/mapfile-vers, \
         LDFLAGS := $(LDFLAGS_JDKLIB) \
             $(call SET_SHARED_LIBRARY_ORIGIN), \
-        LDFLAGS_SUFFIX_linux := -lpthread $(LIBDL) -ljava -ljvm, \
+        LDFLAGS_SUFFIX_linux := $(LIBDL) -ljava -ljvm, \
         LDFLAGS_SUFFIX_posix := -lnio -lnet, \
         LDFLAGS_SUFFIX_solaris := -lsocket -ljava -ljvm -lc, \
         LDFLAGS_SUFFIX_macosx := -ljava -ljvm, \

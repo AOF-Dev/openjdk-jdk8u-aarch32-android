@@ -33,6 +33,9 @@
 
 #include "j2secmod.h"
 
+extern void throwNullPointerException(JNIEnv *env, const char *message);
+extern void throwIOException(JNIEnv *env, const char *message);
+
 void *findFunction(JNIEnv *env, jlong jHandle, const char *functionName) {
     void *hModule = (void*)jlong_to_ptr(jHandle);
     void *fAddress = dlsym(hModule, functionName);
@@ -56,6 +59,8 @@ JNIEXPORT jlong JNICALL Java_sun_security_pkcs11_Secmod_nssGetLibraryHandle
     // look up existing handle only, do not load
 #if defined(AIX)
     void *hModule = dlopen(libName, RTLD_LAZY);
+#elif defined(__ANDROID__)
+    void *hModule = dlopen(libName, RTLD_LOCAL);
 #else
     void *hModule = dlopen(libName, RTLD_NOLOAD);
 #endif

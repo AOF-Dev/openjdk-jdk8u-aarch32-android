@@ -68,7 +68,11 @@ static void
 error_abort(void)
 {
     /* Important to remove existing signal handler */
+    #ifdef __ANDROID__
+    (void)bsd_signal(SIGABRT, NULL);
+    #else
     (void)signal(SIGABRT, NULL);
+    #endif
     error_message("HPROF DUMPING CORE\n");
     abort();        /* Sends SIGABRT signal, usually also caught by libjvm */
 }
@@ -86,7 +90,11 @@ setup_signal_handler(int sig)
 {
     /* Only if debug version or debug=y */
     if ( gdata->debug ) {
+        #ifdef __ANDROID__
+        (void)bsd_signal(sig, (void(*)(int))(void*)&signal_handler);
+        #else
         (void)signal(sig, (void(*)(int))(void*)&signal_handler);
+        #endif
     }
 }
 

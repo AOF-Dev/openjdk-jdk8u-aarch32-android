@@ -43,6 +43,8 @@ typedef struct {
     jarAttribute* tail;
 } iterationContext;
 
+extern int isspace(int);
+
 static void
 doAttribute(const char* name, const char* value, void* user_data) {
     iterationContext* context = (iterationContext*) user_data;

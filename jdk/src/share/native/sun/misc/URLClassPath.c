@@ -36,6 +36,8 @@
 extern char*
 getUTF(JNIEnv *env, jstring str, char* localBuf, int bufSize);
 
+extern jboolean VerifyFixClassname(char *utf_name);
+extern jboolean VerifyClassname(char *utf_name, jboolean arrayAllowed);
 
 JNIEXPORT jboolean JNICALL
 Java_sun_misc_URLClassPath_knownToNotExist0(JNIEnv *env, jclass cls, jobject loader,

@@ -187,6 +187,46 @@ JNIEXPORT void JNICALL Java_sun_tools_attach_LinuxVirtualMachine_connect
     }
 }
 
+#ifdef __ANDROID__
+// Copy from glibc 2.31
+
+# ifndef _CS_GNU_LIBC_VERSION
+# define _CS_GNU_LIBC_VERSION 2
+# endif
+# ifndef _CS_GNU_LIBPTHREAD_VERSION
+# define _CS_GNU_LIBPTHREAD_VERSION 3
+# endif
+
+static size_t confstr(int name, char *buf, size_t len) {
+  const char *string = "";
+  size_t string_len = 1;
+  
+  switch (name) {
+    case _CS_GNU_LIBC_VERSION:
+      string = "bionic libc android-19";
+      string_len = sizeof("bionic libc android-19");
+      break;
+
+    case _CS_GNU_LIBPTHREAD_VERSION:
+      string = "bionic libc android-19 NPTL";
+      string_len = sizeof("bionic libc android-19 NPTL");
+      break;
+    default:
+      return 0;
+  }
+  
+  if (len > 0 && buf != NULL) {
+    if (string_len <= len) {
+      memcpy (buf, string, string_len);
+    } else {
+      memcpy (buf, string, len - 1);
+      buf[len - 1] = '\0';
+    }
+  }
+  return string_len;
+}
+#endif
+
 /*
  * Class:     sun_tools_attach_LinuxVirtualMachine
  * Method:    isLinuxThreads

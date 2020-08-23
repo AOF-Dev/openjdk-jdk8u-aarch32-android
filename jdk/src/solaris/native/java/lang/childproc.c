@@ -63,8 +63,12 @@ isAsciiDigit(char c)
   return c >= '0' && c <= '9';
 }
 
-#ifdef _ALLBSD_SOURCE
+#if defined(_ALLBSD_SOURCE) || defined(__ANDROID__)
+#ifdef __ANDROID__
+#define FD_DIR "/proc/self/fd"
+#else
 #define FD_DIR "/dev/fd"
+#endif
 #define dirent64 dirent
 #define readdir64 readdir
 #elif defined(_AIX)

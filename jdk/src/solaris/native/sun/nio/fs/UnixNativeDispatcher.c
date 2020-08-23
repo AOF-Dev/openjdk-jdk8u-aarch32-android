@@ -35,7 +35,11 @@
 #include <dlfcn.h>
 #include <sys/types.h>
 #include <sys/stat.h>
+#ifndef __ANDROID__ 
 #include <sys/statvfs.h>
+#else
+#include <sys/vfs.h>
+#endif
 #include <sys/time.h>
 
 #ifdef __solaris__
@@ -46,11 +50,16 @@
 #include <string.h>
 #endif
 
-#ifdef _ALLBSD_SOURCE
+#if defined(_ALLBSD_SOURCE) || defined(__ANDROID__)
 #include <string.h>
 
 #define stat64 stat
+
+#ifdef __ANDROID__
+#define statvfs64 statfs
+#else
 #define statvfs64 statvfs
+#endif
 
 #define open64 open
 #define fstat64 fstat
@@ -119,15 +128,122 @@ typedef int openat64_func(int, const char *, int, ...);
 typedef int fstatat64_func(int, const char *, struct stat64 *, int);
 typedef int unlinkat_func(int, const char*, int);
 typedef int renameat_func(int, const char*, int, const char*);
+
+#ifdef __ANDROID__
+typedef int utimensat_func(int, const char *, const struct timespec *, int flags);
+#else
 typedef int futimesat_func(int, const char *, const struct timeval *);
+#endif
+
 typedef DIR* fdopendir_func(int);
 
 static openat64_func* my_openat64_func = NULL;
 static fstatat64_func* my_fstatat64_func = NULL;
 static unlinkat_func* my_unlinkat_func = NULL;
 static renameat_func* my_renameat_func = NULL;
+
+#ifdef __ANDROID__
+static utimensat_func* my_utimensat_func = NULL;
+#else
 static futimesat_func* my_futimesat_func = NULL;
+#endif
+
 static fdopendir_func* my_fdopendir_func = NULL;
+
+
+#ifdef __ANDROID__
+/*
+ * TODO: Android lacks support for the methods listed below.  In it's place are
+ * alternatives that use existing Android functionality, but lack reentrant
+ * support.  Determine if the following are the most suitable alternatives.
+ *
+ */
+static int getgrgid_r(gid_t gid, struct group* grp, char* buf, size_t buflen, struct group** result) {
+
+  *result = NULL;
+  errno = 0;
+  grp = getgrgid(gid);
+  if (grp == NULL) {
+        return errno;
+  }
+  // buf not used by caller (see below)
+  *result = grp;
+  return 0;
+}
+
+
+static int getgrnam_r(const char *name, struct group* grp, char* buf, size_t buflen, struct group** result) {
+
+  *result = NULL;
+  errno = 0;
+  grp = getgrnam(name);
+  if (grp == NULL) {
+        return errno;
+  }
+  // buf not used by caller (see below)
+  *result = grp;
+  return 0;
+
+}
+
+static int do_getpw_r(int by_name, const char* name, uid_t uid,
+                      struct passwd* dst, char* buf, size_t byte_count,
+                      struct passwd** result) {
+  // getpwnam_r and getpwuid_r don't modify errno, but library calls we
+  // make might.
+  *result = NULL;
+
+  // Our implementation of getpwnam(3) and getpwuid(3) use thread-local
+  // storage, so we can call them as long as we copy everything out
+  // before returning.
+  const struct passwd* src = by_name ? getpwnam(name) : getpwuid(uid); // NOLINT: see above.
+
+  // POSIX allows failure to find a match to be considered a non-error.
+  // Reporting success (0) but with *result NULL is glibc's behavior.
+  if (src == NULL) {
+    return (errno == ENOENT) ? 0 : errno;
+  }
+
+  // Work out where our strings will go in 'buf', and whether we've got
+  // enough space.
+  size_t required_byte_count = 0;
+  dst->pw_name = buf;
+  required_byte_count += strlen(src->pw_name) + 1;
+  dst->pw_dir = buf + required_byte_count;
+  required_byte_count += strlen(src->pw_dir) + 1;
+  dst->pw_shell = buf + required_byte_count;
+  required_byte_count += strlen(src->pw_shell) + 1;
+  if (byte_count < required_byte_count) {
+    return ERANGE;
+  }
+
+  // Copy the strings.
+  snprintf(buf, byte_count, "%s%c%s%c%s", src->pw_name, 0, src->pw_dir, 0, src->pw_shell);
+
+  // pw_passwd is non-POSIX and unused (always NULL) in bionic.
+  // pw_gecos is non-POSIX and missing in bionic.
+  dst->pw_passwd = NULL;
+
+  // Copy the integral fields.
+  dst->pw_gid = src->pw_gid;
+  dst->pw_uid = src->pw_uid;
+
+  *result = dst;
+  return 0;
+}
+
+static inline int getpwnam_r(const char* name, struct passwd* pwd,
+               char* buf, size_t byte_count, struct passwd** result) {
+  return do_getpw_r(1, name, -1, pwd, buf, byte_count, result);
+}
+
+static inline int getpwuid_r(uid_t uid, struct passwd* pwd,
+               char* buf, size_t byte_count, struct passwd** result) {
+  return do_getpw_r(0, NULL, uid, pwd, buf, byte_count, result);
+}
+
+#endif
+
 
 /**
  * fstatat missing from glibc on Linux. Temporary workaround
@@ -250,7 +366,11 @@ Java_sun_nio_fs_UnixNativeDispatcher_init(JNIEnv* env, jclass this)
 #endif
     my_unlinkat_func = (unlinkat_func*) dlsym(RTLD_DEFAULT, "unlinkat");
     my_renameat_func = (renameat_func*) dlsym(RTLD_DEFAULT, "renameat");
+#ifdef __ANDROID__
+    my_utimensat_func = (utimensat_func*) dlsym(RTLD_DEFAULT, "utimensat");
+#else
     my_futimesat_func = (futimesat_func*) dlsym(RTLD_DEFAULT, "futimesat");
+#endif
     my_fdopendir_func = (fdopendir_func*) dlsym(RTLD_DEFAULT, "fdopendir");
 
 #if defined(FSTATAT64_SYSCALL_AVAILABLE)
@@ -260,19 +380,30 @@ Java_sun_nio_fs_UnixNativeDispatcher_init(JNIEnv* env, jclass this)
 #endif
 
     /* supports futimes or futimesat */
-
+#ifdef __ANDROID__
+    if (my_utimensat_func != NULL) {
+        capabilities |= sun_nio_fs_UnixNativeDispatcher_SUPPORTS_FUTIMES;
+    }
+#else /* __ANDROID__ */
 #ifdef _ALLBSD_SOURCE
     capabilities |= sun_nio_fs_UnixNativeDispatcher_SUPPORTS_FUTIMES;
 #else
-    if (my_futimesat_func != NULL)
+    if (my_futimesat_func != NULL) {
         capabilities |= sun_nio_fs_UnixNativeDispatcher_SUPPORTS_FUTIMES;
+    }
+#endif
 #endif
 
     /* supports openat, etc. */
 
     if (my_openat64_func != NULL &&  my_fstatat64_func != NULL &&
         my_unlinkat_func != NULL && my_renameat_func != NULL &&
+#ifdef __ANDROID__
+        my_utimensat_func != NULL)
+#else
         my_futimesat_func != NULL && my_fdopendir_func != NULL)
+#endif
+
     {
         capabilities |= sun_nio_fs_UnixNativeDispatcher_SUPPORTS_OPENAT;
     }
@@ -627,9 +758,24 @@ JNIEXPORT void JNICALL
 Java_sun_nio_fs_UnixNativeDispatcher_futimes(JNIEnv* env, jclass this, jint filedes,
     jlong accessTime, jlong modificationTime)
 {
-    struct timeval times[2];
+    
     int err = 0;
+#ifdef __ANDROID__
+    struct timespec times[2];
+    times[0].tv_sec = accessTime / 1000000;
+    times[0].tv_nsec = (accessTime % 1000000) * 1000;
+    
+    times[1].tv_sec = modificationTime / 1000000;
+    times[1].tv_nsec = (modificationTime % 1000000) * 1000;
 
+    if (my_utimensat_func == NULL) {
+        JNU_ThrowInternalError(env, "my_utimensat is NULL");
+        return;
+    }
+
+    RESTARTABLE((*my_utimensat_func)(filedes, NULL, &times[0], 0), err);
+#else //__ANDROID__
+    struct timeval times[2];
     times[0].tv_sec = accessTime / 1000000;
     times[0].tv_usec = accessTime % 1000000;
 
@@ -645,6 +791,7 @@ Java_sun_nio_fs_UnixNativeDispatcher_futimes(JNIEnv* env, jclass this, jint file
     }
     RESTARTABLE((*my_futimesat_func)(filedes, NULL, &times[0]), err);
 #endif
+#endif //__ANDROID__
     if (err == -1) {
         throwUnixException(env, errno);
     }
@@ -874,6 +1021,11 @@ JNIEXPORT jbyteArray JNICALL
 Java_sun_nio_fs_UnixNativeDispatcher_realpath0(JNIEnv* env, jclass this,
     jlong pathAddress)
 {
+#ifdef __ANDROID__
+    struct stat64 buf;
+    int err;
+#endif
+
     jbyteArray result = NULL;
     char resolved[PATH_MAX+1];
     const char* path = (const char*)jlong_to_ptr(pathAddress);
@@ -882,10 +1034,20 @@ Java_sun_nio_fs_UnixNativeDispatcher_realpath0(JNIEnv* env, jclass this,
     if (realpath(path, resolved) == NULL) {
         throwUnixException(env, errno);
     } else {
-        jsize len = (jsize)strlen(resolved);
-        result = (*env)->NewByteArray(env, len);
-        if (result != NULL) {
-            (*env)->SetByteArrayRegion(env, result, 0, len, (jbyte*)resolved);
+#ifdef __ANDROID__
+        /* android's realpath doesn't fail for non-existent files */
+        RESTARTABLE(lstat64(path, &buf), err);
+        if (err == -1  && errno == ENOENT) {
+            throwUnixException(env, errno);
+        } else
+#endif   
+        {
+    
+            jsize len = (jsize)strlen(resolved);
+            result = (*env)->NewByteArray(env, len);
+            if (result != NULL) {
+                (*env)->SetByteArrayRegion(env, result, 0, len, (jbyte*)resolved);
+            }
         }
     }
     return result;

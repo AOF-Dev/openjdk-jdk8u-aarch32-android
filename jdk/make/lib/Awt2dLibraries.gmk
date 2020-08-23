@@ -618,10 +618,10 @@ ifeq ($(findstring $(OPENJDK_TARGET_OS),windows macosx),)
         XRBackendNative.c
 
     LIBAWT_XAWT_LDFLAGS_SUFFIX := $(LIBM) -lawt -lXext -lX11 -lXrender $(LIBDL) -lXtst -lXi -ljava -ljvm -lc
-
+    # libpthread.so not available on Android
     ifeq ($(OPENJDK_TARGET_OS), linux)
       # To match old build, add this to LDFLAGS instead of suffix.
-      LIBAWT_XAWT_LDFLAGS += -lpthread
+      LIBAWT_XAWT_LDFLAGS += 
     endif
 
     $(eval $(call SetupNativeCompilation,BUILD_LIBAWT_XAWT, \
@@ -1186,6 +1186,7 @@ ifndef BUILD_HEADLESS_ONLY
     LIBSPLASHSCREEN_CFLAGS += $(ZLIB_CPPFLAGS)
   endif
 
+  # libpthread.so not available on Android
   ifeq ($(OPENJDK_TARGET_OS), macosx)
     LIBSPLASHSCREEN_LDFLAGS_SUFFIX += $(LIBM) -lpthread -liconv -losxapp \
         -framework ApplicationServices \
@@ -1195,7 +1196,7 @@ ifndef BUILD_HEADLESS_ONLY
   else ifeq ($(OPENJDK_TARGET_OS), windows)
     LIBSPLASHSCREEN_LDFLAGS_SUFFIX += kernel32.lib user32.lib gdi32.lib delayimp.lib -DELAYLOAD:user32.dll
   else
-    LIBSPLASHSCREEN_LDFLAGS_SUFFIX += $(X_LIBS) -lX11 -lXext $(LIBM) -lpthread
+    LIBSPLASHSCREEN_LDFLAGS_SUFFIX += $(X_LIBS) -lX11 -lXext $(LIBM)
   endif
 
   $(eval $(call SetupNativeCompilation,LIBSPLASHSCREEN, \

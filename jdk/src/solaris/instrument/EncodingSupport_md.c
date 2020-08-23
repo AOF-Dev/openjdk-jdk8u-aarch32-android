@@ -28,8 +28,10 @@
 #include <string.h>
 #include <ctype.h>
 #include <locale.h>
+#ifndef __ANDROID__
 #include <langinfo.h>
 #include <iconv.h>
+#endif
 
 /* Routines to convert back and forth between Platform Encoding and UTF-8 */
 
@@ -43,9 +45,11 @@
 #define UTF_ASSERT(x) ( (x)==0 ? UTF_ERROR("ASSERT ERROR " #x) : (void)0 )
 #define UTF_DEBUG(x)
 
+#ifndef __ANDROID__
 /* Global variables */
 static iconv_t iconvToPlatform          = (iconv_t)-1;
 static iconv_t iconvFromPlatform        = (iconv_t)-1;
+#endif
 
 /*
  * Error handler
@@ -69,7 +73,11 @@ utfInitialize(void)
     (void)setlocale(LC_ALL, "");
 
     /* Get the codeset name */
+    #ifdef __ANDROID__
+    codeset = "UTF-8";
+    #else
     codeset = (char*)nl_langinfo(CODESET);
+    #endif
     if ( codeset == NULL || codeset[0] == 0 ) {
         UTF_DEBUG(("NO codeset returned by nl_langinfo(CODESET)\n"));
         return;
@@ -82,7 +90,8 @@ utfInitialize(void)
         UTF_DEBUG(("NO iconv() being used because it is not needed\n"));
         return;
     }
-
+    
+    #ifndef __ANDROID__
     /* Open conversion descriptors */
     iconvToPlatform   = iconv_open(codeset, "UTF-8");
     if ( iconvToPlatform == (iconv_t)-1 ) {
@@ -92,6 +101,7 @@ utfInitialize(void)
     if ( iconvFromPlatform == (iconv_t)-1 ) {
         UTF_ERROR("Failed to complete iconv_open() setup");
     }
+    #endif
 }
 
 /*
@@ -100,6 +110,7 @@ utfInitialize(void)
 static void
 utfTerminate(void)
 {
+    #ifndef __ANDROID__
     if ( iconvFromPlatform!=(iconv_t)-1 ) {
         (void)iconv_close(iconvFromPlatform);
     }
@@ -108,8 +119,10 @@ utfTerminate(void)
     }
     iconvToPlatform   = (iconv_t)-1;
     iconvFromPlatform = (iconv_t)-1;
+    #endif
 }
 
+#ifndef __ANDROID__
 /*
  * Do iconv() conversion.
  *    Returns length or -1 if output overflows.
@@ -155,6 +168,7 @@ iconvConvert(iconv_t ic, char *bytes, int len, char *output, int outputMaxLen)
     output[len] = 0;
     return outputLen;
 }
+#endif //__ANDROID__
 
 /*
  * Convert UTF-8 to Platform Encoding.
@@ -163,7 +177,12 @@ iconvConvert(iconv_t ic, char *bytes, int len, char *output, int outputMaxLen)
 static int
 utf8ToPlatform(char *utf8, int len, char *output, int outputMaxLen)
 {
+#ifndef __ANDROID__
     return iconvConvert(iconvToPlatform, utf8, len, output, outputMaxLen);
+#else
+    strncpy(output, (char *)utf8, outputMaxLen - 1);
+    return strlen(output);
+#endif
 }
 
 /*
@@ -173,13 +192,20 @@ utf8ToPlatform(char *utf8, int len, char *output, int outputMaxLen)
 static int
 platformToUtf8(char *str, int len, char *output, int outputMaxLen)
 {
+#ifndef __ANDROID__
     return iconvConvert(iconvFromPlatform, str, len, output, outputMaxLen);
+#else
+    strncpy((char *)output, str, outputMaxLen - 1);
+    return strlen((char*)output);
+#endif
 }
 
 int
 convertUft8ToPlatformString(char* utf8_str, int utf8_len, char* platform_str, int platform_len) {
+#ifndef __ANDROID__
     if (iconvToPlatform ==  (iconv_t)-1) {
         utfInitialize();
     }
+#endif
     return utf8ToPlatform(utf8_str, utf8_len, platform_str, platform_len);
 }

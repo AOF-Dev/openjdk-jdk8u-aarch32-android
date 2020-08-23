@@ -27,7 +27,11 @@
 #include <sys/types.h>
 #include <sys/time.h>
 #include <sys/stat.h>
+#ifndef __ANDROID__
 #include <sys/statvfs.h>
+#else
+#include <sys/vfs.h>
+#endif
 #include <string.h>
 #include <stdlib.h>
 #include <dlfcn.h>
@@ -42,11 +46,15 @@
 #include "java_io_FileSystem.h"
 #include "java_io_UnixFileSystem.h"
 
-#if defined(_ALLBSD_SOURCE)
+#if defined(_ALLBSD_SOURCE) || defined(__ANDROID__)
 #define dirent64 dirent
 #define readdir64_r readdir_r
 #define stat64 stat
+#ifndef __ANDROID__
 #define statvfs64 statvfs
+#else
+#define statvfs64 statfs
+#endif
 #endif
 
 /* -- Field IDs -- */

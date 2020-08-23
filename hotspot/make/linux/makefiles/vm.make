@@ -130,7 +130,8 @@ ASFLAGS += $(EXTRA_ASFLAGS)
 # the same could be done by separate execstack command
 LFLAGS += -Xlinker -z -Xlinker noexecstack
 
-LIBS += -lm -ldl -lpthread
+# libpthread.so not available on Android
+LIBS += -lm -ldl
 
 # By default, link the *.o into the library, not the executable.
 LINK_INTO$(LINK_INTO) = LIBJVM

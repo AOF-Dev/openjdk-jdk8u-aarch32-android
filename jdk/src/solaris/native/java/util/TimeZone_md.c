@@ -46,7 +46,7 @@ static char *isFileIdentical(char* buf, size_t size, char *pathname);
 
 #define SKIP_SPACE(p)   while (*p == ' ' || *p == '\t') p++;
 
-#if defined(_ALLBSD_SOURCE)
+#if defined(_ALLBSD_SOURCE) || defined(__ANDROID__)
 #define dirent64 dirent
 #define readdir64_r readdir_r
 #endif

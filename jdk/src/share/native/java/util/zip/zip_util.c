@@ -46,7 +46,7 @@
 #include "zip_util.h"
 #include <zlib.h>
 
-#ifdef _ALLBSD_SOURCE
+#if defined(_ALLBSD_SOURCE) || defined(__ANDROID__)
 #define off64_t off_t
 #define mmap64 mmap
 #endif

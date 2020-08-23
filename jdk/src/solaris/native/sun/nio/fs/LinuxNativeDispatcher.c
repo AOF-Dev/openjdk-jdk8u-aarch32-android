@@ -34,6 +34,40 @@
 #include <errno.h>
 #include <mntent.h>
 
+// Copy from glibc 2.31
+#ifdef __ANDROID__
+
+struct mntent * getmntent_r (FILE *stream, struct mntent *mp, char *buffer, int bufsiz)
+{
+  // buf not used by caller (see below)
+  flockfile (stream);
+  mp = getmntent(stream);
+  funlockfile (stream);
+  return mp;
+}
+/* Prepare to begin reading and/or writing mount table entries from the
+   beginning of FILE.  MODE is as for `fopen'.  */
+FILE * setmntent (const char *file, const char *mode)
+{
+  /* Extend the mode parameter with "c" to disable cancellation in the
+     I/O functions and "e" to set FD_CLOEXEC.  */
+  size_t modelen = strlen (mode);
+  char newmode[modelen + 3];
+  memcpy (memcpy (newmode, mode, modelen) + modelen, "ce", 3);
+  FILE *result = fopen (file, newmode);
+
+  return result;
+}
+
+int endmntent (FILE *stream)
+{
+  if (stream)		/* SunOS 4.x allows for NULL stream */
+    fclose (stream);
+  return 1;		/* SunOS 4.x says to always return 1 */
+}
+
+#endif  //__ANDROID__
+
 #include "sun_nio_fs_LinuxNativeDispatcher.h"
 
 typedef size_t fgetxattr_func(int fd, const char* name, void* value, size_t size);
@@ -229,6 +263,103 @@ Java_sun_nio_fs_LinuxNativeDispatcher_endmntent(JNIEnv* env, jclass this, jlong 
     /* FIXME - man page doesn't explain how errors are returned */
     endmntent(fp);
 }
+
+
+#ifdef __ANDROID__
+// FIXME - some codes are deleted
+// Copy from OpenBSD
+
+
+/* Minimum buffer size we create.
+ * This should allow config files to fit into our power of 2 buffer growth
+ * without the need for a realloc. */
+#define MINBUF	128
+
+static ssize_t getdelim(char **__restrict buf, size_t *__restrict buflen, int sep, FILE *__restrict fp) {
+	unsigned char *p;
+	size_t len, newlen, off;
+	char *newb;
+
+	flockfile(fp);
+
+	if (buf == NULL || buflen == NULL) {
+		errno = EINVAL;
+		goto error;
+	}
+
+	/* If buf is NULL, we have to assume a size of zero */
+	if (*buf == NULL)
+		*buflen = 0;
+
+	off = 0;
+	do {
+
+		/* Scan through looking for the separator */
+		p = memchr(fp->_p, sep, (size_t)fp->_r);
+		if (p == NULL)
+			len = fp->_r;
+		else
+			len = (p - fp->_p) + 1;
+
+		/* Ensure we can handle it */
+		if (off > SSIZE_MAX || len + 1 > SSIZE_MAX - off) {
+			errno = EOVERFLOW;
+			goto error;
+		}
+		newlen = off + len + 1; /* reserve space for NUL terminator */
+		if (newlen > *buflen) {
+			if (newlen < MINBUF)
+				newlen = MINBUF;
+#define powerof2(x) ((((x)-1)&(x))==0)
+			if (!powerof2(newlen)) {
+				/* Grow the buffer to the next power of 2 */
+				newlen--;
+				newlen |= newlen >> 1;
+				newlen |= newlen >> 2;
+				newlen |= newlen >> 4;
+				newlen |= newlen >> 8;
+				newlen |= newlen >> 16;
+#if SIZE_MAX > 0xffffffffU
+				newlen |= newlen >> 32;
+#endif
+				newlen++;
+			}
+
+			newb = realloc(*buf, newlen);
+			if (newb == NULL)
+				goto error;
+			*buf = newb;
+			*buflen = newlen;
+		}
+
+		(void)memcpy((*buf + off), fp->_p, len);
+		/* Safe, len is never greater than what fp->_r can fit. */
+		fp->_r -= (int)len;
+		fp->_p += (int)len;
+		off += len;
+	} while (p == NULL);
+
+	funlockfile(fp);
+
+	/* POSIX demands we return -1 on EOF. */
+	if (off == 0)
+		return -1;
+
+	if (*buf != NULL)
+		*(*buf + off) = '\0';
+	return off;
+
+error:
+	fp->_flags |= __SERR;
+	funlockfile(fp);
+	return -1;
+}
+
+static ssize_t getline(char **__restrict buf, size_t *__restrict buflen, FILE *__restrict fp)
+{
+    return getdelim(buf, buflen, '\n', fp);
+}
+#endif
 
 /**
  * This function returns line length without NUL terminator or -1 on EOF.

@@ -75,7 +75,7 @@ $(BUILD_LIBATTACH): $(BUILD_LIBJAVA)
 BUILD_LIBRARIES += $(BUILD_LIBATTACH)
 
 ##########################################################################################
-
+# libpthread.so not available on Android
 $(eval $(call SetupNativeCompilation,BUILD_LIBDT_SOCKET, \
     LIBRARY := dt_socket, \
     OUTPUT_DIR := $(INSTALL_LIBRARIES_HERE), \
@@ -92,7 +92,7 @@ $(eval $(call SetupNativeCompilation,BUILD_LIBDT_SOCKET, \
     MAPFILE := $(JDK_TOPDIR)/make/mapfiles/libdt_socket/mapfile-vers, \
     LDFLAGS := $(LDFLAGS_JDKLIB) \
         $(call SET_SHARED_LIBRARY_ORIGIN), \
-    LDFLAGS_SUFFIX_linux := -lpthread, \
+    LDFLAGS_SUFFIX_linux := , \
     LDFLAGS_SUFFIX_solaris := -lnsl -lsocket -lc, \
     LDFLAGS_SUFFIX_windows := $(LDFLAGS_JDKLIB_SUFFIX) -export:jdwpTransport_OnLoad ws2_32.lib, \
     VERSIONINFO_RESOURCE := $(JDK_TOPDIR)/src/windows/resource/version.rc, \

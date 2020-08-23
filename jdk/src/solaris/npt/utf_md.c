@@ -27,8 +27,10 @@
 #include <stdlib.h>
 #include <string.h>
 #include <locale.h>
+#ifndef __ANDROID__
 #include <langinfo.h>
 #include <iconv.h>
+#endif
 
 #include "utf.h"
 
@@ -51,7 +53,12 @@ utfInitialize(char *options)
     (void)setlocale(LC_ALL, "");
 
     /* Get the codeset name */
+    #ifdef __ANDROID__
+    codeset = "UTF-8";
+    #else
     codeset = (char*)nl_langinfo(CODESET);
+    #endif
+    
     if ( codeset == NULL || codeset[0] == 0 ) {
         return ui;
     }
@@ -62,6 +69,7 @@ utfInitialize(char *options)
     }
 
     /* Open conversion descriptors */
+    #ifndef __ANDROID__
     ui->iconvToPlatform   = iconv_open(codeset, "UTF-8");
     if ( ui->iconvToPlatform == (void *)-1 ) {
         UTF_ERROR("Failed to complete iconv_open() setup");
@@ -70,6 +78,7 @@ utfInitialize(char *options)
     if ( ui->iconvFromPlatform == (void *)-1 ) {
         UTF_ERROR("Failed to complete iconv_open() setup");
     }
+    #endif
     return ui;
 }
 
@@ -79,17 +88,20 @@ utfInitialize(char *options)
 void  JNICALL
 utfTerminate(struct UtfInst *ui, char *options)
 {
+    #ifndef __ANDROID__
     if ( ui->iconvFromPlatform != (void *)-1 ) {
         (void)iconv_close(ui->iconvFromPlatform);
     }
     if ( ui->iconvToPlatform != (void *)-1 ) {
         (void)iconv_close(ui->iconvToPlatform);
     }
+    #endif
     ui->iconvToPlatform   = (void *)-1;
     ui->iconvFromPlatform = (void *)-1;
     (void)free(ui);
 }
 
+#ifndef __ANDROID__
 /*
  * Do iconv() conversion.
  *    Returns length or -1 if output overflows.
@@ -135,7 +147,7 @@ iconvConvert(iconv_t ic, char *bytes, int len, char *output, int outputMaxLen)
     output[len] = 0;
     return outputLen;
 }
-
+#endif
 /*
  * Convert UTF-8 to Platform Encoding.
  *    Returns length or -1 if output overflows.
@@ -153,8 +165,14 @@ utf8ToPlatform(struct UtfInst*ui, jbyte *utf8, int len, char *output, int output
         output[0] = 0;
         return 0;
     }
-
+    
+    #ifndef __ANDROID__
     return iconvConvert(ui->iconvToPlatform, (char*)utf8, len, output, outputMaxLen);
+    #else
+    //Just copy without any conversion.
+    strncpy((char *)output, (char *)utf8, outputMaxLen - 1);
+    return strlen((char*)output);
+    #endif
 }
 
 /*
@@ -174,6 +192,12 @@ utf8FromPlatform(struct UtfInst*ui, char *str, int len, jbyte *output, int outpu
         output[0] = 0;
         return 0;
     }
-
+    
+    #ifndef __ANDROID__
     return iconvConvert(ui->iconvFromPlatform, str, len, (char*)output, outputMaxLen);
+    #else
+    //Just copy without any conversion.
+    strncpy((char *)output, str, outputMaxLen - 1);
+    return strlen((char*)output);
+    #endif
 }

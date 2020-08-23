@@ -42,7 +42,9 @@
 #include <libproc.h>
 #endif
 #elif !defined(_AIX)
+#ifndef __ANDROID__
 #include <sys/swap.h>
+#endif
 #endif
 #include <sys/resource.h>
 #include <sys/times.h>
@@ -70,7 +72,9 @@ static jlong page_size = 0;
 /* This gets us the new structured proc interfaces of 5.6 & later */
 /* - see comment in <sys/procfs.h> */
 #define _STRUCTURED_PROC 1
+#ifndef __ANDROID__
 #include <sys/procfs.h>
+#endif
 
 #endif /* _ALLBSD_SOURCE */
 
